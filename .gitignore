@@ -1,0 +1,36 @@
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Dependencies and build output
+node_modules/
+.next/
+dist/
+build/
+coverage/
+.turbo/
+
+# Tooling and operating system files
+.DS_Store
+.idea/
+.vscode/
+*.log
+
+# Local infrastructure and test state
+.terraform/
+*.tfstate
+*.tfstate.*
+.wrangler/
+playwright-report/
+test-results/
+
+# Local data exports and recordings
+exports/
+recordings/
+*.sqlite
+*.sqlite3

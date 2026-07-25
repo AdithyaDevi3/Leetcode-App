@@ -4,9 +4,15 @@ A product and engineering plan for a pseudocode-first learning platform focused 
 
 The app is designed to teach problem-solving before syntax. Learners can practice concepts, express solutions in structured English or visual blocks, receive evaluation and targeted feedback, and only then move into executable code when they choose the pseudocode-to-code workflow.
 
-## Planning document
+## Documentation
 
-See [docs/PRODUCT_PLAN.md](docs/PRODUCT_PLAN.md) for the product scope, learning model, architecture, security controls, deployment strategy, roadmap, and release criteria.
+Start with [docs/README.md](docs/README.md) for the complete documentation map. The core documents are:
+
+- [Product plan](docs/PRODUCT_PLAN.md) for vision, learning model, complete scope, security controls, and release gates.
+- [Implementation roadmap](docs/IMPLEMENTATION_ROADMAP.md) for dependency-ordered phases, issue-sized work packages, and the next 12 issues.
+- [Target architecture](docs/ARCHITECTURE.md) for domains, data, runtime boundaries, APIs, AI evaluation, sandboxing, and environments.
+- [Development guide](docs/DEVELOPMENT.md) for setup, validation, workflow, testing, migrations, security, and deployment.
+- [Requirements matrix](docs/REQUIREMENTS_MATRIX.md) for stable requirement IDs, current status, target phase, and acceptance evidence.
 
 ## Walking skeleton
 

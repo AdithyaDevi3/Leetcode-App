@@ -93,6 +93,10 @@ export function PracticeWorkspace() {
     updateDraft(nextBlocks.join("\n"));
   };
 
+  const draftLineCount = draft ? draft.split("\n").filter((line) => line.trim()).length : 0;
+  const draftWordCount = draft.trim() ? draft.trim().split(/\s+/).length : 0;
+  const draftCharacterCount = draft.length;
+
   const moveBlock = (index: number, direction: -1 | 1) => {
     const nextIndex = index + direction;
     if (nextIndex < 0 || nextIndex >= blocks.length) return;
@@ -321,9 +325,24 @@ export function PracticeWorkspace() {
                   </div>
                 )}
                 <div className="editor-footer">
-                  <button className="text-button" onClick={() => updateDraft(starterDraft)} type="button">
-                    Use guided start
-                  </button>
+                  <div className="editor-tools">
+                    <button className="text-button" onClick={() => updateDraft(starterDraft)} type="button">
+                      Use guided start
+                    </button>
+                    <button
+                      className="text-button muted"
+                      disabled={!draft}
+                      onClick={() => updateDraft("")}
+                      type="button"
+                    >
+                      Clear draft
+                    </button>
+                  </div>
+                  <div className="draft-stats" aria-label="Draft statistics" aria-live="polite">
+                    <span>{draftLineCount} lines</span>
+                    <span>{draftWordCount} words</span>
+                    <span>{draftCharacterCount} chars</span>
+                  </div>
                   <button
                     className="button"
                     onClick={() => setEvaluation(evaluatePseudocode(draft))}

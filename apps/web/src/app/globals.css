@@ -117,8 +117,13 @@ h1 { margin-bottom: 6px; font-size: clamp(26px, 3vw, 38px); line-height: 1.1; }
   background: #fbfcf8; color: var(--ink); font-family: var(--font-geist-mono), monospace; font-size: 13px; line-height: 1.85;
 }
 .editor::placeholder { color: #929a93; }
-.editor-footer { min-height: 48px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.editor-footer { min-height: 56px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.editor-tools, .draft-stats { display: flex; align-items: center; gap: 12px; }
 .text-button { padding: 7px 0; border: 0; background: transparent; color: var(--moss); font-size: 12px; font-weight: 700; }
+.text-button.muted { color: var(--muted); }
+.text-button:disabled { cursor: not-allowed; color: #a2aaa3; }
+.draft-stats { color: var(--muted); font-size: 11px; white-space: nowrap; }
+.draft-stats span + span::before { content: ""; display: inline-block; width: 3px; height: 3px; margin: 0 8px 2px 0; border-radius: 50%; background: #aab2ab; }
 .button {
   min-height: 40px; justify-content: center; gap: 8px; padding: 0 15px; border: 1px solid var(--moss);
   border-radius: 6px; background: var(--moss); color: white; font-size: 13px; font-weight: 700;
@@ -200,5 +205,6 @@ h1 { margin-bottom: 6px; font-size: clamp(26px, 3vw, 38px); line-height: 1.1; }
   .pane-header { display: block; }
   .mode-switch { width: max-content; margin-top: 12px; }
   .editor-footer { align-items: stretch; flex-direction: column; }
+  .editor-tools, .draft-stats { justify-content: space-between; }
   .editor-footer .button { width: 100%; }
 }

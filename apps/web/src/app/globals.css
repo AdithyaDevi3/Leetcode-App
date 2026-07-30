@@ -58,7 +58,8 @@ h1, h2, h3, p { margin-top: 0; }
 .sidebar-progress strong, .sidebar-progress span { display: block; }
 .sidebar-progress span { margin-top: 4px; color: #aeb8b0; font-size: 12px; }
 .progress-track { height: 5px; margin-top: 14px; overflow: hidden; border-radius: 3px; background: #405047; }
-.progress-track div { width: 46%; height: 100%; background: var(--mustard); }
+.progress-track div { height: 100%; background: var(--mustard); transition: width .2s ease; }
+.complete-badge { margin-top: 12px; padding: 8px 9px; border-radius: 6px; background: #2e3d34; color: #f8f6ef; font-size: 11px; font-weight: 700; }
 
 .workspace { min-width: 0; }
 .topbar {
@@ -129,6 +130,8 @@ h1 { margin-bottom: 6px; font-size: clamp(26px, 3vw, 38px); line-height: 1.1; }
   border-radius: 6px; background: var(--moss); color: white; font-size: 13px; font-weight: 700;
 }
 .button:hover { background: #193e2e; }
+.button.secondary { border-color: #b9c8bd; background: #fbfcf8; color: var(--moss); }
+.button.secondary:hover { background: var(--moss-soft); }
 .button:disabled { cursor: not-allowed; border-color: var(--line); background: #e7e9e3; color: #8b948c; }
 .full-button { width: 100%; margin-top: 16px; }
 .block-builder { min-height: 490px; padding: 16px; border: 1px solid #cfd4cc; border-radius: 6px; background: #f0f2ed; }
@@ -170,6 +173,7 @@ h1 { margin-bottom: 6px; font-size: clamp(26px, 3vw, 38px); line-height: 1.1; }
 .test-panel { padding: 16px; background: #f1f2ed; font-size: 12px; }
 .test-row { padding: 10px 0; border-bottom: 1px solid var(--line); }
 .test-row:last-of-type { border-bottom: 0; }
+.completion-panel { margin-top: 12px; padding: 10px; display: flex; align-items: center; gap: 8px; border: 1px solid #aec7b6; border-radius: 6px; background: var(--moss-soft); color: var(--moss); font-weight: 700; }
 .mobile-nav { display: none; }
 
 @media (max-width: 1180px) {

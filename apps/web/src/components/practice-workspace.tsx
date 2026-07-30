@@ -29,6 +29,7 @@ import { lesson, problem, starterDraft } from "@/lib/content";
 import { evaluatePseudocode, type Evaluation } from "@/lib/evaluator";
 
 const storageKey = `method:${problem.id}:draft`;
+const completionKey = `method:${problem.id}:complete`;
 
 const blockOptions = [
   { label: "State", value: "Create an empty map from value to position." },
@@ -47,6 +48,19 @@ const initialCode = `function findPair(values: number[], target: number) {
   // Translate your approved plan here.
 }`;
 
+const buildCodeFromPlan = (plan: string) => {
+  const planComments = plan
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => `  // ${line}`)
+    .join("\n");
+
+  return `function findPair(values: number[], target: number) {
+${planComments || "  // Translate your approved plan here."}
+}`;
+};
+
 type EditorMode = "text" | "blocks";
 
 export function PracticeWorkspace() {
@@ -56,14 +70,17 @@ export function PracticeWorkspace() {
   const [savedAt, setSavedAt] = useState("Not saved");
   const [code, setCode] = useState(initialCode);
   const [codeChecked, setCodeChecked] = useState(false);
+  const [completed, setCompleted] = useState(false);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
       const savedDraft = window.localStorage.getItem(storageKey);
+      const savedCompletion = window.localStorage.getItem(completionKey);
       if (savedDraft) {
         setDraft(savedDraft);
         setSavedAt("Restored locally");
       }
+      setCompleted(savedCompletion === "true");
     }, 0);
 
     return () => window.clearTimeout(timer);
@@ -83,6 +100,8 @@ export function PracticeWorkspace() {
   const updateDraft = (nextDraft: string) => {
     setDraft(nextDraft);
     setEvaluation(null);
+    setCompleted(false);
+    window.localStorage.removeItem(completionKey);
   };
 
   const addBlock = (block: string) => {
@@ -107,6 +126,14 @@ export function PracticeWorkspace() {
 
   const evaluationFindings = evaluation?.findings ?? evaluatePseudocode("").findings;
   const approved = evaluation?.approved ?? false;
+  const secureConceptCount = completed ? 4 : 3;
+  const progressPercent = Math.round((secureConceptCount / 7) * 100);
+
+  const checkTranslation = () => {
+    setCodeChecked(true);
+    setCompleted(true);
+    window.localStorage.setItem(completionKey, "true");
+  };
 
   return (
     <div className="app-shell">
@@ -141,10 +168,11 @@ export function PracticeWorkspace() {
         </nav>
         <div className="sidebar-progress">
           <strong>Hash maps</strong>
-          <span>3 of 7 concepts secure</span>
-          <div className="progress-track" aria-label="46% complete">
-            <div />
+          <span>{secureConceptCount} of 7 concepts secure</span>
+          <div className="progress-track" aria-label={`${progressPercent}% complete`}>
+            <div style={{ width: `${progressPercent}%` }} />
           </div>
+          {completed ? <div className="complete-badge">Pair With Target complete</div> : null}
         </div>
       </aside>
 
@@ -418,6 +446,8 @@ export function PracticeWorkspace() {
                 onChange={(event) => {
                   setCode(event.target.value);
                   setCodeChecked(false);
+                  setCompleted(false);
+                  window.localStorage.removeItem(completionKey);
                 }}
                 value={code}
               />
@@ -427,13 +457,29 @@ export function PracticeWorkspace() {
                 <div className="test-row">One traversal over values</div>
                 <div className="test-row">Returns two positions</div>
                 <button
-                  className="button full-button"
+                  className="button secondary full-button"
                   disabled={!approved}
-                  onClick={() => setCodeChecked(true)}
+                  onClick={() => {
+                    setCode(buildCodeFromPlan(draft));
+                    setCodeChecked(false);
+                  }}
                   type="button"
                 >
-                  <Play size={15} /> {codeChecked ? "Structure recorded" : "Check translation"}
+                  <Code2 size={15} /> Seed from plan
                 </button>
+                <button
+                  className="button full-button"
+                  disabled={!approved}
+                  onClick={checkTranslation}
+                  type="button"
+                >
+                  <Play size={15} /> {completed ? "Completed" : codeChecked ? "Structure recorded" : "Check translation"}
+                </button>
+                {completed ? (
+                  <div className="completion-panel" aria-live="polite">
+                    <Check size={16} /> Saved to your local progress.
+                  </div>
+                ) : null}
               </div>
             </div>
           </section>

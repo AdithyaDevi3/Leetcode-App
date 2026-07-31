@@ -171,9 +171,13 @@ h1 { margin-bottom: 6px; font-size: clamp(26px, 3vw, 38px); line-height: 1.1; }
 .code-editor { min-height: 260px; background: #142019; color: #e6eee8; border-color: #142019; }
 .code-editor:disabled { opacity: .55; }
 .test-panel { padding: 16px; background: #f1f2ed; font-size: 12px; }
-.test-row { padding: 10px 0; border-bottom: 1px solid var(--line); }
+.test-row { padding: 10px 0; display: grid; grid-template-columns: 20px 1fr; align-items: center; gap: 7px; border-bottom: 1px solid var(--line); }
 .test-row:last-of-type { border-bottom: 0; }
+.test-icon { width: 18px; height: 18px; display: grid; place-items: center; border-radius: 50%; background: #e7e9e3; color: #89928b; }
+.test-row.pass .test-icon { background: var(--moss-soft); color: var(--moss); }
+.test-row.revise .test-icon { background: var(--coral-soft); color: var(--coral); }
 .completion-panel { margin-top: 12px; padding: 10px; display: flex; align-items: center; gap: 8px; border: 1px solid #aec7b6; border-radius: 6px; background: var(--moss-soft); color: var(--moss); font-weight: 700; }
+.completion-panel.revise { border-color: #efc3b9; background: var(--coral-soft); color: var(--coral); }
 .mobile-nav { display: none; }
 
 @media (max-width: 1180px) {

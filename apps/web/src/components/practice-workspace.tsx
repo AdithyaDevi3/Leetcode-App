@@ -61,6 +61,9 @@ ${planComments || "  // Translate your approved plan here."}
 }`;
 };
 
+const stripCodeComments = (source: string) =>
+  source.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
+
 type EditorMode = "text" | "blocks";
 
 export function PracticeWorkspace() {
@@ -128,11 +131,39 @@ export function PracticeWorkspace() {
   const approved = evaluation?.approved ?? false;
   const secureConceptCount = completed ? 4 : 3;
   const progressPercent = Math.round((secureConceptCount / 7) * 100);
+  const implementationSource = stripCodeComments(code);
+  const loopCount = implementationSource.match(/\bfor\s*\(|\.forEach\s*\(/g)?.length ?? 0;
+  const translationChecks = [
+    {
+      label: "Map state mirrors the plan",
+      passed: /\bnew\s+Map\b|\bMap\s*</.test(implementationSource),
+    },
+    {
+      label: "One traversal over values",
+      passed: loopCount === 1,
+    },
+    {
+      label: "Complement lookup before storing",
+      passed:
+        /target\s*-/.test(implementationSource) &&
+        /\.has\s*\(|\.get\s*\(/.test(implementationSource) &&
+        /\.set\s*\(/.test(implementationSource),
+    },
+    {
+      label: "Returns two positions",
+      passed: /return\s*\[[^\]]+,[^\]]+\]/.test(implementationSource),
+    },
+  ];
+  const translationPassed = translationChecks.every((check) => check.passed);
 
   const checkTranslation = () => {
     setCodeChecked(true);
-    setCompleted(true);
-    window.localStorage.setItem(completionKey, "true");
+    setCompleted(translationPassed);
+    if (translationPassed) {
+      window.localStorage.setItem(completionKey, "true");
+    } else {
+      window.localStorage.removeItem(completionKey);
+    }
   };
 
   return (
@@ -453,15 +484,22 @@ export function PracticeWorkspace() {
               />
               <div className="test-panel">
                 <strong>Translation checks</strong>
-                <div className="test-row">Map state mirrors the plan</div>
-                <div className="test-row">One traversal over values</div>
-                <div className="test-row">Returns two positions</div>
+                {translationChecks.map((check) => (
+                  <div className={`test-row ${codeChecked ? (check.passed ? "pass" : "revise") : ""}`} key={check.label}>
+                    <span className="test-icon">
+                      {codeChecked ? check.passed ? <Check size={12} /> : <X size={12} /> : null}
+                    </span>
+                    {check.label}
+                  </div>
+                ))}
                 <button
                   className="button secondary full-button"
                   disabled={!approved}
                   onClick={() => {
                     setCode(buildCodeFromPlan(draft));
                     setCodeChecked(false);
+                    setCompleted(false);
+                    window.localStorage.removeItem(completionKey);
                   }}
                   type="button"
                 >
@@ -478,6 +516,10 @@ export function PracticeWorkspace() {
                 {completed ? (
                   <div className="completion-panel" aria-live="polite">
                     <Check size={16} /> Saved to your local progress.
+                  </div>
+                ) : codeChecked ? (
+                  <div className="completion-panel revise" aria-live="polite">
+                    <X size={16} /> Finish the checks above to save progress.
                   </div>
                 ) : null}
               </div>

@@ -12,6 +12,8 @@
   --coral-soft: #f8e1da;
   --mustard: #e3ad42;
   --sky: #cddfe7;
+  --font-geist-sans: "Avenir Next", "Avenir", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  --font-geist-mono: "SF Mono", "Cascadia Mono", "Segoe UI Mono", Consolas, monospace;
 }
 
 * { box-sizing: border-box; }
@@ -24,7 +26,7 @@ body {
     var(--paper);
   background-size: 28px 28px;
   color: var(--ink);
-  font-family: var(--font-geist-sans), sans-serif;
+  font-family: var(--font-geist-sans);
 }
 button, textarea, select { font: inherit; }
 button { cursor: pointer; }
@@ -44,7 +46,7 @@ h1, h2, h3, p { margin-top: 0; }
 .brand { display: flex; align-items: center; gap: 10px; padding: 0 8px 28px; font-size: 20px; font-weight: 760; }
 .brand-mark {
   width: 28px; height: 28px; display: grid; place-items: center; border-radius: 6px;
-  background: var(--mustard); color: var(--ink); font-family: var(--font-geist-mono), monospace; font-size: 14px;
+  background: var(--mustard); color: var(--ink); font-family: var(--font-geist-mono); font-size: 14px;
 }
 .nav-group { display: grid; gap: 5px; }
 .nav-label { margin: 18px 10px 8px; color: #9aa69d; font-size: 11px; font-weight: 700; text-transform: uppercase; }
@@ -105,7 +107,7 @@ h1 { margin-bottom: 6px; font-size: clamp(26px, 3vw, 38px); line-height: 1.1; }
 .number-cell.hit { border-color: var(--moss); background: var(--moss-soft); color: var(--moss); }
 .section-rule { margin: 24px 0; border: 0; border-top: 1px solid var(--line); }
 .problem-title { margin-bottom: 10px; font-size: 20px; }
-.example { margin: 18px 0; padding: 14px; background: #f1f2ed; font-family: var(--font-geist-mono), monospace; font-size: 12px; line-height: 1.65; }
+.example { margin: 18px 0; padding: 14px; background: #f1f2ed; font-family: var(--font-geist-mono); font-size: 12px; line-height: 1.65; }
 .example span { color: var(--muted); }
 .constraint-list { margin: 0; padding-left: 18px; color: #4e5b52; font-size: 12px; line-height: 1.8; }
 
@@ -115,7 +117,7 @@ h1 { margin-bottom: 6px; font-size: clamp(26px, 3vw, 38px); line-height: 1.1; }
 .editor-wrap { margin-top: 18px; }
 .editor {
   width: 100%; min-height: 490px; padding: 20px; resize: vertical; border: 1px solid #cfd4cc; border-radius: 6px;
-  background: #fbfcf8; color: var(--ink); font-family: var(--font-geist-mono), monospace; font-size: 13px; line-height: 1.85;
+  background: #fbfcf8; color: var(--ink); font-family: var(--font-geist-mono); font-size: 13px; line-height: 1.85;
 }
 .editor::placeholder { color: #929a93; }
 .editor-footer { min-height: 56px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
@@ -141,7 +143,7 @@ h1 { margin-bottom: 6px; font-size: clamp(26px, 3vw, 38px); line-height: 1.1; }
 .code-block {
   min-height: 48px; padding: 9px 9px 9px 14px; display: flex; align-items: center; gap: 8px;
   border: 1px solid #b9c8bd; border-left: 5px solid var(--moss); border-radius: 5px; background: white;
-  font-family: var(--font-geist-mono), monospace; font-size: 11px; line-height: 1.45;
+  font-family: var(--font-geist-mono); font-size: 11px; line-height: 1.45;
 }
 .code-block span { flex: 1; }
 .block-actions { gap: 2px; }

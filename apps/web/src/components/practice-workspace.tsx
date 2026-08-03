@@ -25,97 +25,109 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 
-import { lesson, problem, starterDraft } from "@/lib/content";
+import { defaultPracticeItem, getPracticeItem, practiceItems, starterDraft } from "@/lib/content";
 import { evaluatePseudocode, type Evaluation } from "@/lib/evaluator";
-
-const storageKey = `method:${problem.id}:draft`;
-const completionKey = `method:${problem.id}:complete`;
-
-const blockOptions = [
-  { label: "State", value: "Create an empty map from value to position." },
-  { label: "Loop", value: "For each value and position in the list:" },
-  { label: "Compute", value: "Let complement be target minus value." },
-  {
-    label: "Check",
-    value:
-      "If complement exists in the map, return its stored position and the current position.",
-  },
-  { label: "Store", value: "Otherwise store value mapped to the current position." },
-  { label: "Return", value: "Return no pair." },
-];
-
-const initialCode = `function findPair(values: number[], target: number) {
-  // Translate your approved plan here.
-}`;
-
-const buildCodeFromPlan = (plan: string) => {
-  const planComments = plan
-    .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .map((line) => `  // ${line}`)
-    .join("\n");
-
-  return `function findPair(values: number[], target: number) {
-${planComments || "  // Translate your approved plan here."}
-}`;
-};
-
-const stripCodeComments = (source: string) =>
-  source.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
-
-type EditorMode = "text" | "blocks";
+import {
+  buildCodeFromPlan,
+  deserializePracticeSession,
+  joinBlocksIntoDraft,
+  sessionStorageKey,
+  splitDraftIntoBlocks,
+  stripCodeComments,
+  type EditorMode,
+  type PracticeSessionState,
+  serializePracticeSession,
+  defaultCode,
+  selectedPracticeItemKey,
+} from "@/lib/practice-session";
 
 export function PracticeWorkspace() {
+  const [activePracticeId, setActivePracticeId] = useState(defaultPracticeItem.id);
   const [draft, setDraft] = useState("");
   const [mode, setMode] = useState<EditorMode>("text");
   const [evaluation, setEvaluation] = useState<Evaluation | null>(null);
   const [savedAt, setSavedAt] = useState("Not saved");
-  const [code, setCode] = useState(initialCode);
+  const [code, setCode] = useState(defaultCode(defaultPracticeItem.codeFunction));
   const [codeChecked, setCodeChecked] = useState(false);
   const [completed, setCompleted] = useState(false);
+  const activePracticeItem = getPracticeItem(activePracticeId);
+  const storageKey = sessionStorageKey(activePracticeItem.id);
+  const blockOptions = activePracticeItem.blockOptions;
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      const savedDraft = window.localStorage.getItem(storageKey);
-      const savedCompletion = window.localStorage.getItem(completionKey);
-      if (savedDraft) {
-        setDraft(savedDraft);
-        setSavedAt("Restored locally");
+      const savedPracticeId = window.localStorage.getItem(selectedPracticeItemKey);
+      const restoredPracticeItem = savedPracticeId ? getPracticeItem(savedPracticeId) : activePracticeItem;
+
+      if (restoredPracticeItem.id !== activePracticeItem.id) {
+        setActivePracticeId(restoredPracticeItem.id);
       }
-      setCompleted(savedCompletion === "true");
+
+      const savedSession = window.localStorage.getItem(sessionStorageKey(restoredPracticeItem.id));
+      if (!savedSession) {
+        setSavedAt("Ready");
+        return;
+      }
+
+      const restoredSession = deserializePracticeSession(savedSession);
+      if (!restoredSession) {
+        setSavedAt("Ready");
+        return;
+      }
+
+      setDraft(restoredSession.draft);
+      setMode(restoredSession.mode);
+      setCode(restoredSession.code);
+      setCodeChecked(restoredSession.codeChecked);
+      setCompleted(restoredSession.completed);
+      setEvaluation(restoredSession.evaluation);
+      setSavedAt("Restored locally");
     }, 0);
 
     return () => window.clearTimeout(timer);
-  }, []);
+  }, [activePracticeItem, activePracticeItem.codeFunction]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      window.localStorage.setItem(storageKey, draft);
-      setSavedAt(draft ? "Saved locally" : "Ready");
+      const session: PracticeSessionState = {
+        draft,
+        mode,
+        code,
+        codeChecked,
+        completed,
+        evaluation,
+      };
+
+      window.localStorage.setItem(storageKey, serializePracticeSession(session));
+      window.localStorage.setItem(selectedPracticeItemKey, activePracticeItem.id);
+      setSavedAt(
+        draft || mode !== "text" || code !== defaultCode(activePracticeItem.codeFunction) || codeChecked || completed || evaluation
+          ? "Saved locally"
+          : "Ready",
+      );
     }, 450);
 
     return () => window.clearTimeout(timer);
-  }, [draft]);
+  }, [draft, mode, code, codeChecked, completed, evaluation, storageKey, activePracticeItem.id]);
 
-  const blocks = draft ? draft.split("\n").filter(Boolean) : [];
+  const blocks = splitDraftIntoBlocks(draft);
 
   const updateDraft = (nextDraft: string) => {
     setDraft(nextDraft);
     setEvaluation(null);
+    setCodeChecked(false);
     setCompleted(false);
-    window.localStorage.removeItem(completionKey);
   };
 
   const addBlock = (block: string) => {
-    updateDraft(draft ? `${draft}\n${block}` : block);
+    updateDraft(joinBlocksIntoDraft([...blocks, block]));
   };
 
   const updateBlocks = (nextBlocks: string[]) => {
-    updateDraft(nextBlocks.join("\n"));
+    updateDraft(joinBlocksIntoDraft(nextBlocks));
   };
 
-  const draftLineCount = draft ? draft.split("\n").filter((line) => line.trim()).length : 0;
+  const draftLineCount = blocks.length;
   const draftWordCount = draft.trim() ? draft.trim().split(/\s+/).length : 0;
   const draftCharacterCount = draft.length;
 
@@ -127,43 +139,111 @@ export function PracticeWorkspace() {
     updateBlocks(nextBlocks);
   };
 
-  const evaluationFindings = evaluation?.findings ?? evaluatePseudocode("").findings;
+  const evaluationFindings = evaluation?.findings ?? evaluatePseudocode("", activePracticeItem.id).findings;
   const approved = evaluation?.approved ?? false;
   const secureConceptCount = completed ? 4 : 3;
   const progressPercent = Math.round((secureConceptCount / 7) * 100);
   const implementationSource = stripCodeComments(code);
   const loopCount = implementationSource.match(/\bfor\s*\(|\.forEach\s*\(/g)?.length ?? 0;
-  const translationChecks = [
-    {
-      label: "Map state mirrors the plan",
-      passed: /\bnew\s+Map\b|\bMap\s*</.test(implementationSource),
-    },
-    {
-      label: "One traversal over values",
-      passed: loopCount === 1,
-    },
-    {
-      label: "Complement lookup before storing",
-      passed:
-        /target\s*-/.test(implementationSource) &&
-        /\.has\s*\(|\.get\s*\(/.test(implementationSource) &&
-        /\.set\s*\(/.test(implementationSource),
-    },
-    {
-      label: "Returns two positions",
-      passed: /return\s*\[[^\]]+,[^\]]+\]/.test(implementationSource),
-    },
-  ];
+  const translationChecks =
+    activePracticeItem.id === "first-unique-index-v1"
+      ? [
+          {
+            label: "Counts values in a map",
+            passed: /\bnew\s+Map\b|\bMap\s*</.test(implementationSource) && /count|frequency/i.test(implementationSource),
+          },
+          {
+            label: "Separates counting from selection",
+            passed: loopCount >= 2 || /second pass|again|then/i.test(implementationSource),
+          },
+          {
+            label: "Checks for unique count",
+            passed: /count.*1|equals\s*1|is\s*1/i.test(implementationSource),
+          },
+          {
+            label: "Returns the first index",
+            passed: /return\s+\w*index|return\s+\w*position/i.test(implementationSource),
+          },
+          {
+            label: "Returns -1 when no unique value exists",
+            passed: /-1|no unique|none/i.test(implementationSource),
+          },
+        ]
+      : [
+          {
+            label: "Map state mirrors the plan",
+            passed: /\bnew\s+Map\b|\bMap\s*</.test(implementationSource),
+          },
+          {
+            label: "One traversal over values",
+            passed: loopCount === 1,
+          },
+          {
+            label: "Complement lookup before storing",
+            passed:
+              /target\s*-/.test(implementationSource) &&
+              /\.has\s*\(|\.get\s*\(/.test(implementationSource) &&
+              /\.set\s*\(/.test(implementationSource),
+          },
+          {
+            label: "Returns two positions",
+            passed: /return\s*\[[^\]]+,[^\]]+\]/.test(implementationSource),
+          },
+        ];
   const translationPassed = translationChecks.every((check) => check.passed);
 
   const checkTranslation = () => {
     setCodeChecked(true);
     setCompleted(translationPassed);
     if (translationPassed) {
-      window.localStorage.setItem(completionKey, "true");
-    } else {
-      window.localStorage.removeItem(completionKey);
+      window.localStorage.setItem(
+        storageKey,
+        serializePracticeSession({
+          draft,
+          mode,
+          code,
+          codeChecked: true,
+          completed: true,
+          evaluation,
+        }),
+      );
     }
+  };
+
+  const resetSession = () => {
+    setDraft("");
+    setMode("text");
+    setEvaluation(null);
+    setCode(defaultCode(activePracticeItem.codeFunction));
+    setCodeChecked(false);
+    setCompleted(false);
+    window.localStorage.removeItem(storageKey);
+    setSavedAt("Ready");
+  };
+
+  const switchPracticeItem = (practiceId: string) => {
+    const nextPracticeItem = getPracticeItem(practiceId);
+    if (nextPracticeItem.id === activePracticeItem.id) {
+      return;
+    }
+
+    window.localStorage.setItem(storageKey, serializePracticeSession({
+      draft,
+      mode,
+      code,
+      codeChecked,
+      completed,
+      evaluation,
+    }));
+    window.localStorage.setItem(selectedPracticeItemKey, nextPracticeItem.id);
+    setActivePracticeId(nextPracticeItem.id);
+    setDraft("");
+    setMode("text");
+    setEvaluation(null);
+    setCode(defaultCode(nextPracticeItem.codeFunction));
+    setCodeChecked(false);
+    setCompleted(false);
+    setSavedAt("Ready");
   };
 
   return (
@@ -198,12 +278,12 @@ export function PracticeWorkspace() {
           </button>
         </nav>
         <div className="sidebar-progress">
-          <strong>Hash maps</strong>
+          <strong>{activePracticeItem.label}</strong>
           <span>{secureConceptCount} of 7 concepts secure</span>
           <div className="progress-track" aria-label={`${progressPercent}% complete`}>
             <div style={{ width: `${progressPercent}%` }} />
           </div>
-          {completed ? <div className="complete-badge">Pair With Target complete</div> : null}
+          {completed ? <div className="complete-badge">{activePracticeItem.label} complete</div> : null}
         </div>
       </aside>
 
@@ -212,7 +292,7 @@ export function PracticeWorkspace() {
           <div className="crumbs">
             <span>Algorithms</span>
             <span>/</span>
-            <strong>Hash maps</strong>
+            <strong>{activePracticeItem.label}</strong>
           </div>
           <div className="top-actions">
             <span className="status-pill" aria-live="polite">
@@ -248,18 +328,18 @@ export function PracticeWorkspace() {
               <div className="pane-header">
                 <div>
                   <h2>Concept & problem</h2>
-                  <span className="pane-kicker">{lesson.eyebrow}</span>
+                  <span className="pane-kicker">{activePracticeItem.lesson.eyebrow}</span>
                 </div>
                 <Lightbulb size={19} color="var(--mustard)" />
               </div>
               <h3 className="lesson-title" id="lesson-title">
-                {lesson.title}
+                {activePracticeItem.lesson.title}
               </h3>
-              <p className="lesson-copy">{lesson.summary}</p>
+              <p className="lesson-copy">{activePracticeItem.lesson.summary}</p>
               <div className="principle">
                 <strong>Invariant</strong>
                 <br />
-                {lesson.principle}
+                {activePracticeItem.lesson.principle}
               </div>
               <div className="trace" aria-label="Example number trace">
                 <div className="trace-label">
@@ -279,17 +359,17 @@ export function PracticeWorkspace() {
               </div>
               <hr className="section-rule" />
               <p className="eyebrow">Practice 01</p>
-              <h3 className="problem-title">{problem.title}</h3>
-              <p className="lesson-copy">{problem.prompt}</p>
+              <h3 className="problem-title">{activePracticeItem.problem.title}</h3>
+              <p className="lesson-copy">{activePracticeItem.problem.prompt}</p>
               <div className="example">
-                <span>Input</span> {problem.example.input}
+                <span>Input</span> {activePracticeItem.problem.example.input}
                 <br />
-                <span>Output</span> {problem.example.output}
+                <span>Output</span> {activePracticeItem.problem.example.output}
                 <br />
-                <span>Why</span> {problem.example.note}
+                <span>Why</span> {activePracticeItem.problem.example.note}
               </div>
               <ul className="constraint-list">
-                {problem.constraints.map((constraint) => (
+                {activePracticeItem.problem.constraints.map((constraint) => (
                   <li key={constraint}>{constraint}</li>
                 ))}
               </ul>
@@ -333,6 +413,19 @@ export function PracticeWorkspace() {
                   />
                 ) : (
                   <div className="block-builder" aria-label="Pseudocode block composer">
+                    <div className="practice-switcher" role="tablist" aria-label="Practice items">
+                      {practiceItems.map((item) => (
+                        <button
+                          key={item.id}
+                          aria-pressed={item.id === activePracticeItem.id}
+                          className={item.id === activePracticeItem.id ? "active" : ""}
+                          onClick={() => switchPracticeItem(item.id)}
+                          type="button"
+                        >
+                          {item.label}
+                        </button>
+                      ))}
+                    </div>
                     <div className="block-palette">
                       {blockOptions.map((block) => (
                         <button key={block.value} onClick={() => addBlock(block.value)} type="button">
@@ -395,6 +488,9 @@ export function PracticeWorkspace() {
                       type="button"
                     >
                       Clear draft
+                    </button>
+                    <button className="text-button muted" onClick={resetSession} type="button">
+                      Reset session
                     </button>
                   </div>
                   <div className="draft-stats" aria-label="Draft statistics" aria-live="polite">
@@ -478,7 +574,6 @@ export function PracticeWorkspace() {
                   setCode(event.target.value);
                   setCodeChecked(false);
                   setCompleted(false);
-                  window.localStorage.removeItem(completionKey);
                 }}
                 value={code}
               />
@@ -496,10 +591,9 @@ export function PracticeWorkspace() {
                   className="button secondary full-button"
                   disabled={!approved}
                   onClick={() => {
-                    setCode(buildCodeFromPlan(draft));
+                    setCode(buildCodeFromPlan(activePracticeItem.codeFunction, draft));
                     setCodeChecked(false);
                     setCompleted(false);
-                    window.localStorage.removeItem(completionKey);
                   }}
                   type="button"
                 >

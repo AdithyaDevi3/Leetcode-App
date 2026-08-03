@@ -88,7 +88,7 @@ const rules: Rule[] = [
   },
 ];
 
-export function evaluatePseudocode(draft: string): Evaluation {
+const pairWithTargetEvaluation = (draft: string): Evaluation => {
   const source = draft.trim();
   const findings = rules.map<EvaluationFinding>((rule) => {
     const passed = source.length > 0 && rule.pass(source);
@@ -113,4 +113,84 @@ export function evaluatePseudocode(draft: string): Evaluation {
         ? "Write your approach in plain English. Evaluation will focus on the algorithm, not syntax."
         : `${findings.length - passedCount} reasoning check${findings.length - passedCount === 1 ? "" : "s"} still need attention.`,
   };
+};
+
+const firstUniqueIndexEvaluation = (draft: string): Evaluation => {
+  const source = draft.trim();
+  const findings: EvaluationFinding[] = [
+    {
+      id: "state",
+      label: "Count map",
+      status: contains(source, [/count/i, /frequency/i, /map/i]) ? "pass" : "revise",
+      detail: contains(source, [/count/i, /frequency/i, /map/i])
+        ? "You keep a table of frequencies for each value."
+        : "Describe a map that counts how many times each value appears.",
+    },
+    {
+      id: "iteration",
+      label: "Two-pass scan",
+      status: contains(source, [/for each/i, /loop/i]) && contains(source, [/again|second pass|then/i])
+        ? "pass"
+        : "revise",
+      detail:
+        contains(source, [/for each/i, /loop/i]) && contains(source, [/again|second pass|then/i])
+          ? "You separate counting from selecting the answer."
+          : "Count first, then scan again to find the first value with count one.",
+    },
+    {
+      id: "lookup",
+      label: "Unique check",
+      status: contains(source, [/count.*1|equals 1|is 1/i]) ? "pass" : "revise",
+      detail: contains(source, [/count.*1|equals 1|is 1/i])
+        ? "You explicitly look for a value that appears once."
+        : "State that the first unique value is the one whose count equals one.",
+    },
+    {
+      id: "ordering",
+      label: "Return position",
+      status: contains(source, [/return/i, /position|index/i]) ? "pass" : "revise",
+      detail: contains(source, [/return/i, /position|index/i])
+        ? "The plan returns the first matching position."
+        : "Name the position or index you return when a unique value is found.",
+    },
+    {
+      id: "return",
+      label: "No unique fallback",
+      status: contains(source, [/-1|no unique|none/i]) ? "pass" : "revise",
+      detail: contains(source, [/-1|no unique|none/i])
+        ? "The fallback return is defined."
+        : "Specify that the algorithm returns -1 when no unique value exists.",
+    },
+    {
+      id: "complexity",
+      label: "Target complexity",
+      status: !contains(source, [/nested loop/i, /every other/i, /sort/i]) ? "pass" : "revise",
+      detail: !contains(source, [/nested loop/i, /every other/i, /sort/i])
+        ? "The described operations support O(n) time and O(n) extra space."
+        : "Replace repeated searching or sorting with counting and a linear scan.",
+    },
+  ];
+
+  const passedCount = findings.filter((finding) => finding.status === "pass").length;
+  const score = Math.round((passedCount / findings.length) * 100);
+  const approved = findings.every((finding) => finding.status === "pass");
+
+  return {
+    approved,
+    score,
+    findings,
+    summary: approved
+      ? "Your reasoning is implementation-ready. The coding workspace is unlocked."
+      : source.length === 0
+        ? "Write your approach in plain English. Evaluation will focus on the algorithm, not syntax."
+        : `${findings.length - passedCount} reasoning check${findings.length - passedCount === 1 ? "" : "s"} still need attention.`,
+  };
+};
+
+export function evaluatePseudocode(draft: string, problemId = "pair-with-target-v1"): Evaluation {
+  if (problemId === "first-unique-index-v1") {
+    return firstUniqueIndexEvaluation(draft);
+  }
+
+  return pairWithTargetEvaluation(draft);
 }

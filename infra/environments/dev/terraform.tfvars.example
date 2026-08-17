@@ -1,0 +1,26 @@
+# Example terraform.tfvars for development environment
+# Copy this file to terraform.tfvars and fill in your values
+
+# AWS Configuration
+aws_region = "us-west-2"
+
+# Networking
+vpc_cidr           = "10.0.0.0/16"
+availability_zones = ["us-west-2a", "us-west-2b"]
+
+# Database
+db_instance_class     = "db.t4g.micro"
+db_allocated_storage  = 20
+db_name               = "leetcodeapp_dev"
+db_username           = "leetcodeapp_admin"  # Store password in AWS Secrets Manager
+
+# Compute
+web_task_cpu    = 256
+web_task_memory = 512
+web_task_count  = 1
+
+# Tags
+additional_tags = {
+  Team  = "engineering"
+  Owner = "your-name"
+}

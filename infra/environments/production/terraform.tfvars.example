@@ -1,0 +1,27 @@
+# Example terraform.tfvars for production environment
+# Copy this file to terraform.tfvars and fill in your values
+
+# AWS Configuration
+aws_region = "us-west-2"
+
+# Networking (Production VPC)
+vpc_cidr           = "10.2.0.0/16"
+availability_zones = ["us-west-2a", "us-west-2b", "us-west-2c"]
+
+# Database (Multi-AZ with PITR)
+db_instance_class    = "db.t4g.medium"
+db_allocated_storage = 100
+db_name              = "leetcodeapp_production"
+db_username          = "leetcodeapp_admin"
+
+# Compute (Auto-scaling)
+web_task_cpu        = 1024
+web_task_memory     = 2048
+web_task_count_min  = 2
+web_task_count_max  = 10
+
+# Tags
+additional_tags = {
+  Team     = "engineering"
+  Critical = "true"
+}

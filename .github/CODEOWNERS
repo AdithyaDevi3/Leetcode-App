@@ -1,0 +1,45 @@
+# Code Owners
+
+# Global owners (for any file not matched by specific rules)
+* @leetcode-app/maintainers
+
+# Documentation
+/docs/ @leetcode-app/maintainers @leetcode-app/docs-team
+*.md @leetcode-app/docs-team
+
+# Architecture Decision Records
+/docs/adr/ @leetcode-app/architects
+
+# Infrastructure and DevOps
+/infra/ @leetcode-app/devops
+/.github/ @leetcode-app/devops
+/scripts/ @leetcode-app/devops
+Dockerfile @leetcode-app/devops
+docker-compose*.yml @leetcode-app/devops
+
+# Security-sensitive files
+/docs/adr/*security*.md @leetcode-app/security
+/docs/adr/*privacy*.md @leetcode-app/security @leetcode-app/legal
+
+# Frontend (Web App)
+/apps/web/ @leetcode-app/frontend
+
+# Backend Services
+/apps/api/ @leetcode-app/backend
+/apps/worker/ @leetcode-app/backend
+
+# Shared Packages
+/packages/ @leetcode-app/maintainers
+
+# Domain Logic
+/packages/domain/ @leetcode-app/backend @leetcode-app/architects
+
+# Evaluation Engine
+/packages/evaluator/ @leetcode-app/ml-team @leetcode-app/backend
+
+# Content
+/packages/content/ @leetcode-app/content-team
+
+# Security and Compliance
+SECURITY.md @leetcode-app/security
+/.github/dependabot.yml @leetcode-app/security @leetcode-app/devops

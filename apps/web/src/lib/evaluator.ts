@@ -129,11 +129,14 @@ const firstUniqueIndexEvaluation = (draft: string): Evaluation => {
     {
       id: "iteration",
       label: "Two-pass scan",
-      status: contains(source, [/for each/i, /loop/i]) && contains(source, [/again|second pass|then/i])
+      status:
+        contains(source, [/for each/i, /loop/i]) &&
+        (contains(source, [/again|second pass|then/i]) || (source.match(/for each/gi)?.length ?? 0) >= 2)
         ? "pass"
         : "revise",
       detail:
-        contains(source, [/for each/i, /loop/i]) && contains(source, [/again|second pass|then/i])
+        contains(source, [/for each/i, /loop/i]) &&
+        (contains(source, [/again|second pass|then/i]) || (source.match(/for each/gi)?.length ?? 0) >= 2)
           ? "You separate counting from selecting the answer."
           : "Count first, then scan again to find the first value with count one.",
     },

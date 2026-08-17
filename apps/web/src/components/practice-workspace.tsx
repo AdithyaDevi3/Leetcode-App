@@ -47,12 +47,14 @@ export function PracticeWorkspace() {
   const [mode, setMode] = useState<EditorMode>("text");
   const [evaluation, setEvaluation] = useState<Evaluation | null>(null);
   const [savedAt, setSavedAt] = useState("Not saved");
-  const [code, setCode] = useState(defaultCode(defaultPracticeItem.codeFunction));
+  const [code, setCode] = useState(defaultCode(defaultPracticeItem.codeFunction, defaultPracticeItem.codeSignature));
   const [codeChecked, setCodeChecked] = useState(false);
   const [completed, setCompleted] = useState(false);
   const activePracticeItem = getPracticeItem(activePracticeId);
   const storageKey = sessionStorageKey(activePracticeItem.id);
   const blockOptions = activePracticeItem.blockOptions;
+  const activePracticeNumber = practiceItems.findIndex((item) => item.id === activePracticeItem.id) + 1;
+  const trace = activePracticeItem.trace;
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -85,7 +87,7 @@ export function PracticeWorkspace() {
     }, 0);
 
     return () => window.clearTimeout(timer);
-  }, [activePracticeItem, activePracticeItem.codeFunction]);
+  }, [activePracticeItem]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -101,14 +103,14 @@ export function PracticeWorkspace() {
       window.localStorage.setItem(storageKey, serializePracticeSession(session));
       window.localStorage.setItem(selectedPracticeItemKey, activePracticeItem.id);
       setSavedAt(
-        draft || mode !== "text" || code !== defaultCode(activePracticeItem.codeFunction) || codeChecked || completed || evaluation
+        draft || mode !== "text" || code !== defaultCode(activePracticeItem.codeFunction, activePracticeItem.codeSignature) || codeChecked || completed || evaluation
           ? "Saved locally"
           : "Ready",
       );
     }, 450);
 
     return () => window.clearTimeout(timer);
-  }, [draft, mode, code, codeChecked, completed, evaluation, storageKey, activePracticeItem.id]);
+  }, [draft, mode, code, codeChecked, completed, evaluation, storageKey, activePracticeItem]);
 
   const blocks = splitDraftIntoBlocks(draft);
 
@@ -214,7 +216,7 @@ export function PracticeWorkspace() {
     setDraft("");
     setMode("text");
     setEvaluation(null);
-    setCode(defaultCode(activePracticeItem.codeFunction));
+    setCode(defaultCode(activePracticeItem.codeFunction, activePracticeItem.codeSignature));
     setCodeChecked(false);
     setCompleted(false);
     window.localStorage.removeItem(storageKey);
@@ -240,7 +242,7 @@ export function PracticeWorkspace() {
     setDraft("");
     setMode("text");
     setEvaluation(null);
-    setCode(defaultCode(nextPracticeItem.codeFunction));
+    setCode(defaultCode(nextPracticeItem.codeFunction, nextPracticeItem.codeSignature));
     setCodeChecked(false);
     setCompleted(false);
     setSavedAt("Ready");
@@ -343,14 +345,14 @@ export function PracticeWorkspace() {
               </div>
               <div className="trace" aria-label="Example number trace">
                 <div className="trace-label">
-                  <span>values</span>
-                  <span>target 8</span>
+                  <span>{trace.title}</span>
+                  <span>{trace.subtitle}</span>
                 </div>
                 <div className="number-row">
-                  {[4, 7, 1, 9].map((value, index) => (
+                  {trace.values.map((value, index) => (
                     <div
-                      className={`number-cell ${index === 1 || index === 2 ? "hit" : ""}`}
-                      key={value}
+                      className={`number-cell ${trace.highlights.includes(index) ? "hit" : ""}`}
+                      key={`${value}-${index}`}
                     >
                       {value}
                     </div>
@@ -358,7 +360,7 @@ export function PracticeWorkspace() {
                 </div>
               </div>
               <hr className="section-rule" />
-              <p className="eyebrow">Practice 01</p>
+              <p className="eyebrow">Practice {String(activePracticeNumber).padStart(2, "0")}</p>
               <h3 className="problem-title">{activePracticeItem.problem.title}</h3>
               <p className="lesson-copy">{activePracticeItem.problem.prompt}</p>
               <div className="example">
@@ -500,7 +502,7 @@ export function PracticeWorkspace() {
                   </div>
                   <button
                     className="button"
-                    onClick={() => setEvaluation(evaluatePseudocode(draft))}
+                    onClick={() => setEvaluation(evaluatePseudocode(draft, activePracticeItem.id))}
                     type="button"
                   >
                     <Sparkles size={16} /> Evaluate reasoning
@@ -591,7 +593,7 @@ export function PracticeWorkspace() {
                   className="button secondary full-button"
                   disabled={!approved}
                   onClick={() => {
-                    setCode(buildCodeFromPlan(activePracticeItem.codeFunction, draft));
+                    setCode(buildCodeFromPlan(activePracticeItem.codeFunction, activePracticeItem.codeSignature, draft));
                     setCodeChecked(false);
                     setCompleted(false);
                   }}

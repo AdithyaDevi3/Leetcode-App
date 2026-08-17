@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { flawedDraft, starterDraft } from "./content";
+import { flawedDraft, practiceItems, starterDraft } from "./content";
 import { evaluatePseudocode } from "./evaluator";
 
 describe("evaluatePseudocode", () => {
@@ -40,5 +40,12 @@ For each value and position:
     expect(result.approved).toBe(false);
     expect(result.score).toBe(0);
     expect(result.summary).toContain("plain English");
+  });
+
+  it("approves the first-unique-index strategy with the matching rubric", () => {
+    const result = evaluatePseudocode(practiceItems[1].starterDraft, practiceItems[1].id);
+
+    expect(result.approved).toBe(true);
+    expect(result.score).toBe(100);
   });
 });

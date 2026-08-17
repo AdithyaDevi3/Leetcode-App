@@ -14,7 +14,10 @@ export type PracticeSessionState = {
 export const sessionStorageKey = (problemId: string) => `method:${problemId}:session`;
 export const selectedPracticeItemKey = "method:selected-practice-item";
 
-export const defaultCode = (functionName: string) => `function ${functionName}(values: number[], target: number) {
+const defaultSignatureFor = (functionName: string) =>
+  functionName === "findFirstUniqueIndex" ? "values: number[]" : "values: number[], target: number";
+
+export const defaultCode = (functionName: string, signature = defaultSignatureFor(functionName)) => `function ${functionName}(${signature}) {
   // Translate your approved plan here.
 }`;
 
@@ -30,14 +33,18 @@ export const joinBlocksIntoDraft = (blocks: string[]) =>
     .filter(Boolean)
     .join("\n");
 
-export const buildCodeFromPlan = (functionNameOrPlan: string, planMaybe?: string) => {
-  const functionName = planMaybe ? functionNameOrPlan : "findPair";
-  const plan = planMaybe ?? functionNameOrPlan;
+export function buildCodeFromPlan(plan: string): string;
+export function buildCodeFromPlan(functionName: string, plan: string): string;
+export function buildCodeFromPlan(functionName: string, signature: string, plan: string): string;
+export function buildCodeFromPlan(functionNameOrPlan: string, second?: string, third?: string) {
+  const functionName = third ? functionNameOrPlan : second ? functionNameOrPlan : "findPair";
+  const signature = third ? second ?? defaultSignatureFor(functionName) : defaultSignatureFor(functionName);
+  const plan = third ? third : second ?? functionNameOrPlan;
   const planComments = splitDraftIntoBlocks(plan)
     .map((line) => `  // ${line}`)
     .join("\n");
 
-  return `function ${functionName}(values: number[], target: number) {
+  return `function ${functionName}(${signature}) {
 ${planComments || "  // Translate your approved plan here."}
 }`;
 };

@@ -20,6 +20,13 @@ export type PracticeItem = {
   starterDraft: string;
   flawedDraft: string;
   codeFunction: string;
+  codeSignature: string;
+  trace: {
+    title: string;
+    subtitle: string;
+    values: number[];
+    highlights: number[];
+  };
   blockOptions: Array<{ label: string; value: string }>;
 };
 
@@ -60,6 +67,13 @@ Return no pair.`,
   Look through every other value.
   If the two values add to target, return their positions.`,
     codeFunction: "findPair",
+    codeSignature: "values: number[], target: number",
+    trace: {
+      title: "values",
+      subtitle: "target 8",
+      values: [4, 7, 1, 9],
+      highlights: [1, 2],
+    },
     blockOptions: [
       { label: "State", value: "Create an empty map from value to position." },
       { label: "Loop", value: "For each value and position in the list:" },
@@ -109,6 +123,13 @@ Return -1.`,
   If no other value matches it, return its position.
 Return -1.`,
     codeFunction: "findFirstUniqueIndex",
+    codeSignature: "values: number[]",
+    trace: {
+      title: "values",
+      subtitle: "counting pass, then selection",
+      values: [9, 4, 9, 6, 4, 7],
+      highlights: [3, 5],
+    },
     blockOptions: [
       { label: "State", value: "Create a map from value to count." },
       { label: "Count", value: "Increase that value's count in the map." },

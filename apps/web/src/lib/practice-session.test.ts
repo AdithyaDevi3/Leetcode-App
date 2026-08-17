@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildCodeFromPlan,
+  defaultCode,
   deserializePracticeSession,
   joinBlocksIntoDraft,
   serializePracticeSession,
@@ -19,6 +20,14 @@ describe("practice-session helpers", () => {
 
     expect(code).toContain("// Create a map.");
     expect(code).toContain("// For each value:");
+  });
+
+  it("uses the correct signature for each starter function", () => {
+    expect(defaultCode("findPair")).toContain("values: number[], target: number");
+    expect(defaultCode("findFirstUniqueIndex")).toContain("values: number[]");
+    expect(buildCodeFromPlan("findFirstUniqueIndex", "values: number[]", "Count values first.")).toContain(
+      "function findFirstUniqueIndex(values: number[])",
+    );
   });
 
   it("round-trips a practice session snapshot", () => {

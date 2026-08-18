@@ -9,6 +9,7 @@
 
 # Dependencies and build output
 node_modules/
+.pnpm-store/
 .next/
 dist/
 build/
@@ -35,3 +36,6 @@ exports/
 recordings/
 *.sqlite
 *.sqlite3
+
+# Internal documentation (not for public repo)
+documentation/

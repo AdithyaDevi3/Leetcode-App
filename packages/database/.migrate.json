@@ -1,0 +1,10 @@
+{
+  "migrations-dir": "migrations",
+  "schema": "public",
+  "migration-file-language": "ts",
+  "dir": "migrations",
+  "direction": "up",
+  "count": 1,
+  "create-schema": true,
+  "create-migration-schema": true
+}

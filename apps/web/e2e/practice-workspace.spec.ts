@@ -92,3 +92,61 @@ test('sync helper reports offline draft without a signed-in session', async ({ p
 
   await expect(page.getByText('Offline draft')).toBeVisible();
 });
+
+test('guest sees a server save when sync succeeds', async ({ page }) => {
+  await page.goto('/');
+
+  await page.evaluate(() => {
+    const originalFetch = window.fetch.bind(window);
+    window.fetch = async (input, init) => {
+      const url = String(input);
+      if (url.includes('/api/practice/sessions') && init?.method === 'POST') {
+        if (url.endsWith('/api/practice/sessions')) {
+          return new Response(JSON.stringify({ session: { id: 'session-1', revision: 1 } }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          });
+        }
+
+        return new Response(JSON.stringify({ revision: { revisionNumber: 2 } }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+
+      return originalFetch(input, init);
+    };
+  });
+
+  await page.getByLabel('Pseudocode draft').fill('Save this on the server.');
+
+  await expect(page.getByText('Saved to server')).toBeVisible();
+});
+
+test('guest sees a conflict when sync reports one', async ({ page }) => {
+  await page.goto('/');
+
+  await page.evaluate(() => {
+    const originalFetch = window.fetch.bind(window);
+    window.fetch = async (input, init) => {
+      const url = String(input);
+      if (url.endsWith('/api/practice/sessions') && init?.method === 'POST') {
+        return new Response(JSON.stringify({ session: { id: 'session-1', revision: 1 } }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+
+      if (url.includes('/api/practice/sessions/session-1') && init?.method === 'POST') {
+        return new Response('', { status: 409 });
+      }
+
+      return originalFetch(input, init);
+    };
+  });
+
+  await page.getByLabel('Pseudocode draft').fill('Conflict this draft.');
+
+  await expect(page.getByText('Conflict')).toBeVisible();
+  await expect(page.getByText('Resolve conflict')).toBeVisible();
+});

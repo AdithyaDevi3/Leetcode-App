@@ -40,6 +40,13 @@ import {
   defaultCode,
   selectedPracticeItemKey,
 } from "@/lib/practice-session";
+import {
+  clearCachedPracticeSessionId,
+  readCachedPracticeSessionId,
+  syncPracticeSession,
+  type PracticeSyncStatus,
+  writeCachedPracticeSessionId,
+} from "@/lib/practice-sync";
 
 export function PracticeWorkspace() {
   const [activePracticeId, setActivePracticeId] = useState(defaultPracticeItem.id);
@@ -47,6 +54,7 @@ export function PracticeWorkspace() {
   const [mode, setMode] = useState<EditorMode>("text");
   const [evaluation, setEvaluation] = useState<Evaluation | null>(null);
   const [savedAt, setSavedAt] = useState("Not saved");
+  const [syncStatus, setSyncStatus] = useState<PracticeSyncStatus>("ready");
   const [code, setCode] = useState(defaultCode(defaultPracticeItem.codeFunction, defaultPracticeItem.codeSignature));
   const [codeChecked, setCodeChecked] = useState(false);
   const [completed, setCompleted] = useState(false);
@@ -84,6 +92,7 @@ export function PracticeWorkspace() {
       setCompleted(restoredSession.completed);
       setEvaluation(restoredSession.evaluation);
       setSavedAt("Restored locally");
+      setSyncStatus("offline");
     }, 0);
 
     return () => window.clearTimeout(timer);
@@ -102,11 +111,44 @@ export function PracticeWorkspace() {
 
       window.localStorage.setItem(storageKey, serializePracticeSession(session));
       window.localStorage.setItem(selectedPracticeItemKey, activePracticeItem.id);
-      setSavedAt(
-        draft || mode !== "text" || code !== defaultCode(activePracticeItem.codeFunction, activePracticeItem.codeSignature) || codeChecked || completed || evaluation
-          ? "Saved locally"
-          : "Ready",
-      );
+      const hasChanges =
+        draft ||
+        mode !== "text" ||
+        code !== defaultCode(activePracticeItem.codeFunction, activePracticeItem.codeSignature) ||
+        codeChecked ||
+        completed ||
+        evaluation;
+
+      setSavedAt(hasChanges ? "Saving" : "Ready");
+      setSyncStatus(hasChanges ? "saving" : "ready");
+
+      if (!hasChanges) {
+        return;
+      }
+
+      const savedRemoteSessionId = readCachedPracticeSessionId(activePracticeItem.id);
+      if (savedRemoteSessionId) {
+        writeCachedPracticeSessionId(activePracticeItem.id, savedRemoteSessionId);
+      }
+
+      void syncPracticeSession({
+        contentId: activePracticeItem.id,
+        draft,
+        currentStage: completed ? "evaluate" : "plan",
+        state: session,
+        sessionId: savedRemoteSessionId ?? undefined,
+      })
+        .then((result) => {
+          setSyncStatus(result.status);
+          setSavedAt(result.status === "saved" ? "Saved to server" : result.status === "conflict" ? "Conflict" : "Offline draft");
+          if (result.sessionId) {
+            writeCachedPracticeSessionId(activePracticeItem.id, result.sessionId);
+          }
+        })
+        .catch(() => {
+          setSyncStatus("offline");
+          setSavedAt("Offline draft");
+        });
     }, 450);
 
     return () => window.clearTimeout(timer);
@@ -220,7 +262,9 @@ export function PracticeWorkspace() {
     setCodeChecked(false);
     setCompleted(false);
     window.localStorage.removeItem(storageKey);
+    clearCachedPracticeSessionId(activePracticeItem.id);
     setSavedAt("Ready");
+    setSyncStatus("ready");
   };
 
   const switchPracticeItem = (practiceId: string) => {
@@ -246,6 +290,7 @@ export function PracticeWorkspace() {
     setCodeChecked(false);
     setCompleted(false);
     setSavedAt("Ready");
+    setSyncStatus("ready");
   };
 
   return (
@@ -298,7 +343,7 @@ export function PracticeWorkspace() {
           </div>
           <div className="top-actions">
             <span className="status-pill" aria-live="polite">
-              <Save size={14} /> {savedAt}
+              <Save size={14} /> {savedAt}{syncStatus === "conflict" ? " · Resolve conflict" : ""}
             </span>
             <button className="icon-button" type="button" aria-label="Notifications">
               <Bell size={17} />

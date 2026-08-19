@@ -44,3 +44,15 @@ test('guest can use the guided start and pass the reasoning check', async ({ pag
 
   await expect(page.getByText('Saved to your local progress.')).toBeVisible();
 });
+
+test('guest draft resumes after reload', async ({ page }) => {
+  await page.goto('/');
+
+  await page.getByLabel('Pseudocode draft').fill('Create a map.\nStore values as you go.');
+  await expect(page.getByText('Saved locally')).toBeVisible();
+
+  await page.reload();
+
+  await expect(page.getByLabel('Pseudocode draft')).toHaveValue('Create a map.\nStore values as you go.');
+  await expect(page.getByText('Restored locally')).toBeVisible();
+});

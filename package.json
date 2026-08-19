@@ -9,6 +9,7 @@
     "start": "pnpm --filter web start",
     "lint": "pnpm --filter web lint",
     "test": "pnpm -r test",
+    "test:e2e": "pnpm --filter web test:e2e",
     "migrate": "pnpm --filter database migrate",
     "migrate:create": "pnpm --filter database migrate:create"
   },

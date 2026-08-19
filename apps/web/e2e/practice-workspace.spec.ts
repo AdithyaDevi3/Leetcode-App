@@ -18,3 +18,29 @@ test('guest can open the workspace and autosave a draft locally', async ({ page 
   expect(sessionValue).toContain('Create a map.');
   expect(sessionValue).toContain('Check the complement.');
 });
+
+test('guest can use the guided start and pass the reasoning check', async ({ page }) => {
+  await page.goto('/');
+
+  await page.getByRole('button', { name: 'Use guided start' }).click();
+  await page.getByRole('button', { name: 'Evaluate reasoning' }).click();
+
+  await expect(page.getByText('Implementation unlocked')).toBeVisible();
+  await expect(page.getByRole('button', { name: /Check translation/i })).toBeEnabled();
+
+  await page.getByLabel('TypeScript implementation').fill(`function findPair(values: number[], target: number) {
+  const map = new Map<number, number>();
+  for (let index = 0; index < values.length; index += 1) {
+    const complement = target - values[index];
+    if (map.has(complement)) {
+      return [map.get(complement)!, index];
+    }
+    map.set(values[index], index);
+  }
+  return [];
+}`);
+
+  await page.getByRole('button', { name: /Check translation/i }).click();
+
+  await expect(page.getByText('Saved to your local progress.')).toBeVisible();
+});

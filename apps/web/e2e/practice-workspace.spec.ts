@@ -56,3 +56,39 @@ test('guest draft resumes after reload', async ({ page }) => {
   await expect(page.getByLabel('Pseudocode draft')).toHaveValue('Create a map.\nStore values as you go.');
   await expect(page.getByText('Restored locally')).toBeVisible();
 });
+
+test('guest can finish the translation check', async ({ page }) => {
+  await page.goto('/');
+
+  await page.getByRole('button', { name: 'Use guided start' }).click();
+  await page.getByRole('button', { name: 'Evaluate reasoning' }).click();
+
+  await page.getByLabel('TypeScript implementation').fill(`function findPair(values: number[], target: number) {
+  const map = new Map<number, number>();
+  for (let index = 0; index < values.length; index += 1) {
+    const complement = target - values[index];
+    if (map.has(complement)) {
+      return [map.get(complement)!, index];
+    }
+    map.set(values[index], index);
+  }
+  return [];
+}`);
+
+  await page.getByRole('button', { name: /Check translation/i }).click();
+
+  await expect(page.getByText('Saved to your local progress.')).toBeVisible();
+  await expect(page.getByText('Completed')).toBeVisible();
+});
+
+test('sync helper reports offline draft without a signed-in session', async ({ page }) => {
+  await page.goto('/');
+
+  await page.evaluate(() => {
+    window.fetch = async () => new Response('', { status: 401 });
+  });
+
+  await page.getByLabel('Pseudocode draft').fill('Draft that stays local.');
+
+  await expect(page.getByText('Offline draft')).toBeVisible();
+});

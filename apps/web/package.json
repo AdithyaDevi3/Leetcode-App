@@ -10,19 +10,25 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@auth/pg-adapter": "^2.8.0",
+    "@leetcode-app/database": "workspace:*",
+    "@leetcode-app/domain": "workspace:*",
     "lucide-react": "^1.26.0",
     "next": "16.2.11",
+    "next-auth": "^5.0.0-beta.25",
     "react": "19.2.4",
     "react-dom": "19.2.4"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
+    "@types/pg": "^8.11.10",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.2.11",
     "tailwindcss": "^4",
+    "testcontainers": "^10.17.1",
     "typescript": "^5",
     "vitest": "^4.1.10"
   },

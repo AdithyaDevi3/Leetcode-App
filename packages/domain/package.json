@@ -1,0 +1,60 @@
+{
+  "name": "@leetcode-app/domain",
+  "version": "0.1.0",
+  "description": "Domain models and types for Leetcode App",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./user": {
+      "import": "./dist/user.mjs",
+      "require": "./dist/user.js",
+      "types": "./dist/user.d.ts"
+    },
+    "./content": {
+      "import": "./dist/content.mjs",
+      "require": "./dist/content.js",
+      "types": "./dist/content.d.ts"
+    },
+    "./practice": {
+      "import": "./dist/practice.mjs",
+      "require": "./dist/practice.js",
+      "types": "./dist/practice.d.ts"
+    },
+    "./evaluation": {
+      "import": "./dist/evaluation.mjs",
+      "require": "./dist/evaluation.js",
+      "types": "./dist/evaluation.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src --ext .ts",
+    "clean": "rm -rf dist"
+  },
+  "keywords": [
+    "domain",
+    "models",
+    "types",
+    "entities"
+  ],
+  "author": "Leetcode App Team",
+  "license": "MIT",
+  "dependencies": {},
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "tsup": "^8.0.0",
+    "typescript": "^5.0.0",
+    "vitest": "^2.0.0"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

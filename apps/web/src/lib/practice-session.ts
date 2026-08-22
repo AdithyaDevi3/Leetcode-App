@@ -1,5 +1,5 @@
 import type { Evaluation } from "./evaluator";
-import { blockModelToDraft, draftToBlockModel } from "./ast-block-adapter";
+import { astProgramToBlocks, blockModelToDraft, draftToBlockModel } from "./ast-block-adapter";
 
 export type EditorMode = "text" | "blocks";
 
@@ -27,6 +27,9 @@ export const splitDraftIntoBlocks = (draft: string) =>
 
 export const joinBlocksIntoDraft = (blocks: string[]) =>
   blockModelToDraft(blocks);
+
+export const projectDraftBlocks = (draft: string, functionName = "findPair") =>
+  astProgramToBlocks(draftToBlockModel(draft, functionName).program);
 
 export function buildCodeFromPlan(plan: string): string;
 export function buildCodeFromPlan(functionName: string, plan: string): string;

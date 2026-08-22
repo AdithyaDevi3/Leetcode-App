@@ -8,13 +8,7 @@ export type BlockModel = {
 
 export const draftToBlockModel = (draft: string, functionName = 'findPair'): BlockModel => {
   const program = parseStructuredEnglish(draft, functionName).program;
-  const blocks = program.body[0]?.body.map((statement) => {
-    if (statement.kind === 'intent') {
-      return statement.text;
-    }
-
-    return formatStructuredEnglish({ ...program, body: [{ ...program.body[0], body: [statement] }] });
-  }) ?? [];
+  const blocks = astProgramToBlocks(program);
 
   return { blocks, program };
 };
@@ -31,17 +25,41 @@ export const astProgramToBlocks = (program: AstProgramNode) => {
     }
 
     if (statement.kind === 'return') {
-      return `Return ${statement.value && 'kind' in statement.value ? statement.value.kind : 'nothing'}`;
+      return `Return ${formatReturnValue(statement.value)}`;
     }
 
     if (statement.kind === 'assignment') {
-      return `Store ${statement.value.kind === 'literal' ? statement.value.value : 'value'} as ${statement.target.name}`;
+      return `Store ${formatExpression(statement.value)} as ${statement.target.name}`;
     }
 
     if (statement.kind === 'loop') {
-      return `For each ${statement.iterator.name} in ${statement.iterable.kind === 'identifier' ? statement.iterable.name : 'values'}`;
+      return `For each ${statement.iterator.name} in ${formatExpression(statement.iterable)}`;
     }
 
     return 'Unsupported block';
   }) ?? [];
+};
+
+const formatReturnValue = (expression: AstProgramNode['body'][number]['body'][number] extends { value: infer Value } ? Value : never) => {
+  if (!expression) {
+    return 'nothing';
+  }
+
+  return formatExpression(expression);
+};
+
+const formatExpression = (expression: { kind: string; [key: string]: unknown }) => {
+  if (expression.kind === 'literal') {
+    return typeof expression.value === 'string' ? `"${expression.value}"` : String(expression.value);
+  }
+
+  if (expression.kind === 'identifier') {
+    return expression.name as string;
+  }
+
+  if (expression.kind === 'intent') {
+    return expression.text as string;
+  }
+
+  return 'value';
 };

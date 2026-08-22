@@ -11,6 +11,12 @@ describe('AST block adapter', () => {
     expect(model.program.body[0].body).toHaveLength(2);
   });
 
+  it('keeps intent-only drafts visible as blocks', () => {
+    const model = draftToBlockModel('Create a map.\nCheck the complement.', 'findPair');
+
+    expect(model.blocks).toEqual(['Create a map.', 'Check the complement.']);
+  });
+
   it('round-trips blocks back to a draft', () => {
     expect(blockModelToDraft(['Store 1 as count', 'Return count'], 'findFirstUniqueIndex')).toBe(
       'Store 1 as count\nReturn count',

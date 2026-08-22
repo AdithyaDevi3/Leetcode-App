@@ -1,4 +1,5 @@
 import type { Evaluation } from "./evaluator";
+import { blockModelToDraft, draftToBlockModel } from "./ast-block-adapter";
 
 export type EditorMode = "text" | "blocks";
 
@@ -22,16 +23,10 @@ export const defaultCode = (functionName: string, signature = defaultSignatureFo
 }`;
 
 export const splitDraftIntoBlocks = (draft: string) =>
-  draft
-    .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean);
+  draftToBlockModel(draft).blocks;
 
 export const joinBlocksIntoDraft = (blocks: string[]) =>
-  blocks
-    .map((block) => block.trim())
-    .filter(Boolean)
-    .join("\n");
+  blockModelToDraft(blocks);
 
 export function buildCodeFromPlan(plan: string): string;
 export function buildCodeFromPlan(functionName: string, plan: string): string;

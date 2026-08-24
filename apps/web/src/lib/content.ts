@@ -294,6 +294,109 @@ Return the answer.`,
     ],
   },
   {
+    id: "island-count-v1",
+    label: "Island Count",
+    lesson: {
+      eyebrow: "Graphs · Flood fill",
+      title: "Visit each connected piece once",
+      summary:
+        "Graph traversal becomes manageable when you mark what you have already visited. For grid problems, each cell can belong to one connected region that you explore completely before moving on.",
+      principle:
+        "When you find land that has not been seen before, explore every adjacent land cell and mark them as visited so the same island is not counted twice.",
+    },
+    problem: {
+      title: "Island Count",
+      prompt:
+        "Given a grid of 0s and 1s, return how many connected groups of 1s exist using four-directional adjacency.",
+      example: {
+        input: "grid = [[1,1,0],[0,1,0],[1,0,1]]",
+        output: "3",
+        note: "There are three separate land masses.",
+      },
+      constraints: [
+        "1 ≤ rows, cols ≤ 300",
+        "Use O(rows * cols) time",
+        "Track visited cells to avoid repeats",
+      ],
+    },
+    starterDraft: `For each cell in the grid:
+  If the cell is land and has not been visited, start a search.
+  Mark every connected land cell as visited.
+  Increase the island count.
+Return the island count.`,
+    flawedDraft: `For each row in the grid:
+  Count the land cells in that row.
+Return the count.`,
+    codeFunction: "countIslands",
+    codeSignature: "grid: number[][]",
+    trace: {
+      title: "grid",
+      subtitle: "connected land components",
+      values: [1, 1, 0, 0, 1, 0, 1],
+      highlights: [0, 1, 4, 6],
+    },
+    blockOptions: [
+      { label: "Scan", value: "For each cell in the grid:" },
+      { label: "Start", value: "If the cell is land and has not been visited, start a search." },
+      { label: "Mark", value: "Mark every connected land cell as visited." },
+      { label: "Count", value: "Increase the island count." },
+      { label: "Return", value: "Return the island count." },
+    ],
+  },
+  {
+    id: "task-order-v1",
+    label: "Task Order",
+    lesson: {
+      eyebrow: "Queues · Ordering",
+      title: "Process in arrival order",
+      summary:
+        "A queue is the right shape when tasks should be processed in the same order they arrive. That structure is common in breadth-first exploration and basic scheduling.",
+      principle:
+        "Put new work at the back, take work from the front, and continue until no tasks remain. The order stays stable as the queue grows and shrinks.",
+    },
+    problem: {
+      title: "Task Order",
+      prompt:
+        "Given a list of tasks with optional prerequisites, return one valid order that completes every task once all of its prerequisites have been satisfied.",
+      example: {
+        input: "tasks = [A, B, C], prereqs = [[A, B], [B, C]]",
+        output: "[C, B, A]",
+        note: "C must finish before B, and B before A.",
+      },
+      constraints: [
+        "1 ≤ tasks.length ≤ 10,000",
+        "Use O(tasks + prereqs) time",
+        "Handle cycles by reporting that no order exists",
+      ],
+    },
+    starterDraft: `Count the prerequisites for each task.
+Put tasks with no prerequisites in a queue.
+While the queue is not empty:
+  Remove the next task.
+  Add it to the order.
+  Reduce the prerequisite count for its dependents.
+  Add newly available tasks to the queue.
+Return the order if every task was scheduled.`,
+    flawedDraft: `Put the tasks in any order.
+Return the tasks.`,
+    codeFunction: "taskOrder",
+    codeSignature: "tasks: string[]",
+    trace: {
+      title: "tasks",
+      subtitle: "frontier of ready work",
+      values: [0, 1, 2, 3],
+      highlights: [0],
+    },
+    blockOptions: [
+      { label: "Count", value: "Count the prerequisites for each task." },
+      { label: "Queue", value: "Put tasks with no prerequisites in a queue." },
+      { label: "Process", value: "While the queue is not empty:" },
+      { label: "Schedule", value: "Remove the next task. Add it to the order." },
+      { label: "Unlock", value: "Reduce the prerequisite count for its dependents." },
+      { label: "Return", value: "Return the order if every task was scheduled." },
+    ],
+  },
+  {
     id: "first-unique-index-v1",
     label: "First Unique Index",
     lesson: {

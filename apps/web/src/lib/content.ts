@@ -88,6 +88,108 @@ Return no pair.`,
     ],
   },
   {
+    id: "max-window-sum-v1",
+    label: "Max Window Sum",
+    lesson: {
+      eyebrow: "Windows · Sliding window",
+      title: "Hold a moving slice",
+      summary:
+        "A sliding window keeps only the information you need for the current range. The trick is to update the window incrementally instead of recomputing every slice from scratch.",
+      principle:
+        "Track the current sum, subtract the element that leaves the window, and add the new element that enters. That keeps each step constant-time.",
+    },
+    problem: {
+      title: "Max Window Sum",
+      prompt:
+        "Given a list of integers and a window size, return the largest sum of any contiguous window of that size.",
+      example: {
+        input: "values = [2, 1, 5, 1, 3, 2], size = 3",
+        output: "9",
+        note: "The window [5, 1, 3] has the largest sum.",
+      },
+      constraints: [
+        "1 ≤ values.length ≤ 100,000",
+        "1 ≤ size ≤ values.length",
+        "Aim for O(n) time and O(1) extra space",
+      ],
+    },
+    starterDraft: `Track the sum of the first window.
+For each new position after that:
+  Remove the value that leaves the window.
+  Add the value that enters the window.
+  Update the best sum if the current sum is larger.
+Return the best sum.`,
+    flawedDraft: `For each window:
+  Add every value in the window.
+  If the sum is larger than before, keep it.
+Return the largest sum.`,
+    codeFunction: "maxWindowSum",
+    codeSignature: "values: number[], size: number",
+    trace: {
+      title: "values",
+      subtitle: "window size 3",
+      values: [2, 1, 5, 1, 3, 2],
+      highlights: [2, 3, 4],
+    },
+    blockOptions: [
+      { label: "State", value: "Track the sum of the first window." },
+      { label: "Slide", value: "For each new position after that:" },
+      { label: "Remove", value: "Remove the value that leaves the window." },
+      { label: "Add", value: "Add the value that enters the window." },
+      { label: "Best", value: "Update the best sum if the current sum is larger." },
+      { label: "Return", value: "Return the best sum." },
+    ],
+  },
+  {
+    id: "tree-max-depth-v1",
+    label: "Tree Max Depth",
+    lesson: {
+      eyebrow: "Recursion · Trees",
+      title: "Let the shape recurse",
+      summary:
+        "Tree problems often become simpler when each node trusts its children to solve their own subproblems. The parent only needs to combine the returned answers.",
+      principle:
+        "Ask each child for its depth, take the larger one, and add one for the current node. The recursion naturally follows the tree structure.",
+    },
+    problem: {
+      title: "Tree Max Depth",
+      prompt:
+        "Given the root of a binary tree, return the maximum depth of the tree.",
+      example: {
+        input: "tree = [3, 9, 20, null, null, 15, 7]",
+        output: "3",
+        note: "The longest path has three nodes.",
+      },
+      constraints: [
+        "1 ≤ number of nodes ≤ 10,000",
+        "Use recursion or an explicit stack",
+        "Aim for O(n) time and O(h) space",
+      ],
+    },
+    starterDraft: `If the current node is empty:
+  Return 0.
+Ask the left child for its depth.
+Ask the right child for its depth.
+Return one plus the larger depth.`,
+    flawedDraft: `If the current node is empty:
+  Return 0.
+Return one plus the left child depth.`,
+    codeFunction: "maxDepth",
+    codeSignature: "root: TreeNode | null",
+    trace: {
+      title: "tree",
+      subtitle: "depth grows down each branch",
+      values: [3, 9, 20, 15, 7],
+      highlights: [0, 2, 3],
+    },
+    blockOptions: [
+      { label: "Base", value: "If the current node is empty: Return 0." },
+      { label: "Left", value: "Ask the left child for its depth." },
+      { label: "Right", value: "Ask the right child for its depth." },
+      { label: "Combine", value: "Return one plus the larger depth." },
+    ],
+  },
+  {
     id: "first-unique-index-v1",
     label: "First Unique Index",
     lesson: {

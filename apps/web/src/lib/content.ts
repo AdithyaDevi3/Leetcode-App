@@ -397,6 +397,108 @@ Return the tasks.`,
     ],
   },
   {
+    id: "two-sum-window-v1",
+    label: "Two Sum Window",
+    lesson: {
+      eyebrow: "Two pointers · Windows",
+      title: "Move both ends with intent",
+      summary:
+        "Two pointers let you search a sorted range by shrinking the problem from both sides. You choose the side that can safely move without missing the answer.",
+      principle:
+        "Compare the current total with the target, then move the left pointer up or the right pointer down depending on whether the sum is too small or too large.",
+    },
+    problem: {
+      title: "Two Sum Window",
+      prompt:
+        "Given a sorted list of integers and a target, return the positions of two values whose sum equals the target.",
+      example: {
+        input: "values = [1, 3, 4, 6, 8, 11], target = 10",
+        output: "[1, 4]",
+        note: "3 + 7 would work if 7 were present, but here 4 + 6 is the valid pair.",
+      },
+      constraints: [
+        "2 ≤ values.length ≤ 100,000",
+        "The list is sorted in nondecreasing order",
+        "Aim for O(n) time and O(1) extra space",
+      ],
+    },
+    starterDraft: `Start one pointer at the beginning and one at the end.
+While the left pointer is before the right pointer:
+  Add the two values.
+  If the sum is too small, move the left pointer right.
+  If the sum is too large, move the right pointer left.
+  If the sum matches, return both positions.`,
+    flawedDraft: `Check every possible pair.
+Return the first pair that matches.`,
+    codeFunction: "twoSumWindow",
+    codeSignature: "values: number[], target: number",
+    trace: {
+      title: "values",
+      subtitle: "pointers converge toward the target",
+      values: [1, 3, 4, 6, 8, 11],
+      highlights: [1, 3],
+    },
+    blockOptions: [
+      { label: "Start", value: "Start one pointer at the beginning and one at the end." },
+      { label: "Loop", value: "While the left pointer is before the right pointer:" },
+      { label: "Compare", value: "Add the two values." },
+      { label: "Move Left", value: "If the sum is too small, move the left pointer right." },
+      { label: "Move Right", value: "If the sum is too large, move the right pointer left." },
+      { label: "Return", value: "If the sum matches, return both positions." },
+    ],
+  },
+  {
+    id: "coin-change-lite-v1",
+    label: "Coin Change Lite",
+    lesson: {
+      eyebrow: "Dynamic programming · Optimization",
+      title: "Build from the cheapest subproblem",
+      summary:
+        "When a problem asks for the minimum of many combinations, dynamic programming helps by caching the best answer for each smaller amount and reusing it.",
+      principle:
+        "For each amount, consider every coin that could finish it and keep the smallest number of coins seen so far.",
+    },
+    problem: {
+      title: "Coin Change Lite",
+      prompt:
+        "Given coin values and a target amount, return the minimum number of coins needed to make the amount, or -1 if it is impossible.",
+      example: {
+        input: "coins = [1, 3, 4], amount = 6",
+        output: "2",
+        note: "Two coins of value 3 make the amount with the fewest pieces.",
+      },
+      constraints: [
+        "1 ≤ coins.length ≤ 10",
+        "1 ≤ amount ≤ 1000",
+        "Aim for O(coins * amount) time",
+      ],
+    },
+    starterDraft: `Create an array of best answers for each amount.
+Set the answer for zero to zero.
+For each amount up to the target:
+  Try each coin that could be used.
+  Keep the smallest number of coins found.
+Return the answer for the target amount or -1.`,
+    flawedDraft: `Try random coin combinations until one works.
+Return the first answer found.`,
+    codeFunction: "coinChangeLite",
+    codeSignature: "coins: number[], amount: number",
+    trace: {
+      title: "amount",
+      subtitle: "best answers accumulate forward",
+      values: [0, 1, 2, 3, 4, 5, 6],
+      highlights: [1, 3, 6],
+    },
+    blockOptions: [
+      { label: "State", value: "Create an array of best answers for each amount." },
+      { label: "Base", value: "Set the answer for zero to zero." },
+      { label: "Loop", value: "For each amount up to the target:" },
+      { label: "Try", value: "Try each coin that could be used." },
+      { label: "Best", value: "Keep the smallest number of coins found." },
+      { label: "Return", value: "Return the answer for the target amount or -1." },
+    ],
+  },
+  {
     id: "first-unique-index-v1",
     label: "First Unique Index",
     lesson: {

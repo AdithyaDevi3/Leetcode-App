@@ -11,7 +11,6 @@
     "test:e2e": "playwright test"
   },
   "dependencies": {
-    "@auth/pg-adapter": "^2.8.0",
     "@leetcode-app/database": "workspace:*",
     "@leetcode-app/domain": "workspace:*",
     "lucide-react": "^1.26.0",
@@ -32,6 +31,7 @@
     "tailwindcss": "^4",
     "testcontainers": "^10.17.1",
     "typescript": "^5",
+    "vite": "^8.2.2",
     "vitest": "^4.1.10"
   },
   "overrides": {

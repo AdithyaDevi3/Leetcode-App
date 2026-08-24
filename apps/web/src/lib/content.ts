@@ -190,6 +190,110 @@ Return one plus the left child depth.`,
     ],
   },
   {
+    id: "balanced-brackets-v1",
+    label: "Balanced Brackets",
+    lesson: {
+      eyebrow: "Stacks · Validation",
+      title: "Match the most recent opener",
+      summary:
+        "A stack is useful when the next thing you need to match is the most recent unresolved item. Bracket validation is a classic example of that LIFO shape.",
+      principle:
+        "Push openers as they arrive, and when a closer appears, compare it with the most recent opener. If they do not match, the string is invalid.",
+    },
+    problem: {
+      title: "Balanced Brackets",
+      prompt:
+        "Given a string containing brackets, return whether the brackets are balanced and correctly nested.",
+      example: {
+        input: "text = \"{[()()]}\"",
+        output: "true",
+        note: "Every closer matches the most recent compatible opener.",
+      },
+      constraints: [
+        "1 ≤ text.length ≤ 100,000",
+        "Use O(n) time and O(n) space",
+        "Support (), {}, and []",
+      ],
+    },
+    starterDraft: `Create an empty stack.
+For each character in the text:
+  If it is an opener, push it on the stack.
+  If it is a closer, compare it with the top of the stack.
+  If they do not match, return false.
+Return whether the stack is empty.`,
+    flawedDraft: `For each character in the text:
+  If it is an opener, remember it.
+  If it is a closer, check whether any opener exists.
+Return true.`,
+    codeFunction: "isBalanced",
+    codeSignature: "text: string",
+    trace: {
+      title: "text",
+      subtitle: "stack grows and shrinks with nesting",
+      values: [1, 2, 3, 3, 2, 1],
+      highlights: [0, 2, 4],
+    },
+    blockOptions: [
+      { label: "State", value: "Create an empty stack." },
+      { label: "Loop", value: "For each character in the text:" },
+      { label: "Push", value: "If it is an opener, push it on the stack." },
+      { label: "Match", value: "If it is a closer, compare it with the top of the stack." },
+      { label: "Fail", value: "If they do not match, return false." },
+      { label: "Finish", value: "Return whether the stack is empty." },
+    ],
+  },
+  {
+    id: "climb-stairs-v1",
+    label: "Climb Stairs",
+    lesson: {
+      eyebrow: "Dynamic programming · Basics",
+      title: "Remember the smaller answers",
+      summary:
+        "Dynamic programming starts when a problem keeps asking for the same smaller answers. Once you store them, the larger answer becomes a simple combination step.",
+      principle:
+        "The number of ways to reach step n comes from the two previous steps. Each answer depends only on a tiny sliding history.",
+    },
+    problem: {
+      title: "Climb Stairs",
+      prompt:
+        "Given a staircase with n steps, return how many distinct ways you can climb to the top if you may climb one or two steps at a time.",
+      example: {
+        input: "n = 4",
+        output: "5",
+        note: "The distinct paths are 1+1+1+1, 1+1+2, 1+2+1, 2+1+1, and 2+2.",
+      },
+      constraints: [
+        "1 ≤ n ≤ 45",
+        "Use O(n) time",
+        "Aim for O(1) extra space",
+      ],
+    },
+    starterDraft: `If there are no steps, return 1.
+If there is one step, return 1.
+Keep the last two answers.
+For each larger step count:
+  Add the previous two answers.
+Return the latest answer.`,
+    flawedDraft: `For each step:
+  Add the current step count to the answer.
+Return the answer.`,
+    codeFunction: "climbStairs",
+    codeSignature: "n: number",
+    trace: {
+      title: "steps",
+      subtitle: "ways grow like a small recurrence",
+      values: [1, 2, 3, 4, 5],
+      highlights: [1, 2, 3],
+    },
+    blockOptions: [
+      { label: "Base", value: "If there are no steps, return 1." },
+      { label: "Seed", value: "If there is one step, return 1." },
+      { label: "State", value: "Keep the last two answers." },
+      { label: "Update", value: "For each larger step count: Add the previous two answers." },
+      { label: "Return", value: "Return the latest answer." },
+    ],
+  },
+  {
     id: "first-unique-index-v1",
     label: "First Unique Index",
     lesson: {

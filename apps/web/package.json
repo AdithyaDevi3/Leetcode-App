@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@auth/pg-adapter": "^2.8.0",
@@ -27,6 +28,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.2.11",
+    "@playwright/test": "^1.55.0",
     "tailwindcss": "^4",
     "testcontainers": "^10.17.1",
     "typescript": "^5",

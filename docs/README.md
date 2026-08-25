@@ -10,6 +10,7 @@ This directory is the source of truth for what the product should do, how it sho
 | [Implementation roadmap](IMPLEMENTATION_ROADMAP.md) | Dependency-ordered phases, issue-sized work packages, acceptance checks, and the next 12 issues |
 | [Target architecture](ARCHITECTURE.md) | Repository/runtime boundaries, domains, data model, AST, APIs, security boundaries, and ADRs |
 | [Development guide](DEVELOPMENT.md) | Local setup, validation, issue/PR workflow, coding boundaries, tests, migrations, security, and deployment |
+| [Preflight checks](PREFLIGHT.md) | Running the same checks CI runs, locally, before opening a pull request |
 | [Requirements matrix](REQUIREMENTS_MATRIX.md) | Stable requirement IDs, current status, target phase, and acceptance evidence |
 
 ## Recommended reading order

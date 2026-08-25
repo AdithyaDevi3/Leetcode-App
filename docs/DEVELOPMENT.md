@@ -7,19 +7,31 @@ This guide covers the current repository and the conventions to preserve as the 
 Current web app:
 
 - Node.js 24 LTS.
-- npm matching the lockfile format.
+- pnpm 9.x (the workspace `packageManager` field pins this; see the pnpm note below).
 - Git.
 - Docker Desktop for production-image checks.
 
 Later persistent phases also require PostgreSQL and the selected queue/cache emulators. Add those through a checked-in container composition file when their first feature lands; do not require developers to install databases globally.
 
+### pnpm self-managed version note
+
+The root `package.json` pins `packageManager: pnpm@9.0.0`. Recent pnpm releases try to
+self-switch to that exact pinned version on every invocation, which can fail if the
+switch cannot reach the registry or resolve a cached copy (`ENOENT` on a
+`.pnpm-store/.../bin/pnpm` path, or a `fetch failed` error). The repository's
+`.npmrc` disables this self-management (`manage-package-manager-versions=false`) so
+`pnpm` always uses whatever version is already on your `PATH` instead of trying to
+download a pinned one. If you still hit a pnpm version error locally, confirm your
+`.npmrc` includes that setting.
+
 ## Clone and run
 
 ```bash
 git clone https://github.com/AdithyaDevi3/Leetcode-App.git
-cd Leetcode-App/apps/web
-npm ci
-npm run dev
+cd Leetcode-App
+pnpm install
+cd apps/web
+pnpm dev
 ```
 
 Open `http://localhost:3000`. The current app uses local storage and needs no environment variables.
@@ -29,10 +41,21 @@ Open `http://localhost:3000`. The current app uses local storage and needs no en
 Run before every pull request:
 
 ```bash
-cd apps/web
-npm run lint
-npm test
-npm run build
+pnpm preflight
+```
+
+This runs the same checks CI runs for the web workspace — install, lint, type
+check, tests, and build — auto-fixing lint issues where possible and printing a
+pass/fail summary. Fix anything it reports as failing, then re-run it until it
+passes before opening the PR. See [PREFLIGHT.md](PREFLIGHT.md) for details.
+
+Equivalent manual commands, if you want to run a single step:
+
+```bash
+pnpm --filter web lint
+pnpm --filter web typecheck
+pnpm -r test
+pnpm --filter web build
 ```
 
 Build and smoke-test the production container:

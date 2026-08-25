@@ -34,7 +34,9 @@ cd apps/web
 pnpm dev
 ```
 
-Open `http://localhost:3000`. The current app uses local storage and needs no environment variables.
+Open `http://localhost:3000`. Copy `apps/web/.env.example` to `apps/web/.env.local` and fill in
+Postgres, `AUTH_SECRET`, and OAuth provider credentials before signing in; the practice workspace
+itself still falls back to local storage when signed out.
 
 ## Current validation
 
@@ -262,7 +264,11 @@ npx vercel@latest       # preview after the first project deployment
 npx vercel@latest --prod
 ```
 
-The current project requires no runtime environment variables. Connect the GitHub repository with `apps/web` as Vercel's root directory for automatic deployments.
+The project now requires the runtime environment variables listed in
+`apps/web/.env.example` (Postgres connection, `AUTH_SECRET`, and OAuth provider
+credentials). Set these as Vercel project environment variables before the
+first deploy. Connect the GitHub repository with `apps/web` as Vercel's root
+directory for automatic deployments.
 
 ### Target delivery flow
 

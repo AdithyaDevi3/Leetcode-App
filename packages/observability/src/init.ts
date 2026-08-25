@@ -15,7 +15,6 @@ export interface ObservabilityConfig {
   serviceVersion?: string;
   environment?: string;
   otlpEndpoint?: string;
-  samplingRate?: number;
 }
 
 let sdkInstance: NodeSDK | null = null;
@@ -31,7 +30,6 @@ export function initObservability(config: ObservabilityConfig): void {
     serviceVersion = '0.1.0',
     environment = 'development',
     otlpEndpoint = process.env.OTEL_EXPORTER_OTLP_ENDPOINT || 'http://localhost:4318',
-    samplingRate = environment === 'production' ? 0.1 : 1.0,
   } = config;
 
   // Resource describes the service

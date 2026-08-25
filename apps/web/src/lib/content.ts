@@ -88,6 +88,417 @@ Return no pair.`,
     ],
   },
   {
+    id: "max-window-sum-v1",
+    label: "Max Window Sum",
+    lesson: {
+      eyebrow: "Windows · Sliding window",
+      title: "Hold a moving slice",
+      summary:
+        "A sliding window keeps only the information you need for the current range. The trick is to update the window incrementally instead of recomputing every slice from scratch.",
+      principle:
+        "Track the current sum, subtract the element that leaves the window, and add the new element that enters. That keeps each step constant-time.",
+    },
+    problem: {
+      title: "Max Window Sum",
+      prompt:
+        "Given a list of integers and a window size, return the largest sum of any contiguous window of that size.",
+      example: {
+        input: "values = [2, 1, 5, 1, 3, 2], size = 3",
+        output: "9",
+        note: "The window [5, 1, 3] has the largest sum.",
+      },
+      constraints: [
+        "1 ≤ values.length ≤ 100,000",
+        "1 ≤ size ≤ values.length",
+        "Aim for O(n) time and O(1) extra space",
+      ],
+    },
+    starterDraft: `Track the sum of the first window.
+For each new position after that:
+  Remove the value that leaves the window.
+  Add the value that enters the window.
+  Update the best sum if the current sum is larger.
+Return the best sum.`,
+    flawedDraft: `For each window:
+  Add every value in the window.
+  If the sum is larger than before, keep it.
+Return the largest sum.`,
+    codeFunction: "maxWindowSum",
+    codeSignature: "values: number[], size: number",
+    trace: {
+      title: "values",
+      subtitle: "window size 3",
+      values: [2, 1, 5, 1, 3, 2],
+      highlights: [2, 3, 4],
+    },
+    blockOptions: [
+      { label: "State", value: "Track the sum of the first window." },
+      { label: "Slide", value: "For each new position after that:" },
+      { label: "Remove", value: "Remove the value that leaves the window." },
+      { label: "Add", value: "Add the value that enters the window." },
+      { label: "Best", value: "Update the best sum if the current sum is larger." },
+      { label: "Return", value: "Return the best sum." },
+    ],
+  },
+  {
+    id: "tree-max-depth-v1",
+    label: "Tree Max Depth",
+    lesson: {
+      eyebrow: "Recursion · Trees",
+      title: "Let the shape recurse",
+      summary:
+        "Tree problems often become simpler when each node trusts its children to solve their own subproblems. The parent only needs to combine the returned answers.",
+      principle:
+        "Ask each child for its depth, take the larger one, and add one for the current node. The recursion naturally follows the tree structure.",
+    },
+    problem: {
+      title: "Tree Max Depth",
+      prompt:
+        "Given the root of a binary tree, return the maximum depth of the tree.",
+      example: {
+        input: "tree = [3, 9, 20, null, null, 15, 7]",
+        output: "3",
+        note: "The longest path has three nodes.",
+      },
+      constraints: [
+        "1 ≤ number of nodes ≤ 10,000",
+        "Use recursion or an explicit stack",
+        "Aim for O(n) time and O(h) space",
+      ],
+    },
+    starterDraft: `If the current node is empty:
+  Return 0.
+Ask the left child for its depth.
+Ask the right child for its depth.
+Return one plus the larger depth.`,
+    flawedDraft: `If the current node is empty:
+  Return 0.
+Return one plus the left child depth.`,
+    codeFunction: "maxDepth",
+    codeSignature: "root: TreeNode | null",
+    trace: {
+      title: "tree",
+      subtitle: "depth grows down each branch",
+      values: [3, 9, 20, 15, 7],
+      highlights: [0, 2, 3],
+    },
+    blockOptions: [
+      { label: "Base", value: "If the current node is empty: Return 0." },
+      { label: "Left", value: "Ask the left child for its depth." },
+      { label: "Right", value: "Ask the right child for its depth." },
+      { label: "Combine", value: "Return one plus the larger depth." },
+    ],
+  },
+  {
+    id: "balanced-brackets-v1",
+    label: "Balanced Brackets",
+    lesson: {
+      eyebrow: "Stacks · Validation",
+      title: "Match the most recent opener",
+      summary:
+        "A stack is useful when the next thing you need to match is the most recent unresolved item. Bracket validation is a classic example of that LIFO shape.",
+      principle:
+        "Push openers as they arrive, and when a closer appears, compare it with the most recent opener. If they do not match, the string is invalid.",
+    },
+    problem: {
+      title: "Balanced Brackets",
+      prompt:
+        "Given a string containing brackets, return whether the brackets are balanced and correctly nested.",
+      example: {
+        input: "text = \"{[()()]}\"",
+        output: "true",
+        note: "Every closer matches the most recent compatible opener.",
+      },
+      constraints: [
+        "1 ≤ text.length ≤ 100,000",
+        "Use O(n) time and O(n) space",
+        "Support (), {}, and []",
+      ],
+    },
+    starterDraft: `Create an empty stack.
+For each character in the text:
+  If it is an opener, push it on the stack.
+  If it is a closer, compare it with the top of the stack.
+  If they do not match, return false.
+Return whether the stack is empty.`,
+    flawedDraft: `For each character in the text:
+  If it is an opener, remember it.
+  If it is a closer, check whether any opener exists.
+Return true.`,
+    codeFunction: "isBalanced",
+    codeSignature: "text: string",
+    trace: {
+      title: "text",
+      subtitle: "stack grows and shrinks with nesting",
+      values: [1, 2, 3, 3, 2, 1],
+      highlights: [0, 2, 4],
+    },
+    blockOptions: [
+      { label: "State", value: "Create an empty stack." },
+      { label: "Loop", value: "For each character in the text:" },
+      { label: "Push", value: "If it is an opener, push it on the stack." },
+      { label: "Match", value: "If it is a closer, compare it with the top of the stack." },
+      { label: "Fail", value: "If they do not match, return false." },
+      { label: "Finish", value: "Return whether the stack is empty." },
+    ],
+  },
+  {
+    id: "climb-stairs-v1",
+    label: "Climb Stairs",
+    lesson: {
+      eyebrow: "Dynamic programming · Basics",
+      title: "Remember the smaller answers",
+      summary:
+        "Dynamic programming starts when a problem keeps asking for the same smaller answers. Once you store them, the larger answer becomes a simple combination step.",
+      principle:
+        "The number of ways to reach step n comes from the two previous steps. Each answer depends only on a tiny sliding history.",
+    },
+    problem: {
+      title: "Climb Stairs",
+      prompt:
+        "Given a staircase with n steps, return how many distinct ways you can climb to the top if you may climb one or two steps at a time.",
+      example: {
+        input: "n = 4",
+        output: "5",
+        note: "The distinct paths are 1+1+1+1, 1+1+2, 1+2+1, 2+1+1, and 2+2.",
+      },
+      constraints: [
+        "1 ≤ n ≤ 45",
+        "Use O(n) time",
+        "Aim for O(1) extra space",
+      ],
+    },
+    starterDraft: `If there are no steps, return 1.
+If there is one step, return 1.
+Keep the last two answers.
+For each larger step count:
+  Add the previous two answers.
+Return the latest answer.`,
+    flawedDraft: `For each step:
+  Add the current step count to the answer.
+Return the answer.`,
+    codeFunction: "climbStairs",
+    codeSignature: "n: number",
+    trace: {
+      title: "steps",
+      subtitle: "ways grow like a small recurrence",
+      values: [1, 2, 3, 4, 5],
+      highlights: [1, 2, 3],
+    },
+    blockOptions: [
+      { label: "Base", value: "If there are no steps, return 1." },
+      { label: "Seed", value: "If there is one step, return 1." },
+      { label: "State", value: "Keep the last two answers." },
+      { label: "Update", value: "For each larger step count: Add the previous two answers." },
+      { label: "Return", value: "Return the latest answer." },
+    ],
+  },
+  {
+    id: "island-count-v1",
+    label: "Island Count",
+    lesson: {
+      eyebrow: "Graphs · Flood fill",
+      title: "Visit each connected piece once",
+      summary:
+        "Graph traversal becomes manageable when you mark what you have already visited. For grid problems, each cell can belong to one connected region that you explore completely before moving on.",
+      principle:
+        "When you find land that has not been seen before, explore every adjacent land cell and mark them as visited so the same island is not counted twice.",
+    },
+    problem: {
+      title: "Island Count",
+      prompt:
+        "Given a grid of 0s and 1s, return how many connected groups of 1s exist using four-directional adjacency.",
+      example: {
+        input: "grid = [[1,1,0],[0,1,0],[1,0,1]]",
+        output: "3",
+        note: "There are three separate land masses.",
+      },
+      constraints: [
+        "1 ≤ rows, cols ≤ 300",
+        "Use O(rows * cols) time",
+        "Track visited cells to avoid repeats",
+      ],
+    },
+    starterDraft: `For each cell in the grid:
+  If the cell is land and has not been visited, start a search.
+  Mark every connected land cell as visited.
+  Increase the island count.
+Return the island count.`,
+    flawedDraft: `For each row in the grid:
+  Count the land cells in that row.
+Return the count.`,
+    codeFunction: "countIslands",
+    codeSignature: "grid: number[][]",
+    trace: {
+      title: "grid",
+      subtitle: "connected land components",
+      values: [1, 1, 0, 0, 1, 0, 1],
+      highlights: [0, 1, 4, 6],
+    },
+    blockOptions: [
+      { label: "Scan", value: "For each cell in the grid:" },
+      { label: "Start", value: "If the cell is land and has not been visited, start a search." },
+      { label: "Mark", value: "Mark every connected land cell as visited." },
+      { label: "Count", value: "Increase the island count." },
+      { label: "Return", value: "Return the island count." },
+    ],
+  },
+  {
+    id: "task-order-v1",
+    label: "Task Order",
+    lesson: {
+      eyebrow: "Queues · Ordering",
+      title: "Process in arrival order",
+      summary:
+        "A queue is the right shape when tasks should be processed in the same order they arrive. That structure is common in breadth-first exploration and basic scheduling.",
+      principle:
+        "Put new work at the back, take work from the front, and continue until no tasks remain. The order stays stable as the queue grows and shrinks.",
+    },
+    problem: {
+      title: "Task Order",
+      prompt:
+        "Given a list of tasks with optional prerequisites, return one valid order that completes every task once all of its prerequisites have been satisfied.",
+      example: {
+        input: "tasks = [A, B, C], prereqs = [[A, B], [B, C]]",
+        output: "[C, B, A]",
+        note: "C must finish before B, and B before A.",
+      },
+      constraints: [
+        "1 ≤ tasks.length ≤ 10,000",
+        "Use O(tasks + prereqs) time",
+        "Handle cycles by reporting that no order exists",
+      ],
+    },
+    starterDraft: `Count the prerequisites for each task.
+Put tasks with no prerequisites in a queue.
+While the queue is not empty:
+  Remove the next task.
+  Add it to the order.
+  Reduce the prerequisite count for its dependents.
+  Add newly available tasks to the queue.
+Return the order if every task was scheduled.`,
+    flawedDraft: `Put the tasks in any order.
+Return the tasks.`,
+    codeFunction: "taskOrder",
+    codeSignature: "tasks: string[]",
+    trace: {
+      title: "tasks",
+      subtitle: "frontier of ready work",
+      values: [0, 1, 2, 3],
+      highlights: [0],
+    },
+    blockOptions: [
+      { label: "Count", value: "Count the prerequisites for each task." },
+      { label: "Queue", value: "Put tasks with no prerequisites in a queue." },
+      { label: "Process", value: "While the queue is not empty:" },
+      { label: "Schedule", value: "Remove the next task. Add it to the order." },
+      { label: "Unlock", value: "Reduce the prerequisite count for its dependents." },
+      { label: "Return", value: "Return the order if every task was scheduled." },
+    ],
+  },
+  {
+    id: "two-sum-window-v1",
+    label: "Two Sum Window",
+    lesson: {
+      eyebrow: "Two pointers · Windows",
+      title: "Move both ends with intent",
+      summary:
+        "Two pointers let you search a sorted range by shrinking the problem from both sides. You choose the side that can safely move without missing the answer.",
+      principle:
+        "Compare the current total with the target, then move the left pointer up or the right pointer down depending on whether the sum is too small or too large.",
+    },
+    problem: {
+      title: "Two Sum Window",
+      prompt:
+        "Given a sorted list of integers and a target, return the positions of two values whose sum equals the target.",
+      example: {
+        input: "values = [1, 3, 4, 6, 8, 11], target = 10",
+        output: "[1, 4]",
+        note: "3 + 7 would work if 7 were present, but here 4 + 6 is the valid pair.",
+      },
+      constraints: [
+        "2 ≤ values.length ≤ 100,000",
+        "The list is sorted in nondecreasing order",
+        "Aim for O(n) time and O(1) extra space",
+      ],
+    },
+    starterDraft: `Start one pointer at the beginning and one at the end.
+While the left pointer is before the right pointer:
+  Add the two values.
+  If the sum is too small, move the left pointer right.
+  If the sum is too large, move the right pointer left.
+  If the sum matches, return both positions.`,
+    flawedDraft: `Check every possible pair.
+Return the first pair that matches.`,
+    codeFunction: "twoSumWindow",
+    codeSignature: "values: number[], target: number",
+    trace: {
+      title: "values",
+      subtitle: "pointers converge toward the target",
+      values: [1, 3, 4, 6, 8, 11],
+      highlights: [1, 3],
+    },
+    blockOptions: [
+      { label: "Start", value: "Start one pointer at the beginning and one at the end." },
+      { label: "Loop", value: "While the left pointer is before the right pointer:" },
+      { label: "Compare", value: "Add the two values." },
+      { label: "Move Left", value: "If the sum is too small, move the left pointer right." },
+      { label: "Move Right", value: "If the sum is too large, move the right pointer left." },
+      { label: "Return", value: "If the sum matches, return both positions." },
+    ],
+  },
+  {
+    id: "coin-change-lite-v1",
+    label: "Coin Change Lite",
+    lesson: {
+      eyebrow: "Dynamic programming · Optimization",
+      title: "Build from the cheapest subproblem",
+      summary:
+        "When a problem asks for the minimum of many combinations, dynamic programming helps by caching the best answer for each smaller amount and reusing it.",
+      principle:
+        "For each amount, consider every coin that could finish it and keep the smallest number of coins seen so far.",
+    },
+    problem: {
+      title: "Coin Change Lite",
+      prompt:
+        "Given coin values and a target amount, return the minimum number of coins needed to make the amount, or -1 if it is impossible.",
+      example: {
+        input: "coins = [1, 3, 4], amount = 6",
+        output: "2",
+        note: "Two coins of value 3 make the amount with the fewest pieces.",
+      },
+      constraints: [
+        "1 ≤ coins.length ≤ 10",
+        "1 ≤ amount ≤ 1000",
+        "Aim for O(coins * amount) time",
+      ],
+    },
+    starterDraft: `Create an array of best answers for each amount.
+Set the answer for zero to zero.
+For each amount up to the target:
+  Try each coin that could be used.
+  Keep the smallest number of coins found.
+Return the answer for the target amount or -1.`,
+    flawedDraft: `Try random coin combinations until one works.
+Return the first answer found.`,
+    codeFunction: "coinChangeLite",
+    codeSignature: "coins: number[], amount: number",
+    trace: {
+      title: "amount",
+      subtitle: "best answers accumulate forward",
+      values: [0, 1, 2, 3, 4, 5, 6],
+      highlights: [1, 3, 6],
+    },
+    blockOptions: [
+      { label: "State", value: "Create an array of best answers for each amount." },
+      { label: "Base", value: "Set the answer for zero to zero." },
+      { label: "Loop", value: "For each amount up to the target:" },
+      { label: "Try", value: "Try each coin that could be used." },
+      { label: "Best", value: "Keep the smallest number of coins found." },
+      { label: "Return", value: "Return the answer for the target amount or -1." },
+    ],
+  },
+  {
     id: "first-unique-index-v1",
     label: "First Unique Index",
     lesson: {

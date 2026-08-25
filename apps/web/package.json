@@ -8,24 +8,32 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
+    "test:e2e": "playwright test",
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf .next dist"
   },
   "dependencies": {
+    "@leetcode-app/database": "workspace:*",
+    "@leetcode-app/domain": "workspace:*",
     "lucide-react": "^1.26.0",
     "next": "16.2.11",
+    "next-auth": "^5.0.0-beta.25",
     "react": "19.2.4",
     "react-dom": "19.2.4"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
+    "@types/pg": "^8.11.10",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.2.11",
+    "@playwright/test": "^1.55.0",
     "tailwindcss": "^4",
+    "testcontainers": "^10.17.1",
     "typescript": "^5",
+    "vite": "^8.2.2",
     "vitest": "^4.1.10"
   },
   "overrides": {

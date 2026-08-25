@@ -43,7 +43,15 @@ For each value and position:
   });
 
   it("approves the first-unique-index strategy with the matching rubric", () => {
-    const result = evaluatePseudocode(practiceItems[1].starterDraft, practiceItems[1].id);
+    const firstUniquePracticeItem = practiceItems.find(
+      (item) => item.id === "first-unique-index-v1",
+    );
+    expect(firstUniquePracticeItem).toBeDefined();
+
+    const result = evaluatePseudocode(
+      firstUniquePracticeItem!.starterDraft,
+      firstUniquePracticeItem!.id,
+    );
 
     expect(result.approved).toBe(true);
     expect(result.score).toBe(100);

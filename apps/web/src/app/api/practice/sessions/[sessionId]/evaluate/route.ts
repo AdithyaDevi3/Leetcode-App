@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth/session';
 import { evaluatePracticeRevision } from '@/lib/practice-api';
+import { enqueueEvaluationJob, runEvaluationJob } from '@/lib/evaluation-jobs';
 
 export async function POST(
   request: Request,
@@ -15,13 +16,26 @@ export async function POST(
       return NextResponse.json({ error: 'revisionNumber is required' }, { status: 400 });
     }
 
-    const result = await evaluatePracticeRevision({
+    const job = enqueueEvaluationJob({
       userId: session.user.id,
       sessionId,
       revisionNumber: body.revisionNumber,
     });
 
-    return NextResponse.json(result);
+    await runEvaluationJob(job.id, async () =>
+      evaluatePracticeRevision({
+        userId: session.user.id,
+        sessionId,
+        revisionNumber: body.revisionNumber,
+      }),
+    );
+
+    return NextResponse.json({
+      jobId: job.id,
+      status: job.status,
+      queuePosition: job.queuePosition,
+      queuedAt: job.queuedAt,
+    }, { status: 202 });
   } catch (error) {
     if (error instanceof Error) {
       if (error.message === 'Unauthorized: Authentication required') {

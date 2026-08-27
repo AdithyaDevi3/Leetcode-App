@@ -33,8 +33,8 @@ const jobs = new Map<string, EvaluationJob>();
 const jobKeys = new Map<string, string>();
 const deadLetter = new Set<string>();
 
-const buildJobKey = (request: Pick<EvaluationJobRequest, 'sessionId' | 'revisionNumber' | 'evaluatorVersion' | 'rubricVersion'>) =>
-  [request.sessionId, request.revisionNumber, request.evaluatorVersion ?? 'v1', request.rubricVersion ?? 'rubric-v1'].join(':');
+const buildJobKey = (request: Pick<EvaluationJobRequest, 'userId' | 'sessionId' | 'revisionNumber' | 'evaluatorVersion' | 'rubricVersion'>) =>
+  [request.userId, request.sessionId, request.revisionNumber, request.evaluatorVersion ?? 'v1', request.rubricVersion ?? 'rubric-v1'].join(':');
 
 async function completeJob(job: EvaluationJob, executor: () => Promise<unknown> | unknown) {
   job.status = 'running';
@@ -42,6 +42,7 @@ async function completeJob(job: EvaluationJob, executor: () => Promise<unknown> 
 
   try {
     const result = await executor();
+    if (job.status === 'canceled') return;
     job.result = result;
     job.status = 'completed';
     job.completedAt = new Date().toISOString();

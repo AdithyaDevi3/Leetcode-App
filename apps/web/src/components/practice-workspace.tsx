@@ -58,6 +58,9 @@ export function PracticeWorkspace() {
   const [code, setCode] = useState(defaultCode(defaultPracticeItem.codeFunction, defaultPracticeItem.codeSignature));
   const [codeChecked, setCodeChecked] = useState(false);
   const [completed, setCompleted] = useState(false);
+  const [evaluationStatus, setEvaluationStatus] = useState<'idle' | 'queued' | 'running' | 'completed' | 'failed'>('idle');
+  const [evaluationJobId, setEvaluationJobId] = useState<string | null>(null);
+  const [remoteRevision, setRemoteRevision] = useState(1);
   const activePracticeItem = getPracticeItem(activePracticeId);
   const storageKey = sessionStorageKey(activePracticeItem.id);
   const blockOptions = activePracticeItem.blockOptions;
@@ -139,6 +142,7 @@ export function PracticeWorkspace() {
         sessionId: savedRemoteSessionId ?? undefined,
       })
         .then((result) => {
+          setRemoteRevision(result.revisionNumber);
           setSyncStatus(result.status);
           setSavedAt(result.status === "saved" ? "Saved to server" : result.status === "conflict" ? "Conflict" : "Offline draft");
           if (result.sessionId) {
@@ -185,6 +189,34 @@ export function PracticeWorkspace() {
 
   const evaluationFindings = evaluation?.findings ?? evaluatePseudocode("", activePracticeItem.id).findings;
   const approved = evaluation?.approved ?? false;
+
+  useEffect(() => {
+    if (!evaluationJobId || (evaluationStatus !== 'queued' && evaluationStatus !== 'running')) return;
+    const timer = window.setInterval(() => {
+      void fetch(`/api/practice/sessions/${readCachedPracticeSessionId(activePracticeItem.id)}/evaluate/${evaluationJobId}`)
+        .then((response) => response.ok ? response.json() : Promise.reject(new Error('Evaluation status unavailable')))
+        .then((body: { status: typeof evaluationStatus; result?: { evaluation?: Evaluation }; error?: string }) => {
+          if (body.status === 'completed') { setEvaluation(body.result?.evaluation ?? null); setEvaluationStatus('completed'); }
+          else if (body.status === 'failed') setEvaluationStatus('failed');
+          else setEvaluationStatus(body.status);
+        })
+        .catch(() => setEvaluationStatus('failed'));
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [activePracticeItem.id, evaluationJobId, evaluationStatus]);
+
+  const submitEvaluation = async () => {
+    if (!draft.trim() || evaluationStatus === 'queued' || evaluationStatus === 'running') return;
+    const sessionId = readCachedPracticeSessionId(activePracticeItem.id);
+    if (!sessionId) { setEvaluation(evaluatePseudocode(draft, activePracticeItem.id)); return; }
+    setEvaluationStatus('queued');
+    try {
+      const response = await fetch(`/api/practice/sessions/${sessionId}/evaluate`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ revisionNumber: remoteRevision }) });
+      if (!response.ok) throw new Error('Evaluation request failed');
+      const body = await response.json() as { jobId: string; status: 'queued' | 'running' | 'completed' };
+      setEvaluationJobId(body.jobId); setEvaluationStatus(body.status);
+    } catch { setEvaluationStatus('failed'); setEvaluation(evaluatePseudocode(draft, activePracticeItem.id)); }
+  };
   const secureConceptCount = completed ? 4 : 3;
   const progressPercent = Math.round((secureConceptCount / 7) * 100);
   const implementationSource = stripCodeComments(code);
@@ -547,10 +579,11 @@ export function PracticeWorkspace() {
                   </div>
                   <button
                     className="button"
-                    onClick={() => setEvaluation(evaluatePseudocode(draft, activePracticeItem.id))}
+                    disabled={!draft.trim() || evaluationStatus === 'queued' || evaluationStatus === 'running'}
+                    onClick={() => void submitEvaluation()}
                     type="button"
                   >
-                    <Sparkles size={16} /> Evaluate reasoning
+                    <Sparkles size={16} /> {evaluationStatus === 'queued' || evaluationStatus === 'running' ? 'Evaluating…' : evaluationStatus === 'failed' ? 'Retry evaluation' : 'Evaluate reasoning'}
                   </button>
                 </div>
               </div>

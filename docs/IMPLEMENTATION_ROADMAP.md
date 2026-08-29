@@ -32,6 +32,11 @@ This section supplements the roadmap; it does not replace or reorder the phases 
 - Phase 7 has an ordered, account-safe offline revision queue foundation.
 - Phase 8 has a validated system-design document model.
 - Phase 9 has a release-readiness checklist.
+- Phase 3 now also includes a protected worker trigger, gold-set fixtures, quality metrics, and second-pass appeal triage.
+- Phase 5 now includes a server-only Judge0 adapter and an execution safety policy; durable execution queues and sandbox operations remain required.
+- Phase 6 now includes lifecycle transition rules for content versions.
+- Phase 7 now includes PWA metadata/offline fallback plus notification preference scheduling.
+- Phase 8 now includes a deterministic staged-practice flow.
 - The active implementation branch is `phase-3-evaluation-platform`.
 
 ### Launch target

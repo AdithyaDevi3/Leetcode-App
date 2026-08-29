@@ -43,11 +43,10 @@
 #   value       = module.storage.bucket_name
 # }
 
-# Queue Outputs
-# output "evaluation_queue_url" {
-#   description = "URL of the evaluation queue"
-#   value       = module.queue.evaluation_queue_url
-# }
+output "evaluation_queue_url" {
+  description = "URL of the evaluation queue"
+  value       = module.queue.evaluation_queue_url
+}
 
 # Placeholder for Phase 0.4
 output "environment" {

@@ -14,6 +14,20 @@ permissions:
   contents: read
 
 jobs:
+  evaluation-quality:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: corepack enable
+      - run: pnpm install --filter web... --force --no-frozen-lockfile
+      - run: pnpm --filter web exec vitest run src/lib/evaluation-gold-set.test.ts src/lib/evaluation-quality.test.ts
+
   web:
     runs-on: ubuntu-latest
     steps:

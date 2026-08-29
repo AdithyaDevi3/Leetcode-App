@@ -22,11 +22,13 @@ This section supplements the roadmap; it does not replace or reorder the phases 
 - Persistent practice-session APIs exist for start/resume, revisions, history, evaluation, and completion.
 - Phase 2 foundations include AST/static-analysis work, versioned rubric structures, and strategy classification.
 - The Phase 3 evaluation boundary now returns job IDs and supports polling and cancellation.
+- Evaluation worker triggers recover expired durable leases before processing; exhausted evaluation jobs are dead-lettered and expired execution jobs fail without a duplicate sandbox run.
 - Evaluation jobs include idempotency, retry accounting, dead-letter state, queue-age metrics, and bounded trace execution.
 - The AI gateway boundary includes redaction, timeout, schema validation, deterministic evidence merging, and a disabled-by-default kill switch.
 - Learner appeal records, reviewer resolution state, and immutable appeal audit events are represented.
 - A reversible PostgreSQL migration and adapter now define durable evaluation jobs, appeals, and audit storage; production route selection is controlled by `EVALUATION_JOB_STORE=postgres`, while worker deployment remains a launch task.
 - Phase 4 foundations now include a validated concept graph, interpretable mastery updates, and explainable recommendation selection.
+- Phase 4 now includes onboarding, a persisted learner profile, and a profile-derived initial plan endpoint/page (pending the current working-tree commit).
 - Phase 5 has a bounded execution request/result contract; selecting and operating a sandbox remains required.
 - Phase 6 has content-publication validation and least-privilege administration authorization foundations.
 - Phase 7 has an ordered, account-safe offline revision queue foundation.
@@ -34,6 +36,7 @@ This section supplements the roadmap; it does not replace or reorder the phases 
 - Phase 9 has a release-readiness checklist.
 - Phase 3 now also includes a protected worker trigger, gold-set fixtures, quality metrics, and second-pass appeal triage.
 - Phase 5 now includes a server-only Judge0 adapter and an execution safety policy; durable execution queues and sandbox operations remain required.
+- Evaluation and execution queue health endpoints, request correlation IDs, and bounded in-process per-user submission limits are now present; production alerting and distributed enforcement remain required.
 - Phase 6 now includes lifecycle transition rules for content versions.
 - Phase 7 now includes PWA metadata/offline fallback plus notification preference scheduling.
 - Phase 8 now includes a deterministic staged-practice flow.
@@ -54,13 +57,13 @@ AI evaluation, broad content expansion, social features, native mobile apps, and
 
 ### Required next work, in order
 
-**Launch blocker 1: make evaluation jobs durable.** Replace the process-local job map with a managed database-backed job table or hosted queue plus a worker. Preserve the existing job contract, idempotency key, retry limit, dead-letter state, cancellation behavior, and polling route. Add a migration, worker health check, and a failure-recovery test.
+**Launch blocker 1: verify durable evaluation jobs in staging.** The database-backed job table, worker trigger, polling/cancellation, queue health, idempotency, retry/dead-letter state, and stale-lease recovery are implemented. Deploy the worker and scheduler against managed PostgreSQL, then prove recovery, cancellation, dead-letter, and queue-age alerts with staging failure injection.
 
 **Launch blocker 2: productionize the learner path.** Configure hosted PostgreSQL, authentication/session secrets, production environment variables, migrations, seed content, and a deployment target. Verify object ownership, guest behavior, revision conflicts, and resume behavior in staging.
 
-**Launch blocker 3: make the UI resilient.** Connect the workspace to the API job lifecycle, show saving/saved/conflict states, show evaluation progress, handle retryable failures, and prevent duplicate submissions. Keep the deterministic evaluator as the beta fallback.
+**Launch blocker 3: verify the UI resilience path.** The workspace is connected to evaluation job polling, exposes queued/running/failed/canceled feedback, supports cancellation, observes server backoff, and labels local deterministic fallback. Verify save conflicts, duplicate submissions, and retry flows through browser/staging tests.
 
-**Launch blocker 4: add minimum operations.** Add structured error tracking, request correlation IDs, latency and queue-age metrics, rate limiting, database backups, health checks, and an operator runbook for failed jobs and rollback.
+**Launch blocker 4: finish minimum operations.** Request correlation IDs, queue health, stale-job recovery, and bounded in-process rate limits are implemented. Add structured error tracking, latency/error alerting, distributed rate limits, database backups, and an operator runbook for failed jobs and rollback.
 
 **Launch blocker 5: validate the private beta.** Run clean-database migrations, build/type checks, API tests, accessibility checks, browser smoke tests, backup/restore, queue failure injection, and a small invited-user test. Record defects and prioritize only issues that affect data safety, correctness, accessibility, or the core learning loop.
 

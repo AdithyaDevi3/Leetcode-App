@@ -12,13 +12,15 @@ Implemented foundations:
 - Durable evaluation-job storage, polling/cancellation contracts, worker trigger/worker code, retry and dead-letter state, queue health, and quality fixtures/metrics.
 - Appeals, second-pass triage, reviewer resolution, and appeal audit records.
 - Evaluation safety boundaries: AI kill switch, redaction, schema validation, timeout, and conservative evidence merge.
+- Request correlation, bounded in-process submission rate limits, evaluation/execution queue health, and stale-worker lease recovery.
+- The learner plan API and `/learn` page are implemented in the current working tree and awaiting commit/merge.
 
 Still required before a private beta can be claimed:
 
 - Deploy hosted PostgreSQL, authentication/session configuration, environment secrets, migrations, seed content, and a worker/queue runtime.
 - Make the durable evaluation path the verified production path; prove retry, recovery, cancellation, and dead-letter behavior against staging infrastructure.
-- Complete the learner-facing resilience path: saved/conflict/retry states, duplicate-submission protection, and usable evaluation-progress/failure states.
-- Add and verify error tracking, correlation IDs, rate limits, backups, health checks, alerts, and rollback/failed-job runbooks.
+- Verify learner resilience end-to-end: the UI now exposes evaluation progress, cancellation, retry/backoff, and a labeled local fallback, but needs browser/staging evidence for save conflicts and duplicate submission behavior.
+- Add and verify structured error tracking, distributed rate limits, database backups, alerts, and rollback/failed-job runbooks. Correlation IDs, bounded in-process rate limits, queue health, and stale-job recovery are present in code.
 - Run clean-database migration, API, browser, accessibility, queue-failure, backup/restore, and invited-user beta evidence.
 
 ## Work already present from later phases
@@ -49,7 +51,7 @@ Remaining: staging/production worker operations, trace execution limits with see
 
 ### Phase 4 — learning, mastery, and personalization
 
-Present: concept graph, mastery-update foundation, recommendations, spaced-review scheduling, onboarding-plan/personalization storage, and learner-profile API. An onboarding UI is currently being worked on in the shared worktree.
+Present: concept graph, mastery-update foundation, recommendations, spaced-review scheduling, onboarding-plan/personalization storage, learner-profile API, onboarding UI, and a profile-derived learner-plan API/page awaiting merge.
 
 Remaining: complete onboarding and diagnostic flow, daily home/history/notes/concept-map learner surfaces, stored recommendation outcomes, and pilot evidence for the phase exit criteria.
 

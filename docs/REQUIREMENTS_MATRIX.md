@@ -66,7 +66,7 @@ This matrix tracks the functional and operational requirements defined in [PRODU
 | ID | Requirement | Status | Phase | Acceptance evidence |
 |---|---|---|---|---|
 | PERS-001 | Versioned concept prerequisite graph | Planned | 4 | Cycle/reachability/content mapping validation in CI |
-| PERS-002 | Goal, level, language, availability, and accessibility onboarding | Planned | 4 | Editable preferences and explained initial plan |
+| PERS-002 | Goal, level, language, availability, and accessibility onboarding | In progress | 4 | Persisted profile/onboarding UI and profile-derived initial-plan API/page exist; accessibility and end-to-end evidence remain |
 | PERS-003 | Interpretable mastery per concept | Planned | 4 | Versioned score with event-level explanation |
 | PERS-004 | Rules-based next-activity recommendation | Planned | 4 | Stored factors reproduce selection and alternatives |
 | PERS-005 | “Why this?” explanation and user overrides | Planned | 4 | E2E for reason, too easy/hard, irrelevant, and alternate |

@@ -72,7 +72,7 @@ curl --fail http://localhost:3001/api/health
 Expected health payload:
 
 ```json
-{"status":"ok","service":"method-web"}
+{"status":"ok","service":"method-web","requestId":"..."}
 ```
 
 ## Environment configuration
@@ -100,6 +100,13 @@ AI_PROVIDER_ENDPOINT
 SANDBOX_ENDPOINT
 OTEL_EXPORTER_OTLP_ENDPOINT
 ```
+
+The current private-beta runtime variables are listed in
+`apps/web/.env.example`. Production uses `EVALUATION_JOB_STORE=postgres`, a
+protected evaluation worker token, and an external scheduler. Keep
+`CODE_EXECUTION_ENABLED=false` until the isolated Judge0 provider and execution
+worker are live. The `x-request-id` response header is the correlation value for
+safe support and operational logs.
 
 Secret values such as database passwords, identity client secrets, AI keys, sandbox keys, email keys, and object-storage credentials remain server-only and are never added to `.env.example` as realistic values.
 

@@ -14,4 +14,8 @@ describe('Judge0 sandbox adapter', () => {
     const sandbox = createJudge0Sandbox({ endpoint: 'https://judge.example', token: 'secret', languageIds: { typescript: 74, python: 71 }, fetcher: vi.fn().mockResolvedValue(new Response(JSON.stringify({ status: { id: 5 } }), { status: 201 })) });
     await expect(sandbox.execute(request)).resolves.toMatchObject({ status: 'timed_out' });
   });
+  it('does not mark a nonzero exit as successful when stderr is empty', async () => {
+    const sandbox = createJudge0Sandbox({ endpoint: 'https://judge.example', token: 'secret', languageIds: { typescript: 74, python: 71 }, fetcher: vi.fn().mockResolvedValue(new Response(JSON.stringify({ status: { id: 11 }, exit_code: 1 }), { status: 201 })) });
+    await expect(sandbox.execute(request)).resolves.toMatchObject({ status: 'failed', exitCode: 1 });
+  });
 });

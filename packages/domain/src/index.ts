@@ -21,3 +21,4 @@ export * from './account-lifecycle';
 export * from './spaced-review';
 export * from './content-workflow';
 export * from './onboarding';
+export * from './system-design-flow';

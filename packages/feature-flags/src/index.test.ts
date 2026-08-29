@@ -26,6 +26,7 @@ describe('Feature Flags', () => {
       
       // ai-hints is false by default
       expect(isFeatureEnabled('ai-hints')).toBe(false);
+      expect(isFeatureEnabled('code-execution')).toBe(false);
     });
 
     it('should accept flag overrides', () => {

@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth/session';
 import { evaluatePracticeRevision } from '@/lib/practice-api';
+import { enqueueRuntimeJob, runRuntimeJob } from '@/lib/evaluation-job-runtime';
+import { takeRateLimit } from '@/lib/rate-limit';
 
 export async function POST(
   request: Request,
@@ -15,13 +17,37 @@ export async function POST(
       return NextResponse.json({ error: 'revisionNumber is required' }, { status: 400 });
     }
 
-    const result = await evaluatePracticeRevision({
+    const rateLimit = takeRateLimit(`evaluation:${session.user.id}`, {
+      limit: Number(process.env.EVALUATION_SUBMISSIONS_PER_MINUTE ?? 12),
+      windowMs: 60_000,
+    });
+    if (!rateLimit.allowed) {
+      return NextResponse.json({ error: 'Too many evaluation submissions' }, {
+        status: 429,
+        headers: { 'retry-after': String(rateLimit.retryAfterSeconds) },
+      });
+    }
+
+    const job = await enqueueRuntimeJob({
       userId: session.user.id,
       sessionId,
       revisionNumber: body.revisionNumber,
     });
 
-    return NextResponse.json(result);
+    await runRuntimeJob(job.id, async () =>
+      evaluatePracticeRevision({
+        userId: session.user.id,
+        sessionId,
+        revisionNumber: body.revisionNumber,
+      }),
+    );
+
+    return NextResponse.json({
+      jobId: job.id,
+      status: job.status,
+      queuePosition: job.queuePosition,
+      queuedAt: job.queuedAt,
+    }, { status: 202 });
   } catch (error) {
     if (error instanceof Error) {
       if (error.message === 'Unauthorized: Authentication required') {

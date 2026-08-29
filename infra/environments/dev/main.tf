@@ -89,14 +89,11 @@ locals {
 #   tags        = local.common_tags
 # }
 
-# Queue module (future)
-# module "queue" {
-#   source = "../../modules/queue"
-#   
-#   queue_prefix = "${local.app_name}-${local.environment}"
-#   environment  = local.environment
-#   tags         = local.common_tags
-# }
+module "queue" {
+  source       = "../../modules/queue"
+  queue_prefix = "${local.app_name}-${local.environment}"
+  tags         = local.common_tags
+}
 
 # Observability module (future)
 # module "observability" {

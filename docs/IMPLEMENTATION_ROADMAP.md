@@ -11,6 +11,81 @@ This roadmap is the execution companion to [PRODUCT_PLAN.md](PRODUCT_PLAN.md). I
 - Advance phases only when the exit criteria are evidenced, not merely when code is merged.
 - Keep the [requirements matrix](REQUIREMENTS_MATRIX.md) updated as scope changes.
 
+## Current implementation status and one-week launch track
+
+This section supplements the roadmap; it does not replace or reorder the phases below.
+
+### Completed or currently implemented
+
+- The responsive practice workspace and current hash-map activity are available.
+- Local draft autosave, deterministic rubric evaluation, coding unlock, and TypeScript translation are implemented.
+- Persistent practice-session APIs exist for start/resume, revisions, history, evaluation, and completion.
+- Phase 2 foundations include AST/static-analysis work, versioned rubric structures, and strategy classification.
+- The Phase 3 evaluation boundary now returns job IDs and supports polling and cancellation.
+- Evaluation worker triggers recover expired durable leases before processing; exhausted evaluation jobs are dead-lettered and expired execution jobs fail without a duplicate sandbox run.
+- Evaluation jobs include idempotency, retry accounting, dead-letter state, queue-age metrics, and bounded trace execution.
+- The AI gateway boundary includes redaction, timeout, schema validation, deterministic evidence merging, and a disabled-by-default kill switch.
+- Learner appeal records, reviewer resolution state, and immutable appeal audit events are represented.
+- A reversible PostgreSQL migration and adapter now define durable evaluation jobs, appeals, and audit storage; production route selection is controlled by `EVALUATION_JOB_STORE=postgres`, while worker deployment remains a launch task.
+- Phase 4 foundations now include a validated concept graph, interpretable mastery updates, and explainable recommendation selection.
+- Phase 4 now includes onboarding, a persisted learner profile, and a profile-derived initial plan endpoint/page (pending the current working-tree commit).
+- Phase 5 has a bounded execution request/result contract; selecting and operating a sandbox remains required.
+- Phase 6 has content-publication validation and least-privilege administration authorization foundations.
+- Phase 7 has an ordered, account-safe offline revision queue foundation.
+- Phase 8 has a validated system-design document model.
+- Phase 9 has a release-readiness checklist.
+- Phase 3 now also includes a protected worker trigger, gold-set fixtures, quality metrics, and second-pass appeal triage.
+- Phase 5 now includes a server-only Judge0 adapter and an execution safety policy; durable execution queues and sandbox operations remain required.
+- Evaluation and execution queue health endpoints, request correlation IDs, and bounded in-process per-user submission limits are now present; production alerting and distributed enforcement remain required.
+- Phase 6 now includes lifecycle transition rules for content versions.
+- Phase 7 now includes PWA metadata/offline fallback plus notification preference scheduling.
+- Phase 8 now includes a deterministic staged-practice flow.
+- The active implementation branch is `phase-3-evaluation-platform`.
+
+### Launch target
+
+The near-term target is a functional private beta within one week. The beta should provide one smooth, reliable learning loop for the existing activity rather than attempting to complete every future phase:
+
+1. Authenticate or start as a guest.
+2. Open the lesson and practice workspace.
+3. Save and resume a pseudocode revision across refreshes/devices for signed-in users.
+4. Submit an evaluation and poll its status.
+5. Review deterministic, evidence-linked findings.
+6. Complete the pseudocode activity or unlock the coding workspace.
+
+AI evaluation, broad content expansion, social features, native mobile apps, and system-design learning remain future work. Keep them disabled or out of the beta path until their operational and quality requirements are met.
+
+### Required next work, in order
+
+**Launch blocker 1: verify durable evaluation jobs in staging.** The database-backed job table, worker trigger, polling/cancellation, queue health, idempotency, retry/dead-letter state, and stale-lease recovery are implemented. Deploy the worker and scheduler against managed PostgreSQL, then prove recovery, cancellation, dead-letter, and queue-age alerts with staging failure injection.
+
+**Launch blocker 2: productionize the learner path.** Configure hosted PostgreSQL, authentication/session secrets, production environment variables, migrations, seed content, and a deployment target. Verify object ownership, guest behavior, revision conflicts, and resume behavior in staging.
+
+**Launch blocker 3: verify the UI resilience path.** The workspace is connected to evaluation job polling, exposes queued/running/failed/canceled feedback, supports cancellation, observes server backoff, and labels local deterministic fallback. Verify save conflicts, duplicate submissions, and retry flows through browser/staging tests.
+
+**Launch blocker 4: finish minimum operations.** Request correlation IDs, queue health, stale-job recovery, and bounded in-process rate limits are implemented. Add structured error tracking, latency/error alerting, distributed rate limits, database backups, and an operator runbook for failed jobs and rollback.
+
+**Launch blocker 5: validate the private beta.** Run clean-database migrations, build/type checks, API tests, accessibility checks, browser smoke tests, backup/restore, queue failure injection, and a small invited-user test. Record defects and prioritize only issues that affect data safety, correctness, accessibility, or the core learning loop.
+
+### One-week execution sequence
+
+- **Day 1:** Freeze the beta scope; configure hosting, domain, environment variables, authentication, and managed PostgreSQL.
+- **Day 2:** Implement the durable evaluation job store/worker and migrate the current in-memory contract.
+- **Day 3:** Connect the workspace to persistence and job polling; handle conflicts, retries, cancellation, and duplicate submits.
+- **Day 4:** Add monitoring, rate limits, backups, health checks, seed data, and rollback instructions.
+- **Day 5:** Run staging migrations, end-to-end browser tests, accessibility checks, and failure drills.
+- **Days 6–7:** Invite a small beta group, monitor queue age/errors/latency, fix launch blockers, and avoid adding new roadmap scope.
+
+### Rules for efficient continuation
+
+- Work in small, mergeable slices on `phase-3-evaluation-platform` and keep `main` deployable.
+- Treat the existing API contracts as the compatibility boundary while replacing local adapters with managed services.
+- Prefer managed infrastructure and the deterministic evaluator for the first release.
+- Do not expose AI, code execution, or unfinished features until their feature flags, budgets, safety checks, and rollback path exist.
+- Every change must include its failure behavior, authorization impact, test coverage, and rollout/rollback note.
+- Measure before optimizing: track evaluation latency, queue age, failure rate, duplicate submissions, save conflicts, and user completion rate.
+- After the private beta is stable, return to the numbered roadmap phases and advance only when their stated exit criteria have evidence.
+
 ## Current baseline
 
 Completed in commit `a3a4272`:

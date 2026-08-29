@@ -28,6 +28,21 @@ export const FEATURE_FLAGS = {
     description: 'AI-generated solution explanations',
     defaultValue: false,
   },
+  'ai-evaluation': {
+    description: 'Enable provider-backed evaluation after deterministic checks',
+    defaultValue: false,
+    rolloutPercentage: 0,
+  },
+  'code-execution': {
+    description: 'Enable external sandbox code execution',
+    defaultValue: false,
+    rolloutPercentage: 0,
+  },
+  'notifications': {
+    description: 'Enable in-app, email, and push notification delivery',
+    defaultValue: false,
+    rolloutPercentage: 0,
+  },
 
   // Phase 3: Gamification
   'leaderboards': {

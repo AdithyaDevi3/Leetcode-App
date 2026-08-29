@@ -58,6 +58,13 @@ export function PracticeWorkspace() {
   const [code, setCode] = useState(defaultCode(defaultPracticeItem.codeFunction, defaultPracticeItem.codeSignature));
   const [codeChecked, setCodeChecked] = useState(false);
   const [completed, setCompleted] = useState(false);
+  const [evaluationStatus, setEvaluationStatus] = useState<'idle' | 'queued' | 'running' | 'completed' | 'failed' | 'canceled'>('idle');
+  const [evaluationJobId, setEvaluationJobId] = useState<string | null>(null);
+  const [evaluationMessage, setEvaluationMessage] = useState<string | null>(null);
+  const [remoteRevision, setRemoteRevision] = useState(1);
+  const [executionStatus, setExecutionStatus] = useState<'idle' | 'queued' | 'running' | 'completed' | 'failed' | 'timed_out' | 'canceled' | 'unavailable'>('idle');
+  const [executionJobId, setExecutionJobId] = useState<string | null>(null);
+  const [executionOutput, setExecutionOutput] = useState('');
   const activePracticeItem = getPracticeItem(activePracticeId);
   const storageKey = sessionStorageKey(activePracticeItem.id);
   const blockOptions = activePracticeItem.blockOptions;
@@ -139,6 +146,7 @@ export function PracticeWorkspace() {
         sessionId: savedRemoteSessionId ?? undefined,
       })
         .then((result) => {
+          setRemoteRevision(result.revisionNumber);
           setSyncStatus(result.status);
           setSavedAt(result.status === "saved" ? "Saved to server" : result.status === "conflict" ? "Conflict" : "Offline draft");
           if (result.sessionId) {
@@ -158,6 +166,9 @@ export function PracticeWorkspace() {
 
   const updateDraft = (nextDraft: string) => {
     setDraft(nextDraft);
+    setEvaluationStatus('idle');
+    setEvaluationJobId(null);
+    setEvaluationMessage(null);
     setEvaluation(null);
     setCodeChecked(false);
     setCompleted(false);
@@ -185,6 +196,103 @@ export function PracticeWorkspace() {
 
   const evaluationFindings = evaluation?.findings ?? evaluatePseudocode("", activePracticeItem.id).findings;
   const approved = evaluation?.approved ?? false;
+
+  useEffect(() => {
+    if (!evaluationJobId || (evaluationStatus !== 'queued' && evaluationStatus !== 'running')) return;
+    const timer = window.setInterval(() => {
+      void fetch(`/api/practice/sessions/${readCachedPracticeSessionId(activePracticeItem.id)}/evaluate/${evaluationJobId}`)
+        .then((response) => response.ok ? response.json() : Promise.reject(new Error('Evaluation status unavailable')))
+        .then((body: { status: typeof evaluationStatus; result?: { evaluation?: Evaluation }; error?: string }) => {
+          if (body.status === 'completed') { setEvaluation(body.result?.evaluation ?? null); setEvaluationStatus('completed'); setEvaluationMessage(null); }
+          else if (body.status === 'failed') { setEvaluationStatus('failed'); setEvaluationMessage(body.error ?? 'Evaluation failed. You can retry safely.'); }
+          else if (body.status === 'canceled') { setEvaluationStatus('canceled'); setEvaluationMessage('Evaluation canceled. Your draft is still saved.'); }
+          else setEvaluationStatus(body.status);
+        })
+        .catch(() => { setEvaluationStatus('failed'); setEvaluationMessage('Unable to check evaluation progress. Retry when you are online.'); });
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [activePracticeItem.id, evaluationJobId, evaluationStatus]);
+
+  const submitEvaluation = async () => {
+    if (!draft.trim() || evaluationStatus === 'queued' || evaluationStatus === 'running') return;
+    const sessionId = readCachedPracticeSessionId(activePracticeItem.id);
+    if (!sessionId) { setEvaluation(evaluatePseudocode(draft, activePracticeItem.id)); setEvaluationStatus('completed'); setEvaluationMessage('Evaluated locally. Sign in to save server-side feedback.'); return; }
+    setEvaluationStatus('queued');
+    setEvaluationMessage('Evaluation queued. This can take a few seconds.');
+    try {
+      const response = await fetch(`/api/practice/sessions/${sessionId}/evaluate`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ revisionNumber: remoteRevision }) });
+      if (!response.ok) {
+        const retryAfter = response.headers.get('retry-after');
+        if (response.status === 429) throw new Error(`Too many submissions. Try again in ${retryAfter ?? 'a moment'} seconds.`);
+        throw new Error('Evaluation request failed');
+      }
+      const body = await response.json() as { jobId: string; status: 'queued' | 'running' | 'completed' };
+      setEvaluationJobId(body.jobId); setEvaluationStatus(body.status);
+    } catch (error) {
+      setEvaluationStatus('failed');
+      setEvaluation(evaluatePseudocode(draft, activePracticeItem.id));
+      setEvaluationMessage(error instanceof Error ? `${error.message} Showing a local evaluation instead.` : 'Unable to queue evaluation. Showing a local evaluation instead.');
+    }
+  };
+
+  const cancelEvaluation = async () => {
+    const sessionId = readCachedPracticeSessionId(activePracticeItem.id);
+    if (!sessionId || !evaluationJobId) return;
+    try {
+      const response = await fetch(`/api/practice/sessions/${sessionId}/evaluate/${evaluationJobId}`, { method: 'DELETE' });
+      if (!response.ok) throw new Error('Unable to cancel evaluation');
+      setEvaluationStatus('canceled');
+      setEvaluationMessage('Evaluation canceled. Your draft is still saved.');
+    } catch {
+      setEvaluationMessage('Unable to cancel this evaluation. It may still complete.');
+    }
+  };
+
+  useEffect(() => {
+    if (!executionJobId || (executionStatus !== 'queued' && executionStatus !== 'running')) return;
+    const sessionId = readCachedPracticeSessionId(activePracticeItem.id);
+    if (!sessionId) return;
+    const timer = window.setInterval(() => {
+      void fetch(`/api/practice/sessions/${sessionId}/execute/${executionJobId}`)
+        .then((response) => response.ok ? response.json() : Promise.reject(new Error('Execution status unavailable')))
+        .then((body: { status: typeof executionStatus; result?: { stdout?: string; stderr?: string }; error?: string }) => {
+          setExecutionStatus(body.status);
+          if (body.result) setExecutionOutput([body.result.stdout, body.result.stderr].filter(Boolean).join('\n'));
+          else if (body.error) setExecutionOutput(body.error);
+        })
+        .catch(() => setExecutionStatus('unavailable'));
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [activePracticeItem.id, executionJobId, executionStatus]);
+
+  const runInSandbox = async () => {
+    const sessionId = readCachedPracticeSessionId(activePracticeItem.id);
+    if (!sessionId) { setExecutionStatus('unavailable'); setExecutionOutput('Save your practice session before running code.'); return; }
+    setExecutionStatus('queued'); setExecutionOutput('');
+    try {
+      const response = await fetch(`/api/practice/sessions/${sessionId}/execute`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ language: 'typescript', source: code, limits: { timeoutMs: 3000, memoryMb: 256, outputBytes: 50_000 } }),
+      });
+      if (response.status === 503) { setExecutionStatus('unavailable'); setExecutionOutput('Sandbox execution is not enabled for this environment.'); return; }
+      if (!response.ok) throw new Error('Execution request failed');
+      const body = await response.json() as { jobId: string; status: 'queued' | 'running' };
+      setExecutionJobId(body.jobId); setExecutionStatus(body.status);
+    } catch { setExecutionStatus('unavailable'); setExecutionOutput('Unable to queue this execution.'); }
+  };
+
+  const cancelSandboxExecution = async () => {
+    const sessionId = readCachedPracticeSessionId(activePracticeItem.id);
+    if (!sessionId || !executionJobId) return;
+    try {
+      const response = await fetch(`/api/practice/sessions/${sessionId}/execute/${executionJobId}`, { method: 'DELETE' });
+      if (!response.ok) throw new Error('Execution cancellation failed');
+      setExecutionStatus('canceled');
+      setExecutionOutput('Execution canceled.');
+    } catch {
+      setExecutionOutput('Unable to cancel this execution.');
+    }
+  };
   const secureConceptCount = completed ? 4 : 3;
   const progressPercent = Math.round((secureConceptCount / 7) * 100);
   const implementationSource = stripCodeComments(code);
@@ -547,11 +655,15 @@ export function PracticeWorkspace() {
                   </div>
                   <button
                     className="button"
-                    onClick={() => setEvaluation(evaluatePseudocode(draft, activePracticeItem.id))}
+                    disabled={!draft.trim() || evaluationStatus === 'queued' || evaluationStatus === 'running'}
+                    onClick={() => void submitEvaluation()}
                     type="button"
                   >
-                    <Sparkles size={16} /> Evaluate reasoning
+                    <Sparkles size={16} /> {evaluationStatus === 'queued' || evaluationStatus === 'running' ? 'Evaluating…' : evaluationStatus === 'failed' ? 'Retry evaluation' : 'Evaluate reasoning'}
                   </button>
+                  {(evaluationStatus === 'queued' || evaluationStatus === 'running') ? (
+                    <button className="text-button muted" onClick={() => void cancelEvaluation()} type="button">Cancel evaluation</button>
+                  ) : null}
                 </div>
               </div>
             </section>
@@ -568,6 +680,7 @@ export function PracticeWorkspace() {
                 {evaluation?.summary ??
                   "Your evaluation will appear here with evidence tied to each requirement."}
               </p>
+              {evaluationMessage ? <p className="pane-kicker" aria-live="polite">{evaluationMessage}</p> : null}
               <div className="finding-list">
                 {evaluationFindings.map((finding) => (
                   <div
@@ -621,6 +734,9 @@ export function PracticeWorkspace() {
                   setCode(event.target.value);
                   setCodeChecked(false);
                   setCompleted(false);
+                  setExecutionStatus('idle');
+                  setExecutionJobId(null);
+                  setExecutionOutput('');
                 }}
                 value={code}
               />
@@ -654,6 +770,22 @@ export function PracticeWorkspace() {
                 >
                   <Play size={15} /> {completed ? "Completed" : codeChecked ? "Structure recorded" : "Check translation"}
                 </button>
+                <button
+                  className="button secondary full-button"
+                  disabled={!approved || executionStatus === 'queued' || executionStatus === 'running'}
+                  onClick={() => void runInSandbox()}
+                  type="button"
+                >
+                  <Play size={15} /> {executionStatus === 'queued' || executionStatus === 'running' ? 'Running sandbox…' : 'Run in sandbox'}
+                </button>
+                {executionStatus === 'queued' || executionStatus === 'running' ? (
+                  <button className="text-button muted" onClick={() => void cancelSandboxExecution()} type="button">Cancel sandbox run</button>
+                ) : null}
+                {executionStatus !== 'idle' ? (
+                  <div className={`completion-panel ${executionStatus === 'failed' || executionStatus === 'timed_out' || executionStatus === 'canceled' || executionStatus === 'unavailable' ? 'revise' : ''}`} aria-live="polite">
+                    {executionStatus === 'completed' ? <Check size={16} /> : <Clock3 size={16} />} {executionOutput || `Execution ${executionStatus}.`}
+                  </div>
+                ) : null}
                 {completed ? (
                   <div className="completion-panel" aria-live="polite">
                     <Check size={16} /> Saved to your local progress.

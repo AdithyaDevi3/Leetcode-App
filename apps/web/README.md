@@ -1,4 +1,4 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+This is the Method web application. It is a [Next.js](https://nextjs.org) app with a pseudocode-first practice workspace.
 
 ## Getting Started
 
@@ -16,7 +16,23 @@ bun dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Copy `.env.example` to `.env.local` before using sign-in or a PostgreSQL-backed
+practice flow. Keep `EVALUATION_JOB_STORE=memory` and
+`CODE_EXECUTION_ENABLED=false` for ordinary local UI work.
+
+## Private-beta deployment minimum
+
+Before enabling live users, set the variables in `.env.example` in the hosting
+platform's encrypted environment store, apply all database migrations, and set
+`EVALUATION_JOB_STORE=postgres`. A scheduler must call the protected evaluation
+worker route using `EVALUATION_WORKER_TOKEN`; monitor `/api/health` and
+`/api/health/evaluations`. Do not set `CODE_EXECUTION_ENABLED=true` until the
+Judge0 endpoint is deployed on isolated infrastructure and the execution worker
+is scheduled with `EXECUTION_WORKER_TOKEN`.
+
+The request middleware returns an `x-request-id` response header. Include that
+value in support reports and operational logs; never log source code, prompts,
+tokens, cookies, or credentials.
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 

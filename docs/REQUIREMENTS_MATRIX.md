@@ -66,7 +66,7 @@ This matrix tracks the functional and operational requirements defined in [PRODU
 | ID | Requirement | Status | Phase | Acceptance evidence |
 |---|---|---|---|---|
 | PERS-001 | Versioned concept prerequisite graph | Planned | 4 | Cycle/reachability/content mapping validation in CI |
-| PERS-002 | Goal, level, language, availability, and accessibility onboarding | Planned | 4 | Editable preferences and explained initial plan |
+| PERS-002 | Goal, level, language, availability, and accessibility onboarding | In progress | 4 | Persisted profile/onboarding UI and profile-derived initial-plan API/page exist; accessibility and end-to-end evidence remain |
 | PERS-003 | Interpretable mastery per concept | Planned | 4 | Versioned score with event-level explanation |
 | PERS-004 | Rules-based next-activity recommendation | Planned | 4 | Stored factors reproduce selection and alternatives |
 | PERS-005 | “Why this?” explanation and user overrides | Planned | 4 | E2E for reason, too easy/hard, irrelevant, and alternate |
@@ -85,8 +85,8 @@ This matrix tracks the functional and operational requirements defined in [PRODU
 | ID-004 | Profile, goals, locale, timezone, and accessibility | Planned | 4 | Ownership-tested preferences API and UI |
 | ID-005 | Session/device listing and revocation | Planned | 1 | Revoked session fails immediately per policy |
 | PRIV-001 | Plain-language privacy notice and consent record | Planned | 6, 9 | Versioned notice and consent history |
-| PRIV-002 | Data export | Planned | 6, 9 | Idempotent export job and download-expiry tests |
-| PRIV-003 | Account deletion | Planned | 6, 9 | End-to-end deletion including provider/device propagation |
+| PRIV-002 | Data export | In progress | 6, 9 | Authenticated, idempotent request intake exists; export job and download-expiry tests remain |
+| PRIV-003 | Account deletion | In progress | 6, 9 | Authenticated, idempotent request intake exists; end-to-end deletion including provider/device propagation remains |
 | PRIV-004 | Retention schedules by data class | Decision required | 0, 9 | Approved policy enforced by tested jobs |
 | PRIV-005 | AI processing disclosure and no training by default | Planned | 3, 9 | Provider contract/configuration and public disclosure |
 | PRIV-006 | Age eligibility and regional processing | Decision required | 0, 9 | Product/legal decision enforced at onboarding/deployment |

@@ -56,7 +56,12 @@ describe('/api/practice/sessions/[sessionId]/evaluate', () => {
       { params: Promise.resolve({ sessionId: 'session-1' }) },
     );
 
-    expect(response.status).toBe(200);
+    expect(response.status).toBe(202);
+    expect(await response.json()).toMatchObject({
+      jobId: expect.any(String),
+      status: 'completed',
+      queuePosition: 1,
+    });
     expect(evaluatePracticeRevision).toHaveBeenCalledWith({
       userId: 'user-1',
       sessionId: 'session-1',

@@ -42,5 +42,8 @@ locals {
   }
 }
 
-# NOTE: Modules will be implemented in future commits
-# This is a placeholder structure for Phase 0.4
+module "queue" {
+  source       = "../../modules/queue"
+  queue_prefix = "${local.app_name}-${local.environment}"
+  tags         = local.common_tags
+}

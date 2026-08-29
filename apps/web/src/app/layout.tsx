@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import { ServiceWorkerRegistration } from '@/components/service-worker-registration';
 
 export const metadata: Metadata = {
   title: "Method — Think before syntax",
@@ -19,7 +20,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="h-full antialiased">
-      <body className="min-h-full">{children}</body>
+      <body className="min-h-full"><ServiceWorkerRegistration />{children}</body>
     </html>
   );
 }

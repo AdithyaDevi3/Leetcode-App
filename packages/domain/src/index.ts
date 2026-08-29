@@ -17,3 +17,4 @@ export * from './offline-revisions';
 export * from './system-design';
 export * from './recommendations';
 export * from './administration';
+export * from './account-lifecycle';

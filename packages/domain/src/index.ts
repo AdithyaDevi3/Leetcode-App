@@ -9,3 +9,4 @@ export * from './user';
 export * from './content';
 export * from './practice';
 export * from './evaluation';
+export * from './concept-graph';

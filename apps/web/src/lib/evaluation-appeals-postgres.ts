@@ -26,5 +26,17 @@ export function createEvaluationAppealStore(db: DatabaseClient = createDatabaseC
       const result = await db.query<AppealRow>('SELECT * FROM evaluation_appeals WHERE job_id = $1 AND user_id = $2 ORDER BY created_at ASC', [jobId, userId]);
       return result.rows.map(mapAppeal);
     },
+    async resolve(id: string, input: { reviewerId: string; approved: boolean; reason: string }): Promise<EvaluationAppeal | null> {
+      const reason = input.reason.trim();
+      if (!reason) throw new Error('Override reason is required');
+      return db.transaction(async (client) => {
+        const result = await client.query<AppealRow>(`UPDATE evaluation_appeals
+          SET status = 'resolved', reviewer_id = $2, override_approved = $3, override_reason = $4, resolved_at = NOW()
+          WHERE id = $1 AND status <> 'resolved' RETURNING *`, [id, input.reviewerId, input.approved, reason]);
+        if (!result.rows[0]) return null;
+        await client.query(`INSERT INTO evaluation_appeal_audit (appeal_id, actor_id, action, reason) VALUES ($1, $2, $3, $4)`, [id, input.reviewerId, input.approved ? 'appeal.approved' : 'appeal.rejected', reason]);
+        return mapAppeal(result.rows[0]);
+      });
+    },
   };
 }

@@ -64,8 +64,12 @@ const rules: Rule[] = [
     label: "Distinct positions",
     pass: (source) => {
       const lookupAt = source.search(/exists? in (the )?map|map contains|look up.*map|find.*map/i);
-      const storeAt = source.search(/store|insert|add .*map|map\[.*\]\s*=/i);
-      return lookupAt >= 0 && storeAt > lookupAt;
+      // Ignore initial map setup (for example, "create a dictionary that stores
+      // values") and require the mutation that occurs after the lookup.
+      const mutationAfterLookup = lookupAt >= 0
+        ? source.slice(lookupAt).search(/\b(store|insert)\b|\badd\b.*\bmap\b|\bmap\[.*\]\s*=/i)
+        : -1;
+      return lookupAt >= 0 && mutationAfterLookup > 0;
     },
     passDetail: "Lookup happens before storage, so the current position cannot match itself.",
     reviseDetail: "Check the map before storing the current value to guarantee distinct positions.",

@@ -20,3 +20,4 @@ export * from './administration';
 export * from './account-lifecycle';
 export * from './spaced-review';
 export * from './content-workflow';
+export * from './onboarding';

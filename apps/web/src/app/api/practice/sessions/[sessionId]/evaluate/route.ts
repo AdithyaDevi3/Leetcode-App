@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth/session';
 import { evaluatePracticeRevision } from '@/lib/practice-api';
-import { enqueueEvaluationJob, runEvaluationJob } from '@/lib/evaluation-jobs';
+import { enqueueRuntimeJob, runRuntimeJob } from '@/lib/evaluation-job-runtime';
 
 export async function POST(
   request: Request,
@@ -16,13 +16,13 @@ export async function POST(
       return NextResponse.json({ error: 'revisionNumber is required' }, { status: 400 });
     }
 
-    const job = enqueueEvaluationJob({
+    const job = await enqueueRuntimeJob({
       userId: session.user.id,
       sessionId,
       revisionNumber: body.revisionNumber,
     });
 
-    await runEvaluationJob(job.id, async () =>
+    await runRuntimeJob(job.id, async () =>
       evaluatePracticeRevision({
         userId: session.user.id,
         sessionId,

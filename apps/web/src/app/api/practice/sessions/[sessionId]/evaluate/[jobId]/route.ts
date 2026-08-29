@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth/session';
-import { cancelEvaluationJob, getEvaluationJob } from '@/lib/evaluation-jobs';
+import { cancelRuntimeJob, getOwnedRuntimeJob } from '@/lib/evaluation-job-runtime';
 
 type RouteContext = { params: Promise<{ sessionId: string; jobId: string }> };
 
-function visibleJob(job: NonNullable<ReturnType<typeof getEvaluationJob>>) {
+function visibleJob(job: NonNullable<Awaited<ReturnType<typeof getOwnedRuntimeJob>>>) {
   return {
     jobId: job.id,
     sessionId: job.sessionId,
@@ -22,9 +22,7 @@ function visibleJob(job: NonNullable<ReturnType<typeof getEvaluationJob>>) {
 }
 
 async function findOwnedJob(sessionId: string, jobId: string, userId: string) {
-  const job = getEvaluationJob(jobId);
-  if (!job || job.sessionId !== sessionId || job.userId !== userId) return null;
-  return job;
+  return getOwnedRuntimeJob(jobId, userId, sessionId);
 }
 
 export async function GET(_request: Request, { params }: RouteContext) {
@@ -48,7 +46,7 @@ export async function DELETE(_request: Request, { params }: RouteContext) {
     const { sessionId, jobId } = await params;
     const job = await findOwnedJob(sessionId, jobId, session.user.id);
     if (!job) return NextResponse.json({ error: 'Evaluation job not found' }, { status: 404 });
-    const canceled = cancelEvaluationJob(jobId);
+    const canceled = await cancelRuntimeJob(jobId, session.user.id, sessionId);
     return NextResponse.json(visibleJob(canceled ?? job));
   } catch (error) {
     if (error instanceof Error && error.message === 'Unauthorized: Authentication required') {

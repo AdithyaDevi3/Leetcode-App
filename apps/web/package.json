@@ -32,7 +32,7 @@
     "@playwright/test": "^1.55.0",
     "tailwindcss": "^4",
     "testcontainers": "^12.1.0",
-    "typescript": "^5",
+    "typescript": "^7",
     "vite": "^8.2.2",
     "vitest": "^4.1.10"
   },

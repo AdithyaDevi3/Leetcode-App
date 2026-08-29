@@ -21,7 +21,7 @@ Implemented slices:
 
 Still required before the Phase 3 exit criteria can be claimed:
 
-- Persistent queue/worker adapter and production metrics export.
+- Deploy the worker process and production metrics export; the PostgreSQL adapter and runtime route selection are now implemented.
 - Trace execution with resource limits and seeded counterexamples.
 - Appeal persistence, second-pass policy, reviewer queue, and immutable audit events.
 - Gold submissions, expert thresholds, latency/cost measurement, and staging outage/kill-switch evidence.

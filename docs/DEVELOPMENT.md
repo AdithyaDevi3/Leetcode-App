@@ -9,9 +9,10 @@ Current web app:
 - Node.js 24 LTS.
 - pnpm 9.x (the workspace `packageManager` field pins this; see the pnpm note below).
 - Git.
-- Docker Desktop for production-image checks.
+- Docker Desktop for production-image checks and the local PostgreSQL runtime.
 
-Later persistent phases also require PostgreSQL and the selected queue/cache emulators. Add those through a checked-in container composition file when their first feature lands; do not require developers to install databases globally.
+The repository includes a checked-in PostgreSQL 16 Compose service for local
+persistence. Developers do not need a globally installed database server.
 
 ### pnpm self-managed version note
 
@@ -37,6 +38,42 @@ pnpm dev
 Open `http://localhost:3000`. Copy `apps/web/.env.example` to `apps/web/.env.local` and fill in
 Postgres, `AUTH_SECRET`, and OAuth provider credentials before signing in; the practice workspace
 itself still falls back to local storage when signed out.
+
+## Local PostgreSQL runtime
+
+Use the checked-in Compose service when you need persisted API paths, migrations,
+or database-backed tests locally:
+
+```bash
+# Defaults match apps/web/.env.example (postgres/postgres, leetcode_app, port 5432).
+pnpm db:up
+pnpm db:status
+pnpm db:bootstrap
+```
+
+`db:bootstrap` first verifies that the Compose PostgreSQL container is running
+and ready, then applies the existing `node-pg-migrate` migrations. The migration
+chain includes the repository's development content seed; running the command
+again applies only pending migrations.
+
+Use the same `POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_DB`, `POSTGRES_USER`,
+and `POSTGRES_PASSWORD` values in `apps/web/.env.local`. The app connects to the
+host port, so retain `POSTGRES_HOST=localhost` when using Compose. To choose a
+different local database name, user, password, or port, export those
+`POSTGRES_*` values before running `pnpm db:up` and before `pnpm db:bootstrap`.
+
+Readiness and troubleshooting:
+
+```bash
+pnpm db:status                 # service should be running/healthy
+pnpm db:logs                   # inspect startup or readiness failures
+docker compose exec postgres pg_isready -U postgres -d leetcode_app
+```
+
+Stop the service while preserving its named volume with `pnpm db:down`. This
+runtime intentionally has **no reset command**, no production configuration,
+and no production secrets. Removing the named Docker volume is a manual,
+destructive developer action; it is deliberately not automated by this project.
 
 ## Current validation
 

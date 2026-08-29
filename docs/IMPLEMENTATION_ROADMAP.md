@@ -26,6 +26,12 @@ This section supplements the roadmap; it does not replace or reorder the phases 
 - The AI gateway boundary includes redaction, timeout, schema validation, deterministic evidence merging, and a disabled-by-default kill switch.
 - Learner appeal records, reviewer resolution state, and immutable appeal audit events are represented.
 - A reversible PostgreSQL migration and adapter now define durable evaluation jobs, appeals, and audit storage; production route selection is controlled by `EVALUATION_JOB_STORE=postgres`, while worker deployment remains a launch task.
+- Phase 4 foundations now include a validated concept graph, interpretable mastery updates, and explainable recommendation selection.
+- Phase 5 has a bounded execution request/result contract; selecting and operating a sandbox remains required.
+- Phase 6 has content-publication validation and least-privilege administration authorization foundations.
+- Phase 7 has an ordered, account-safe offline revision queue foundation.
+- Phase 8 has a validated system-design document model.
+- Phase 9 has a release-readiness checklist.
 - The active implementation branch is `phase-3-evaluation-platform`.
 
 ### Launch target

@@ -12,3 +12,4 @@ export * from './evaluation';
 export * from './concept-graph';
 export * from './execution';
 export * from './content-publication';
+export * from './mastery';

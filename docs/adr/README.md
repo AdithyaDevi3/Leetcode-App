@@ -13,6 +13,7 @@ This directory contains Architecture Decision Records for the Leetcode-App proje
 - [ADR-007: Hosting and Infrastructure as Code](007-hosting-and-iac.md)
 - [ADR-008: Telemetry and Observability](008-telemetry-and-observability.md)
 - [ADR-009: Notifications](009-notifications.md)
+- [ADR-010: Parallel Roadmap Delivery and Integration](010-parallel-roadmap-delivery.md)
 
 ## ADR Template
 

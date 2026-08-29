@@ -42,6 +42,8 @@ describe('AST static analysis', () => {
         expect.objectContaining({ id: 'mutation-use', status: 'revise' }),
       ]),
     );
+    expect(result.controlFlow.nodes.some((node) => node.kind === 'entry')).toBe(true);
+    expect(result.controlFlow.edges.length).toBeGreaterThan(0);
   });
 
   it('passes a fully defined function body', () => {
@@ -74,5 +76,51 @@ describe('AST static analysis', () => {
     const result = analyzeAstProgram(program);
 
     expect(result.findings.every((finding) => finding.status === 'pass')).toBe(true);
+    expect(result.controlFlow.nodes.map((node) => node.kind)).toContain('exit');
+  });
+
+  it('marks branching loops as cost-sensitive', () => {
+    const program = {
+      kind: 'program',
+      version: 1 as const,
+      id: 'program:analysis-loop',
+      span: { start: 0, end: 10 },
+      body: [
+        {
+          kind: 'function',
+          version: 1 as const,
+          id: 'function:analysis-loop',
+          span: { start: 0, end: 10 },
+          name: 'analyze',
+          parameters: ['values'],
+          body: [
+            {
+              kind: 'loop',
+              version: 1 as const,
+              id: 'loop:1',
+              span: { start: 0, end: 1 },
+              iterator: createIdentifierNode('value', { start: 0, end: 1 }),
+              iterable: createIdentifierNode('values', { start: 0, end: 1 }),
+              body: [
+                {
+                  kind: 'condition',
+                  version: 1 as const,
+                  id: 'condition:1',
+                  span: { start: 0, end: 1 },
+                  test: createIdentifierNode('value', { start: 0, end: 1 }),
+                  consequent: [createIntentNode('continue', { start: 0, end: 1 })],
+                  alternate: [createIntentNode('fallback', { start: 0, end: 1 })],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    } as const;
+
+    const result = analyzeAstProgram(program);
+
+    expect(result.findings.find((finding) => finding.id === 'operation-cost')?.status).toBe('revise');
+    expect(result.controlFlow.nodes.some((node) => node.kind === 'branch')).toBe(true);
   });
 });

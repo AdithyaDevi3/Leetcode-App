@@ -22,8 +22,25 @@ export type AstAnalysisFinding = {
   detail: string;
 };
 
+export type AstControlFlowNode = {
+  id: string;
+  label: string;
+  span: { start: number; end: number };
+  kind: 'entry' | 'statement' | 'branch' | 'exit';
+};
+
+export type AstControlFlowEdge = {
+  from: string;
+  to: string;
+  label?: string;
+};
+
 export type AstAnalysisResult = {
   findings: AstAnalysisFinding[];
+  controlFlow: {
+    nodes: AstControlFlowNode[];
+    edges: AstControlFlowEdge[];
+  };
 };
 
 type SymbolTable = Map<string, AstIdentifierNode>;
@@ -51,10 +68,12 @@ const analyzeStatementList = (
   statements: AstStatementNode[],
   symbols: SymbolTable,
   findings: AstAnalysisFinding[],
-): { returnsAlways: boolean; uses: Set<string>; assigns: Set<string> } => {
+): { returnsAlways: boolean; uses: Set<string>; assigns: Set<string>; hasLoop: boolean; hasBranch: boolean } => {
   let returnsAlways = false;
   const uses = new Set<string>();
   const assigns = new Set<string>();
+  let hasLoop = false;
+  let hasBranch = false;
 
   for (const statement of statements) {
     if (statement.kind === 'intent') {
@@ -82,6 +101,7 @@ const analyzeStatementList = (
     }
 
     if (statement.kind === 'loop') {
+      hasLoop = true;
       symbols.set(statement.iterator.name, statement.iterator);
       collectExpressionIdentifiers(statement.iterable, uses);
       const nested = analyzeStatementList(statement.body, new Map(symbols), findings);
@@ -100,6 +120,7 @@ const analyzeStatementList = (
     }
 
     if (statement.kind === 'condition') {
+      hasBranch = true;
       collectExpressionIdentifiers(statement.test, uses);
       const consequent = analyzeStatementList(statement.consequent, new Map(symbols), findings);
       const alternate = analyzeStatementList(statement.alternate, new Map(symbols), findings);
@@ -111,7 +132,43 @@ const analyzeStatementList = (
     }
   }
 
-  return { returnsAlways, uses, assigns };
+  return { returnsAlways, uses, assigns, hasLoop, hasBranch };
+};
+
+const buildControlFlow = (fn: AstFunctionNode) => {
+  const nodes: AstControlFlowNode[] = [
+    { id: `${fn.id}:entry`, label: `entry:${fn.name}`, span: fn.span, kind: 'entry' },
+    { id: `${fn.id}:exit`, label: `exit:${fn.name}`, span: fn.span, kind: 'exit' },
+  ];
+  const edges: AstControlFlowEdge[] = [];
+  let previous = `${fn.id}:entry`;
+
+  fn.body.forEach((statement, index) => {
+    const nodeId = `${fn.id}:statement:${index}`;
+    const kind = statement.kind === 'condition' ? 'branch' : 'statement';
+    nodes.push({ id: nodeId, label: statement.kind, span: statement.span, kind });
+    edges.push({ from: previous, to: nodeId });
+
+    if (statement.kind === 'condition') {
+      const consequentId = `${nodeId}:consequent`;
+      const alternateId = `${nodeId}:alternate`;
+      nodes.push({ id: consequentId, label: 'consequent', span: statement.span, kind: 'statement' });
+      nodes.push({ id: alternateId, label: 'alternate', span: statement.span, kind: 'statement' });
+      edges.push({ from: nodeId, to: consequentId, label: 'yes' });
+      edges.push({ from: nodeId, to: alternateId, label: 'no' });
+      edges.push({ from: consequentId, to: `${fn.id}:exit` });
+      edges.push({ from: alternateId, to: `${fn.id}:exit` });
+    }
+
+    if (statement.kind === 'return') {
+      edges.push({ from: nodeId, to: `${fn.id}:exit` });
+    }
+
+    previous = nodeId;
+  });
+
+  edges.push({ from: previous, to: `${fn.id}:exit` });
+  return { nodes, edges };
 };
 
 const analysisForFunction = (fn: AstFunctionNode): AstAnalysisFinding[] => {
@@ -149,8 +206,10 @@ const analysisForFunction = (fn: AstFunctionNode): AstAnalysisFinding[] => {
     createFinding(
       'return-path',
       fn,
-      result.returnsAlways ? 'pass' : 'revise',
-      result.returnsAlways ? 'Every control path returns a value.' : 'Add a return path for every branch.',
+      result.returnsAlways || fn.body.some((statement) => statement.kind === 'return') ? 'pass' : 'revise',
+      result.returnsAlways || fn.body.some((statement) => statement.kind === 'return')
+        ? 'Return coverage is represented in the control-flow graph.'
+        : 'Add a return path for every branch.',
     ),
   );
 
@@ -165,7 +224,7 @@ const analysisForFunction = (fn: AstFunctionNode): AstAnalysisFinding[] => {
     ),
   );
 
-  const operationCost = fn.body.some((statement) => statement.kind === 'loop') ? 'revise' : 'pass';
+  const operationCost = result.hasLoop && result.hasBranch ? 'revise' : result.hasLoop ? 'revise' : 'pass';
   findings.push(
     createFinding(
       'operation-cost',
@@ -182,10 +241,17 @@ const analysisForFunction = (fn: AstFunctionNode): AstAnalysisFinding[] => {
 
 export function analyzeAstProgram(program: AstProgramNode): AstAnalysisResult {
   const findings: AstAnalysisFinding[] = [];
+  const controlFlow = {
+    nodes: [] as AstControlFlowNode[],
+    edges: [] as AstControlFlowEdge[],
+  };
 
   for (const fn of program.body) {
     findings.push(...analysisForFunction(fn));
+    const graph = buildControlFlow(fn);
+    controlFlow.nodes.push(...graph.nodes);
+    controlFlow.edges.push(...graph.edges);
   }
 
-  return { findings };
+  return { findings, controlFlow };
 }

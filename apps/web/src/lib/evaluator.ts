@@ -38,7 +38,7 @@ const rules: Rule[] = [
     label: "Single pass",
     pass: (source) =>
       contains(source, [/for each/i, /iterate/i, /loop/i]) &&
-      !contains(source, [/nested loop/i, /every other/i, /for each[\s\S]*for each/i]),
+      !contains(source, [/use\s+(a\s+)?nested loop/i, /with\s+(a\s+)?nested loop/i, /nested loop approach/i, /every other/i, /for each[\s\S]*for each/i]),
     passDetail: "The list is traversed once rather than searched repeatedly.",
     reviseDetail: "Describe one pass over the list; avoid scanning all other values for every item.",
   },
@@ -78,7 +78,7 @@ const rules: Rule[] = [
     id: "return",
     label: "Return value",
     pass: (source) =>
-      contains(source, [/return/i]) && contains(source, [/position/i, /index|indices/i]),
+      contains(source, [/return/i]) && contains(source, [/positions?/i, /indices?/i]),
     passDetail: "The plan returns both positions when a match is found.",
     reviseDetail: "State that both the stored position and current position are returned.",
   },
@@ -86,7 +86,7 @@ const rules: Rule[] = [
     id: "complexity",
     label: "Target complexity",
     pass: (source) =>
-      !contains(source, [/nested loop/i, /every other/i, /sort the list/i, /for each[\s\S]*for each/i]),
+      !contains(source, [/use\s+(a\s+)?nested loop/i, /with\s+(a\s+)?nested loop/i, /nested loop approach/i, /every other/i, /sort the list/i, /for each[\s\S]*for each/i]),
     passDetail: "The described operations support O(n) time and O(n) extra space.",
     reviseDetail: "Replace repeated searching or sorting with one pass and map lookups.",
   },

@@ -6,6 +6,7 @@ type JobRow = {
   status: EvaluationJob['status']; attempts: number; max_attempts: number; result: unknown; error: string | null;
   queued_at: Date | string; started_at: Date | string | null; completed_at: Date | string | null; dead_lettered_at: Date | string | null;
 };
+export type EvaluationQueueMetrics = { queued: number; running: number; completed: number; failed: number; canceled: number; deadLettered: number; oldestQueuedAgeMs: number };
 const iso = (value: Date | string | null) => value === null ? null : new Date(value).toISOString();
 const mapJob = (row: JobRow): EvaluationJob => ({
   id: row.id, userId: row.user_id, sessionId: row.session_id, revisionNumber: row.revision_number,
@@ -60,6 +61,21 @@ export function createEvaluationJobStore(db: DatabaseClient = createDatabaseClie
     async cancel(jobId: string, userId: string, sessionId: string): Promise<EvaluationJob | null> {
       const result = await db.query<JobRow>(`UPDATE evaluation_jobs SET status = 'canceled', completed_at = NOW() WHERE id = $1 AND user_id = $2 AND session_id = $3 AND status IN ('queued', 'running') RETURNING *`, [jobId, userId, sessionId]);
       return result.rows[0] ? mapJob(result.rows[0]) : null;
+    },
+    async metrics(): Promise<EvaluationQueueMetrics> {
+      const result = await db.query<{
+        queued: string; running: string; completed: string; failed: string; canceled: string; dead_lettered: string; oldest_queued_age_ms: string | null;
+      }>(`SELECT
+          COUNT(*) FILTER (WHERE status = 'queued') AS queued,
+          COUNT(*) FILTER (WHERE status = 'running') AS running,
+          COUNT(*) FILTER (WHERE status = 'completed') AS completed,
+          COUNT(*) FILTER (WHERE status = 'failed') AS failed,
+          COUNT(*) FILTER (WHERE status = 'canceled') AS canceled,
+          COUNT(*) FILTER (WHERE dead_lettered_at IS NOT NULL) AS dead_lettered,
+          EXTRACT(EPOCH FROM (NOW() - MIN(queued_at) FILTER (WHERE status = 'queued'))) * 1000 AS oldest_queued_age_ms
+        FROM evaluation_jobs`);
+      const row = result.rows[0];
+      return { queued: Number(row.queued), running: Number(row.running), completed: Number(row.completed), failed: Number(row.failed), canceled: Number(row.canceled), deadLettered: Number(row.dead_lettered), oldestQueuedAgeMs: Number(row.oldest_queued_age_ms ?? 0) };
     },
   };
 }

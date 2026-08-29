@@ -1,5 +1,6 @@
 import { cancelEvaluationJob, enqueueEvaluationJob, getEvaluationJob, runEvaluationJob, type EvaluationJob, type EvaluationJobRequest } from './evaluation-jobs';
 import { createEvaluationJobStore } from './evaluation-jobs-postgres';
+import { getEvaluationQueueMetrics } from './evaluation-jobs';
 
 const usePostgres = () => process.env.EVALUATION_JOB_STORE === 'postgres';
 let postgresStore: ReturnType<typeof createEvaluationJobStore> | undefined;
@@ -25,4 +26,8 @@ export async function cancelRuntimeJob(jobId: string, userId: string, sessionId:
 export async function runRuntimeJob(jobId: string, executor: () => Promise<unknown> | unknown): Promise<EvaluationJob | null> {
   if (usePostgres()) return getRuntimeJob(jobId);
   return runEvaluationJob(jobId, executor);
+}
+export async function getRuntimeQueueMetrics() {
+  if (usePostgres()) return getPostgresStore().metrics();
+  return getEvaluationQueueMetrics();
 }

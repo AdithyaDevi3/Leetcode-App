@@ -25,7 +25,7 @@ This section supplements the roadmap; it does not replace or reorder the phases 
 - Evaluation jobs include idempotency, retry accounting, dead-letter state, queue-age metrics, and bounded trace execution.
 - The AI gateway boundary includes redaction, timeout, schema validation, deterministic evidence merging, and a disabled-by-default kill switch.
 - Learner appeal records, reviewer resolution state, and immutable appeal audit events are represented.
-- A reversible PostgreSQL migration and adapter now define durable evaluation jobs, appeals, and audit storage; production route selection and worker deployment remain launch tasks.
+- A reversible PostgreSQL migration and adapter now define durable evaluation jobs, appeals, and audit storage; production route selection is controlled by `EVALUATION_JOB_STORE=postgres`, while worker deployment remains a launch task.
 - The active implementation branch is `phase-3-evaluation-platform`.
 
 ### Launch target

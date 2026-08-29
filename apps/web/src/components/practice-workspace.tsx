@@ -58,8 +58,9 @@ export function PracticeWorkspace() {
   const [code, setCode] = useState(defaultCode(defaultPracticeItem.codeFunction, defaultPracticeItem.codeSignature));
   const [codeChecked, setCodeChecked] = useState(false);
   const [completed, setCompleted] = useState(false);
-  const [evaluationStatus, setEvaluationStatus] = useState<'idle' | 'queued' | 'running' | 'completed' | 'failed'>('idle');
+  const [evaluationStatus, setEvaluationStatus] = useState<'idle' | 'queued' | 'running' | 'completed' | 'failed' | 'canceled'>('idle');
   const [evaluationJobId, setEvaluationJobId] = useState<string | null>(null);
+  const [evaluationMessage, setEvaluationMessage] = useState<string | null>(null);
   const [remoteRevision, setRemoteRevision] = useState(1);
   const [executionStatus, setExecutionStatus] = useState<'idle' | 'queued' | 'running' | 'completed' | 'failed' | 'timed_out' | 'canceled' | 'unavailable'>('idle');
   const [executionJobId, setExecutionJobId] = useState<string | null>(null);
@@ -165,6 +166,9 @@ export function PracticeWorkspace() {
 
   const updateDraft = (nextDraft: string) => {
     setDraft(nextDraft);
+    setEvaluationStatus('idle');
+    setEvaluationJobId(null);
+    setEvaluationMessage(null);
     setEvaluation(null);
     setCodeChecked(false);
     setCompleted(false);
@@ -199,11 +203,12 @@ export function PracticeWorkspace() {
       void fetch(`/api/practice/sessions/${readCachedPracticeSessionId(activePracticeItem.id)}/evaluate/${evaluationJobId}`)
         .then((response) => response.ok ? response.json() : Promise.reject(new Error('Evaluation status unavailable')))
         .then((body: { status: typeof evaluationStatus; result?: { evaluation?: Evaluation }; error?: string }) => {
-          if (body.status === 'completed') { setEvaluation(body.result?.evaluation ?? null); setEvaluationStatus('completed'); }
-          else if (body.status === 'failed') setEvaluationStatus('failed');
+          if (body.status === 'completed') { setEvaluation(body.result?.evaluation ?? null); setEvaluationStatus('completed'); setEvaluationMessage(null); }
+          else if (body.status === 'failed') { setEvaluationStatus('failed'); setEvaluationMessage(body.error ?? 'Evaluation failed. You can retry safely.'); }
+          else if (body.status === 'canceled') { setEvaluationStatus('canceled'); setEvaluationMessage('Evaluation canceled. Your draft is still saved.'); }
           else setEvaluationStatus(body.status);
         })
-        .catch(() => setEvaluationStatus('failed'));
+        .catch(() => { setEvaluationStatus('failed'); setEvaluationMessage('Unable to check evaluation progress. Retry when you are online.'); });
     }, 1000);
     return () => window.clearInterval(timer);
   }, [activePracticeItem.id, evaluationJobId, evaluationStatus]);
@@ -211,14 +216,36 @@ export function PracticeWorkspace() {
   const submitEvaluation = async () => {
     if (!draft.trim() || evaluationStatus === 'queued' || evaluationStatus === 'running') return;
     const sessionId = readCachedPracticeSessionId(activePracticeItem.id);
-    if (!sessionId) { setEvaluation(evaluatePseudocode(draft, activePracticeItem.id)); return; }
+    if (!sessionId) { setEvaluation(evaluatePseudocode(draft, activePracticeItem.id)); setEvaluationStatus('completed'); setEvaluationMessage('Evaluated locally. Sign in to save server-side feedback.'); return; }
     setEvaluationStatus('queued');
+    setEvaluationMessage('Evaluation queued. This can take a few seconds.');
     try {
       const response = await fetch(`/api/practice/sessions/${sessionId}/evaluate`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ revisionNumber: remoteRevision }) });
-      if (!response.ok) throw new Error('Evaluation request failed');
+      if (!response.ok) {
+        const retryAfter = response.headers.get('retry-after');
+        if (response.status === 429) throw new Error(`Too many submissions. Try again in ${retryAfter ?? 'a moment'} seconds.`);
+        throw new Error('Evaluation request failed');
+      }
       const body = await response.json() as { jobId: string; status: 'queued' | 'running' | 'completed' };
       setEvaluationJobId(body.jobId); setEvaluationStatus(body.status);
-    } catch { setEvaluationStatus('failed'); setEvaluation(evaluatePseudocode(draft, activePracticeItem.id)); }
+    } catch (error) {
+      setEvaluationStatus('failed');
+      setEvaluation(evaluatePseudocode(draft, activePracticeItem.id));
+      setEvaluationMessage(error instanceof Error ? `${error.message} Showing a local evaluation instead.` : 'Unable to queue evaluation. Showing a local evaluation instead.');
+    }
+  };
+
+  const cancelEvaluation = async () => {
+    const sessionId = readCachedPracticeSessionId(activePracticeItem.id);
+    if (!sessionId || !evaluationJobId) return;
+    try {
+      const response = await fetch(`/api/practice/sessions/${sessionId}/evaluate/${evaluationJobId}`, { method: 'DELETE' });
+      if (!response.ok) throw new Error('Unable to cancel evaluation');
+      setEvaluationStatus('canceled');
+      setEvaluationMessage('Evaluation canceled. Your draft is still saved.');
+    } catch {
+      setEvaluationMessage('Unable to cancel this evaluation. It may still complete.');
+    }
   };
 
   useEffect(() => {
@@ -634,6 +661,9 @@ export function PracticeWorkspace() {
                   >
                     <Sparkles size={16} /> {evaluationStatus === 'queued' || evaluationStatus === 'running' ? 'Evaluating…' : evaluationStatus === 'failed' ? 'Retry evaluation' : 'Evaluate reasoning'}
                   </button>
+                  {(evaluationStatus === 'queued' || evaluationStatus === 'running') ? (
+                    <button className="text-button muted" onClick={() => void cancelEvaluation()} type="button">Cancel evaluation</button>
+                  ) : null}
                 </div>
               </div>
             </section>
@@ -650,6 +680,7 @@ export function PracticeWorkspace() {
                 {evaluation?.summary ??
                   "Your evaluation will appear here with evidence tied to each requirement."}
               </p>
+              {evaluationMessage ? <p className="pane-kicker" aria-live="polite">{evaluationMessage}</p> : null}
               <div className="finding-list">
                 {evaluationFindings.map((finding) => (
                   <div

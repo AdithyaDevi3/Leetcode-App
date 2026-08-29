@@ -123,6 +123,17 @@ Secret values such as database passwords, identity client secrets, AI keys, sand
 
 Do not commit directly to protected `main` once branch protection is enabled.
 
+### Current integration policy
+
+While the consolidated `phase-3-evaluation-platform` pull request to `main` is
+open, create one branch and one focused pull request for each remaining roadmap
+work package. Target those focused pull requests at
+`phase-3-evaluation-platform`, not `main`; merging an approved focused PR into
+the integration branch updates the consolidated PR automatically. Do not open
+duplicate PRs for historical branches whose commits are already reachable from
+the integration branch. Each focused PR must remain independently testable and
+must not include unrelated roadmap work.
+
 ## Issue template
 
 Every implementation issue should include:

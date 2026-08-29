@@ -61,7 +61,7 @@ export function PracticeWorkspace() {
   const [evaluationStatus, setEvaluationStatus] = useState<'idle' | 'queued' | 'running' | 'completed' | 'failed'>('idle');
   const [evaluationJobId, setEvaluationJobId] = useState<string | null>(null);
   const [remoteRevision, setRemoteRevision] = useState(1);
-  const [executionStatus, setExecutionStatus] = useState<'idle' | 'queued' | 'running' | 'completed' | 'failed' | 'timed_out' | 'unavailable'>('idle');
+  const [executionStatus, setExecutionStatus] = useState<'idle' | 'queued' | 'running' | 'completed' | 'failed' | 'timed_out' | 'canceled' | 'unavailable'>('idle');
   const [executionJobId, setExecutionJobId] = useState<string | null>(null);
   const [executionOutput, setExecutionOutput] = useState('');
   const activePracticeItem = getPracticeItem(activePracticeId);
@@ -252,6 +252,19 @@ export function PracticeWorkspace() {
       const body = await response.json() as { jobId: string; status: 'queued' | 'running' };
       setExecutionJobId(body.jobId); setExecutionStatus(body.status);
     } catch { setExecutionStatus('unavailable'); setExecutionOutput('Unable to queue this execution.'); }
+  };
+
+  const cancelSandboxExecution = async () => {
+    const sessionId = readCachedPracticeSessionId(activePracticeItem.id);
+    if (!sessionId || !executionJobId) return;
+    try {
+      const response = await fetch(`/api/practice/sessions/${sessionId}/execute/${executionJobId}`, { method: 'DELETE' });
+      if (!response.ok) throw new Error('Execution cancellation failed');
+      setExecutionStatus('canceled');
+      setExecutionOutput('Execution canceled.');
+    } catch {
+      setExecutionOutput('Unable to cancel this execution.');
+    }
   };
   const secureConceptCount = completed ? 4 : 3;
   const progressPercent = Math.round((secureConceptCount / 7) * 100);
@@ -734,8 +747,11 @@ export function PracticeWorkspace() {
                 >
                   <Play size={15} /> {executionStatus === 'queued' || executionStatus === 'running' ? 'Running sandbox…' : 'Run in sandbox'}
                 </button>
+                {executionStatus === 'queued' || executionStatus === 'running' ? (
+                  <button className="text-button muted" onClick={() => void cancelSandboxExecution()} type="button">Cancel sandbox run</button>
+                ) : null}
                 {executionStatus !== 'idle' ? (
-                  <div className={`completion-panel ${executionStatus === 'failed' || executionStatus === 'timed_out' || executionStatus === 'unavailable' ? 'revise' : ''}`} aria-live="polite">
+                  <div className={`completion-panel ${executionStatus === 'failed' || executionStatus === 'timed_out' || executionStatus === 'canceled' || executionStatus === 'unavailable' ? 'revise' : ''}`} aria-live="polite">
                     {executionStatus === 'completed' ? <Check size={16} /> : <Clock3 size={16} />} {executionOutput || `Execution ${executionStatus}.`}
                   </div>
                 ) : null}

@@ -7,6 +7,7 @@ type JobRow = {
   queued_at: Date | string; started_at: Date | string | null; completed_at: Date | string | null; dead_lettered_at: Date | string | null;
 };
 export type EvaluationQueueMetrics = { queued: number; running: number; completed: number; failed: number; canceled: number; deadLettered: number; oldestQueuedAgeMs: number };
+export type EvaluationRecoveryResult = { retried: number; deadLettered: number };
 const iso = (value: Date | string | null) => value === null ? null : new Date(value).toISOString();
 const mapJob = (row: JobRow): EvaluationJob => ({
   id: row.id, userId: row.user_id, sessionId: row.session_id, revisionNumber: row.revision_number,
@@ -51,6 +52,24 @@ export function createEvaluationJobStore(db: DatabaseClient = createDatabaseClie
         );
         return result.rows[0] ? mapJob(result.rows[0]) : null;
       });
+    },
+    async recoverStaleRunning(staleAfterMs: number): Promise<EvaluationRecoveryResult> {
+      const result = await db.query<{ status: EvaluationJob['status'] }>(
+        `UPDATE evaluation_jobs
+         SET status = CASE WHEN attempts >= max_attempts THEN 'failed' ELSE 'queued' END,
+             started_at = NULL,
+             completed_at = CASE WHEN attempts >= max_attempts THEN NOW() ELSE NULL END,
+             dead_lettered_at = CASE WHEN attempts >= max_attempts THEN NOW() ELSE NULL END,
+             error = COALESCE(error, 'Worker lease expired before completion')
+         WHERE status = 'running' AND started_at < NOW() - ($1 * INTERVAL '1 millisecond')
+         RETURNING status`,
+        [Math.max(1, Math.floor(staleAfterMs))],
+      );
+      return result.rows.reduce<EvaluationRecoveryResult>((summary, job) => {
+        if (job.status === 'failed') summary.deadLettered += 1;
+        else summary.retried += 1;
+        return summary;
+      }, { retried: 0, deadLettered: 0 });
     },
     async complete(jobId: string, result: unknown): Promise<void> {
       await db.query(`UPDATE evaluation_jobs SET status = 'completed', result = $2, completed_at = NOW(), error = NULL WHERE id = $1 AND status = 'running'`, [jobId, JSON.stringify(result)]);

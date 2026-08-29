@@ -9,6 +9,10 @@ const sandbox = () => {
   return createJudge0Sandbox({ endpoint, token, languageIds: { typescript: Number(process.env.JUDGE0_TYPESCRIPT_LANGUAGE_ID ?? 74), python: Number(process.env.JUDGE0_PYTHON_LANGUAGE_ID ?? 71) } });
 };
 
+export async function failStaleExecutionJobs(staleAfterMs = Number(process.env.EXECUTION_JOB_STALE_AFTER_MS ?? 300_000)) {
+  return createExecutionJobStore().failStaleRunning(staleAfterMs);
+}
+
 export async function processNextExecutionJob() {
   if (!codeExecutionEnabled()) return null;
   const store = createExecutionJobStore();

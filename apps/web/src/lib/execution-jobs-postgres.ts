@@ -28,5 +28,9 @@ export function createExecutionJobStore(db: DatabaseClient = createDatabaseClien
     async fail(id: string, error: string): Promise<void> {
       await db.query(`UPDATE execution_jobs SET status = 'failed', error = $2, completed_at = NOW() WHERE id = $1 AND status = 'running'`, [id, error]);
     },
+    async cancel(id: string, userId: string, sessionId: string): Promise<ExecutionJob | null> {
+      const result = await db.query<Row>(`UPDATE execution_jobs SET status = 'canceled', completed_at = NOW() WHERE id = $1 AND user_id = $2 AND session_id = $3 AND status IN ('queued', 'running') RETURNING *`, [id, userId, sessionId]);
+      return result.rows[0] ? mapJob(result.rows[0]) : null;
+    },
   };
 }

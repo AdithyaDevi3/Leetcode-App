@@ -13,3 +13,4 @@ export * from './concept-graph';
 export * from './execution';
 export * from './content-publication';
 export * from './mastery';
+export * from './offline-revisions';

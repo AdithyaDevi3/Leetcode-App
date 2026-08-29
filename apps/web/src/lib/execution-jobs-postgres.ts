@@ -22,6 +22,17 @@ export function createExecutionJobStore(db: DatabaseClient = createDatabaseClien
         return result.rows[0] ? mapJob(result.rows[0]) : null;
       });
     },
+    async failStaleRunning(staleAfterMs: number): Promise<number> {
+      const result = await db.query<{ id: string }>(
+        `UPDATE execution_jobs
+         SET status = 'failed', completed_at = NOW(),
+             error = COALESCE(error, 'Worker lease expired; execution outcome is unknown')
+         WHERE status = 'running' AND started_at < NOW() - ($1 * INTERVAL '1 millisecond')
+         RETURNING id`,
+        [Math.max(1, Math.floor(staleAfterMs))],
+      );
+      return result.rows.length;
+    },
     async complete(id: string, result: ExecutionResult): Promise<void> {
       await db.query(`UPDATE execution_jobs SET status = $2, result = $3, completed_at = NOW(), error = NULL WHERE id = $1 AND status = 'running'`, [id, result.status, JSON.stringify(result)]);
     },

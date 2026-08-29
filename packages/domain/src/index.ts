@@ -15,3 +15,4 @@ export * from './content-publication';
 export * from './mastery';
 export * from './offline-revisions';
 export * from './system-design';
+export * from './recommendations';

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth/session';
 import { evaluatePracticeRevision } from '@/lib/practice-api';
 import { enqueueRuntimeJob, runRuntimeJob } from '@/lib/evaluation-job-runtime';
+import { takeRateLimit } from '@/lib/rate-limit';
 
 export async function POST(
   request: Request,
@@ -14,6 +15,17 @@ export async function POST(
 
     if (!body || typeof body.revisionNumber !== 'number') {
       return NextResponse.json({ error: 'revisionNumber is required' }, { status: 400 });
+    }
+
+    const rateLimit = takeRateLimit(`evaluation:${session.user.id}`, {
+      limit: Number(process.env.EVALUATION_SUBMISSIONS_PER_MINUTE ?? 12),
+      windowMs: 60_000,
+    });
+    if (!rateLimit.allowed) {
+      return NextResponse.json({ error: 'Too many evaluation submissions' }, {
+        status: 429,
+        headers: { 'retry-after': String(rateLimit.retryAfterSeconds) },
+      });
     }
 
     const job = await enqueueRuntimeJob({

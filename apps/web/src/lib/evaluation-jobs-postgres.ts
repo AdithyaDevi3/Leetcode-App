@@ -26,6 +26,10 @@ export function createEvaluationJobStore(db: DatabaseClient = createDatabaseClie
       const result = await db.query<JobRow>('SELECT * FROM evaluation_jobs WHERE id = $1 AND user_id = $2 AND session_id = $3', [jobId, userId, sessionId]);
       return result.rows[0] ?? null;
     },
+    async findById(jobId: string): Promise<EvaluationJob | null> {
+      const result = await db.query<JobRow>('SELECT * FROM evaluation_jobs WHERE id = $1', [jobId]);
+      return result.rows[0] ?? null;
+    },
     async claimNext(): Promise<EvaluationJob | null> {
       return db.transaction(async (client) => {
         const result = await client.query<JobRow>(

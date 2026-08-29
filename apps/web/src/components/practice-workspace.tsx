@@ -31,6 +31,7 @@ import {
   buildCodeFromPlan,
   deserializePracticeSession,
   joinBlocksIntoDraft,
+  projectDraftBlocks,
   sessionStorageKey,
   splitDraftIntoBlocks,
   stripCodeComments,
@@ -162,7 +163,9 @@ export function PracticeWorkspace() {
     return () => window.clearTimeout(timer);
   }, [draft, mode, code, codeChecked, completed, evaluation, storageKey, activePracticeItem]);
 
-  const blocks = splitDraftIntoBlocks(draft);
+  const blocks = mode === "blocks"
+    ? projectDraftBlocks(draft, activePracticeItem.codeFunction)
+    : splitDraftIntoBlocks(draft);
 
   const updateDraft = (nextDraft: string) => {
     setDraft(nextDraft);

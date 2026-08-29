@@ -61,6 +61,9 @@ export function PracticeWorkspace() {
   const [evaluationStatus, setEvaluationStatus] = useState<'idle' | 'queued' | 'running' | 'completed' | 'failed'>('idle');
   const [evaluationJobId, setEvaluationJobId] = useState<string | null>(null);
   const [remoteRevision, setRemoteRevision] = useState(1);
+  const [executionStatus, setExecutionStatus] = useState<'idle' | 'queued' | 'running' | 'completed' | 'failed' | 'timed_out' | 'unavailable'>('idle');
+  const [executionJobId, setExecutionJobId] = useState<string | null>(null);
+  const [executionOutput, setExecutionOutput] = useState('');
   const activePracticeItem = getPracticeItem(activePracticeId);
   const storageKey = sessionStorageKey(activePracticeItem.id);
   const blockOptions = activePracticeItem.blockOptions;
@@ -216,6 +219,39 @@ export function PracticeWorkspace() {
       const body = await response.json() as { jobId: string; status: 'queued' | 'running' | 'completed' };
       setEvaluationJobId(body.jobId); setEvaluationStatus(body.status);
     } catch { setEvaluationStatus('failed'); setEvaluation(evaluatePseudocode(draft, activePracticeItem.id)); }
+  };
+
+  useEffect(() => {
+    if (!executionJobId || (executionStatus !== 'queued' && executionStatus !== 'running')) return;
+    const sessionId = readCachedPracticeSessionId(activePracticeItem.id);
+    if (!sessionId) return;
+    const timer = window.setInterval(() => {
+      void fetch(`/api/practice/sessions/${sessionId}/execute/${executionJobId}`)
+        .then((response) => response.ok ? response.json() : Promise.reject(new Error('Execution status unavailable')))
+        .then((body: { status: typeof executionStatus; result?: { stdout?: string; stderr?: string }; error?: string }) => {
+          setExecutionStatus(body.status);
+          if (body.result) setExecutionOutput([body.result.stdout, body.result.stderr].filter(Boolean).join('\n'));
+          else if (body.error) setExecutionOutput(body.error);
+        })
+        .catch(() => setExecutionStatus('unavailable'));
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [activePracticeItem.id, executionJobId, executionStatus]);
+
+  const runInSandbox = async () => {
+    const sessionId = readCachedPracticeSessionId(activePracticeItem.id);
+    if (!sessionId) { setExecutionStatus('unavailable'); setExecutionOutput('Save your practice session before running code.'); return; }
+    setExecutionStatus('queued'); setExecutionOutput('');
+    try {
+      const response = await fetch(`/api/practice/sessions/${sessionId}/execute`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ language: 'typescript', source: code, limits: { timeoutMs: 3000, memoryMb: 256, outputBytes: 50_000 } }),
+      });
+      if (response.status === 503) { setExecutionStatus('unavailable'); setExecutionOutput('Sandbox execution is not enabled for this environment.'); return; }
+      if (!response.ok) throw new Error('Execution request failed');
+      const body = await response.json() as { jobId: string; status: 'queued' | 'running' };
+      setExecutionJobId(body.jobId); setExecutionStatus(body.status);
+    } catch { setExecutionStatus('unavailable'); setExecutionOutput('Unable to queue this execution.'); }
   };
   const secureConceptCount = completed ? 4 : 3;
   const progressPercent = Math.round((secureConceptCount / 7) * 100);
@@ -654,6 +690,9 @@ export function PracticeWorkspace() {
                   setCode(event.target.value);
                   setCodeChecked(false);
                   setCompleted(false);
+                  setExecutionStatus('idle');
+                  setExecutionJobId(null);
+                  setExecutionOutput('');
                 }}
                 value={code}
               />
@@ -687,6 +726,19 @@ export function PracticeWorkspace() {
                 >
                   <Play size={15} /> {completed ? "Completed" : codeChecked ? "Structure recorded" : "Check translation"}
                 </button>
+                <button
+                  className="button secondary full-button"
+                  disabled={!approved || executionStatus === 'queued' || executionStatus === 'running'}
+                  onClick={() => void runInSandbox()}
+                  type="button"
+                >
+                  <Play size={15} /> {executionStatus === 'queued' || executionStatus === 'running' ? 'Running sandbox…' : 'Run in sandbox'}
+                </button>
+                {executionStatus !== 'idle' ? (
+                  <div className={`completion-panel ${executionStatus === 'failed' || executionStatus === 'timed_out' || executionStatus === 'unavailable' ? 'revise' : ''}`} aria-live="polite">
+                    {executionStatus === 'completed' ? <Check size={16} /> : <Clock3 size={16} />} {executionOutput || `Execution ${executionStatus}.`}
+                  </div>
+                ) : null}
                 {completed ? (
                   <div className="completion-panel" aria-live="polite">
                     <Check size={16} /> Saved to your local progress.

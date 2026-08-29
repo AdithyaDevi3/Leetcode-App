@@ -85,8 +85,8 @@ This matrix tracks the functional and operational requirements defined in [PRODU
 | ID-004 | Profile, goals, locale, timezone, and accessibility | Planned | 4 | Ownership-tested preferences API and UI |
 | ID-005 | Session/device listing and revocation | Planned | 1 | Revoked session fails immediately per policy |
 | PRIV-001 | Plain-language privacy notice and consent record | Planned | 6, 9 | Versioned notice and consent history |
-| PRIV-002 | Data export | Planned | 6, 9 | Idempotent export job and download-expiry tests |
-| PRIV-003 | Account deletion | Planned | 6, 9 | End-to-end deletion including provider/device propagation |
+| PRIV-002 | Data export | In progress | 6, 9 | Authenticated, idempotent request intake exists; export job and download-expiry tests remain |
+| PRIV-003 | Account deletion | In progress | 6, 9 | Authenticated, idempotent request intake exists; end-to-end deletion including provider/device propagation remains |
 | PRIV-004 | Retention schedules by data class | Decision required | 0, 9 | Approved policy enforced by tested jobs |
 | PRIV-005 | AI processing disclosure and no training by default | Planned | 3, 9 | Provider contract/configuration and public disclosure |
 | PRIV-006 | Age eligibility and regional processing | Decision required | 0, 9 | Product/legal decision enforced at onboarding/deployment |

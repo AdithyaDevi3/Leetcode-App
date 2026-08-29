@@ -79,9 +79,9 @@ Remaining: accessible diagram canvas and semantic alternative, rubric evaluation
 
 ### Phase 9 — public-release hardening
 
-Present: account-lifecycle contracts/storage and release-readiness checklist.
+Present: account-lifecycle contracts, durable request storage, authenticated self-service export/deletion request intake, and release-readiness checklist.
 
-Remaining: self-service privacy lifecycle, SLOs/alerts/recovery drills, security and abuse readiness, release governance, and public documentation.
+Remaining: export artifact generation/download expiry, deletion execution/provider-device propagation, consent history, SLOs/alerts/recovery drills, security and abuse readiness, release governance, and public documentation.
 
 ## Branch-management note
 

@@ -1,7 +1,18 @@
 import { createDatabaseClient, type DatabaseClient } from '@leetcode-app/database';
 import type { EvaluationJob, EvaluationJobRequest } from './evaluation-jobs';
 
-type JobRow = Omit<EvaluationJob, 'id'> & { id: string };
+type JobRow = {
+  id: string; user_id: string; session_id: string; revision_number: number; evaluator_version: string; rubric_version: string;
+  status: EvaluationJob['status']; attempts: number; max_attempts: number; result: unknown; error: string | null;
+  queued_at: Date | string; started_at: Date | string | null; completed_at: Date | string | null; dead_lettered_at: Date | string | null;
+};
+const iso = (value: Date | string | null) => value === null ? null : new Date(value).toISOString();
+const mapJob = (row: JobRow): EvaluationJob => ({
+  id: row.id, userId: row.user_id, sessionId: row.session_id, revisionNumber: row.revision_number,
+  evaluatorVersion: row.evaluator_version, rubricVersion: row.rubric_version, status: row.status,
+  queuePosition: 0, queuedAt: iso(row.queued_at)!, startedAt: iso(row.started_at), completedAt: iso(row.completed_at),
+  result: row.result, error: row.error, attempts: row.attempts, maxAttempts: row.max_attempts, deadLetteredAt: iso(row.dead_lettered_at),
+});
 
 export function createEvaluationJobStore(db: DatabaseClient = createDatabaseClient({
   host: process.env.POSTGRES_HOST ?? 'localhost',
@@ -20,15 +31,15 @@ export function createEvaluationJobStore(db: DatabaseClient = createDatabaseClie
          RETURNING *`,
         [request.userId, request.sessionId, request.revisionNumber, request.evaluatorVersion ?? 'v1', request.rubricVersion ?? 'rubric-v1'],
       );
-      return result.rows[0];
+      return mapJob(result.rows[0]);
     },
     async findOwned(jobId: string, userId: string, sessionId: string): Promise<EvaluationJob | null> {
       const result = await db.query<JobRow>('SELECT * FROM evaluation_jobs WHERE id = $1 AND user_id = $2 AND session_id = $3', [jobId, userId, sessionId]);
-      return result.rows[0] ?? null;
+      return result.rows[0] ? mapJob(result.rows[0]) : null;
     },
     async findById(jobId: string): Promise<EvaluationJob | null> {
       const result = await db.query<JobRow>('SELECT * FROM evaluation_jobs WHERE id = $1', [jobId]);
-      return result.rows[0] ?? null;
+      return result.rows[0] ? mapJob(result.rows[0]) : null;
     },
     async claimNext(): Promise<EvaluationJob | null> {
       return db.transaction(async (client) => {
@@ -37,7 +48,7 @@ export function createEvaluationJobStore(db: DatabaseClient = createDatabaseClie
            WHERE id = (SELECT id FROM evaluation_jobs WHERE status = 'queued' ORDER BY queued_at FOR UPDATE SKIP LOCKED LIMIT 1)
            RETURNING *`,
         );
-        return result.rows[0] ?? null;
+        return result.rows[0] ? mapJob(result.rows[0]) : null;
       });
     },
     async complete(jobId: string, result: unknown): Promise<void> {
@@ -48,7 +59,7 @@ export function createEvaluationJobStore(db: DatabaseClient = createDatabaseClie
     },
     async cancel(jobId: string, userId: string, sessionId: string): Promise<EvaluationJob | null> {
       const result = await db.query<JobRow>(`UPDATE evaluation_jobs SET status = 'canceled', completed_at = NOW() WHERE id = $1 AND user_id = $2 AND session_id = $3 AND status IN ('queued', 'running') RETURNING *`, [jobId, userId, sessionId]);
-      return result.rows[0] ?? null;
+      return result.rows[0] ? mapJob(result.rows[0]) : null;
     },
   };
 }

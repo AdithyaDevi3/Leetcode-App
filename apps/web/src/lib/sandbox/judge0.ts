@@ -20,7 +20,9 @@ export function createJudge0Sandbox(config: Judge0Config) {
       const durationMs = Math.round(Number(result.time ?? 0) * 1000);
       const stderr = sanitizeSandboxOutput(result.stderr ?? result.compile_output ?? '');
       const timedOut = result.status?.id === 5;
-      return { status: timedOut ? 'timed_out' : stderr ? 'failed' : 'completed', stdout: sanitizeSandboxOutput(result.stdout ?? ''), stderr, exitCode: result.exit_code ?? null, durationMs, limits: request.limits };
+      const nonzeroExit = result.exit_code !== undefined && result.exit_code !== null && result.exit_code !== 0;
+      const sandboxFailure = result.status?.id !== undefined && result.status.id !== 3 && !timedOut;
+      return { status: timedOut ? 'timed_out' : stderr || nonzeroExit || sandboxFailure ? 'failed' : 'completed', stdout: sanitizeSandboxOutput(result.stdout ?? ''), stderr, exitCode: result.exit_code ?? null, durationMs, limits: request.limits };
     },
   };
 }

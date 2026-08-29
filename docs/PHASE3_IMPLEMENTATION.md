@@ -1,6 +1,6 @@
 # Phase 3 implementation record
 
-Branch: `fix-pnpm-lockfile-and-env-example`
+Branch: `phase-3-evaluation-platform`
 
 The evaluation path is intentionally split into these boundaries:
 

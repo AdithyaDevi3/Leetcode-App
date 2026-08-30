@@ -6,7 +6,7 @@ export default function Home() {
       <div>
         <p className="text-sm font-semibold uppercase tracking-[0.2em] text-cyan-300">Method</p>
         <h1 className="mt-5 max-w-3xl text-4xl font-bold tracking-tight sm:text-6xl">Learn the reasoning before the syntax.</h1>
-        <p className="mt-6 max-w-2xl text-lg leading-8 text-slate-300">Practice algorithms in structured English, receive evidence-based feedback, and move into code only when your plan is ready.</p>
+        <p className="mt-6 max-w-2xl text-lg leading-8 text-slate-300">Practice algorithms in structured English, receive evidence-based feedback, and move into code only when your plan is ready. Your learning plan and drafts work locally in this browser.</p>
         <div className="mt-9 flex flex-wrap gap-3">
           <Link className="rounded-lg bg-cyan-300 px-5 py-3 font-semibold text-slate-950 transition hover:bg-cyan-200" href="/practice">Start a practice session</Link>
           <Link className="rounded-lg border border-slate-600 px-5 py-3 font-semibold text-slate-100 transition hover:border-slate-300" href="/onboarding">Build my learning plan</Link>

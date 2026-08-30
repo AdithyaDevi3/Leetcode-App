@@ -1,5 +1,5 @@
-import { LearnerSettings } from '@/components/learner-settings';
+import { LocalLearnerSettings } from '@/components/local-learner-settings';
 
 export default function SettingsPage() {
-  return <LearnerSettings />;
+  return <LocalLearnerSettings />;
 }

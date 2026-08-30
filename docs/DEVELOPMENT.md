@@ -62,6 +62,11 @@ host port, so retain `POSTGRES_HOST=localhost` when using Compose. To choose a
 different local database name, user, password, or port, export those
 `POSTGRES_*` values before running `pnpm db:up` and before `pnpm db:bootstrap`.
 
+For the staged managed-PostgreSQL setup, Supabase can be selected with the
+server-only `DATABASE_URL` variable while retaining the same repository layer.
+See [SUPABASE_SETUP.md](SUPABASE_SETUP.md); local Docker remains the default
+when `DATABASE_URL` is unset.
+
 Readiness and troubleshooting:
 
 ```bash

@@ -20,6 +20,7 @@ export default function Home() {
           <Link className="underline decoration-[#b9c8bd] underline-offset-4 hover:text-[var(--moss)]" href="/library">Study library</Link>
           <Link className="underline decoration-[#b9c8bd] underline-offset-4 hover:text-[var(--moss)]" href="/system-design">System design practice</Link>
           <Link className="underline decoration-[#b9c8bd] underline-offset-4 hover:text-[var(--moss)]" href="/offline">Continue offline</Link>
+          <Link className="underline decoration-[#b9c8bd] underline-offset-4 hover:text-[var(--moss)]" href="/requests">Request a question or feature</Link>
         </div>
       </div>
       <aside className="border border-[var(--line)] bg-[var(--surface)] p-7 shadow-[0_18px_50px_rgba(34,46,38,.08)]">

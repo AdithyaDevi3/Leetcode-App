@@ -1,5 +1,5 @@
 // Client
-export { DatabaseClient, createDatabaseClient } from './client.js';
+export { DatabaseClient, createDatabaseClient, databaseConfigFromEnv } from './client.js';
 export type { DatabaseConfig } from './client.js';
 
 // Base repository types

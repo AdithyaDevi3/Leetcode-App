@@ -33,6 +33,9 @@ const jobs = new Map<string, EvaluationJob>();
 const jobKeys = new Map<string, string>();
 const deadLetter = new Set<string>();
 
+const isCanceled = (job: EvaluationJob) => job.status === 'canceled';
+const getJobStatus = (job: EvaluationJob): EvaluationJobStatus => job.status;
+
 const buildJobKey = (request: Pick<EvaluationJobRequest, 'userId' | 'sessionId' | 'revisionNumber' | 'evaluatorVersion' | 'rubricVersion'>) =>
   [request.userId, request.sessionId, request.revisionNumber, request.evaluatorVersion ?? 'v1', request.rubricVersion ?? 'rubric-v1'].join(':');
 
@@ -42,7 +45,7 @@ async function completeJob(job: EvaluationJob, executor: () => Promise<unknown> 
 
   try {
     const result = await executor();
-    if (job.status === 'canceled') return;
+    if (isCanceled(job)) return;
     job.result = result;
     job.status = 'completed';
     job.completedAt = new Date().toISOString();
@@ -101,17 +104,19 @@ export async function runEvaluationJob(
   }
 
   job.maxAttempts = options.maxAttempts ?? job.maxAttempts;
-  while (job.attempts < job.maxAttempts && job.status !== 'canceled') {
+  while (job.attempts < job.maxAttempts && !isCanceled(job)) {
     job.attempts += 1;
     await completeJob(job, executor);
-    if (job.status === 'completed' || job.status === 'canceled') return job;
+    const completedStatus = getJobStatus(job);
+    if (completedStatus === 'completed' || completedStatus === 'canceled') return job;
     if (job.attempts < job.maxAttempts) {
       job.status = 'queued';
       job.startedAt = null;
       job.completedAt = null;
     }
   }
-  if (job.status === 'failed' && job.attempts >= job.maxAttempts) {
+  const finalStatus = getJobStatus(job);
+  if (finalStatus === 'failed' && job.attempts >= job.maxAttempts) {
     job.deadLetteredAt = new Date().toISOString();
     deadLetter.add(job.id);
   }

@@ -1,5 +1,5 @@
-import { LearnerDashboard } from '@/components/learner-dashboard';
+import { LocalLearnerDashboard } from '@/components/local-learner-dashboard';
 
 export default function DashboardPage() {
-  return <LearnerDashboard />;
+  return <LocalLearnerDashboard />;
 }

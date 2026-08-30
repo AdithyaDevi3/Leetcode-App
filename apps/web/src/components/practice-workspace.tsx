@@ -205,7 +205,7 @@ export function PracticeWorkspace() {
     const timer = window.setInterval(() => {
       void fetch(`/api/practice/sessions/${readCachedPracticeSessionId(activePracticeItem.id)}/evaluate/${evaluationJobId}`)
         .then((response) => response.ok ? response.json() : Promise.reject(new Error('Evaluation status unavailable')))
-        .then((body: { status: typeof evaluationStatus; result?: { evaluation?: Evaluation }; error?: string }) => {
+        .then((body: { status: 'queued' | 'running' | 'completed' | 'failed' | 'canceled'; result?: { evaluation?: Evaluation }; error?: string }) => {
           if (body.status === 'completed') { setEvaluation(body.result?.evaluation ?? null); setEvaluationStatus('completed'); setEvaluationMessage(null); }
           else if (body.status === 'failed') { setEvaluationStatus('failed'); setEvaluationMessage(body.error ?? 'Evaluation failed. You can retry safely.'); }
           else if (body.status === 'canceled') { setEvaluationStatus('canceled'); setEvaluationMessage('Evaluation canceled. Your draft is still saved.'); }

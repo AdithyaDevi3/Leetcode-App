@@ -5,7 +5,7 @@
   "type": "module",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
+      "types": "./src/public-api.d.ts",
       "import": "./dist/index.js"
     },
     "./migrations": {

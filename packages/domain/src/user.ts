@@ -14,6 +14,9 @@ export type AuthProvider = 'email' | 'google' | 'github';
  */
 export type UserStatus = 'active' | 'suspended' | 'deleted';
 
+/** Roles persisted by the current PostgreSQL user table. */
+export type UserRole = 'guest' | 'learner' | 'instructor' | 'admin';
+
 /**
  * Authenticated user entity
  */
@@ -26,6 +29,15 @@ export interface User {
 
   /** Display name */
   name: string;
+
+  /**
+   * Display name stored by the PostgreSQL adapter. `name` remains the
+   * application-facing field while the adapter is migrated to a single name.
+   */
+  displayName?: string;
+
+  /** Authorization role stored by the PostgreSQL adapter. */
+  role?: UserRole;
 
   /** Profile picture URL (optional) */
   avatarUrl?: string;
@@ -68,6 +80,12 @@ export interface GuestIdentity {
   /** Browser fingerprint or device ID */
   fingerprint: string;
 
+  /** Legacy/persisted PostgreSQL column aliases. */
+  deviceFingerprint?: string;
+  sessionToken?: string;
+  expiresAt?: Date;
+  upgradedToUserId?: string;
+
   /** Creation timestamp (UTC) */
   createdAt: Date;
 
@@ -109,6 +127,9 @@ export interface UserPreference {
 
   /** Content display language */
   contentLanguage: ContentLanguage;
+
+  /** Legacy/persisted PostgreSQL column alias. */
+  language?: ContentLanguage;
 
   /** Preferred coding language */
   preferredCodeLanguage: CodeLanguage;

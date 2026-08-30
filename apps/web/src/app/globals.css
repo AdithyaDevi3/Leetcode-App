@@ -52,7 +52,7 @@ h1, h2, h3, p { margin-top: 0; }
 .nav-label { margin: 18px 10px 8px; color: #9aa69d; font-size: 11px; font-weight: 700; text-transform: uppercase; }
 .nav-item {
   width: 100%; min-height: 42px; padding: 0 11px; display: flex; align-items: center; gap: 11px;
-  border: 0; border-radius: 6px; background: transparent; color: #cad1cb; text-align: left;
+  border: 0; border-radius: 6px; background: transparent; color: #cad1cb; text-align: left; text-decoration: none;
 }
 .nav-item.active { background: #2e3d34; color: #fffefa; }
 .nav-item:hover { background: #29372f; }
@@ -207,8 +207,8 @@ h1 { margin-bottom: 6px; font-size: clamp(26px, 3vw, 38px); line-height: 1.1; }
     padding: 6px 12px env(safe-area-inset-bottom); display: grid; grid-template-columns: repeat(4, 1fr);
     border-top: 1px solid #334139; background: var(--ink);
   }
-  .mobile-nav button { display: grid; place-items: center; gap: 2px; border: 0; background: transparent; color: #aeb8b0; font-size: 9px; }
-  .mobile-nav button.active { color: var(--mustard); }
+  .mobile-nav a { display: grid; place-items: center; gap: 2px; color: #aeb8b0; font-size: 9px; text-decoration: none; }
+  .mobile-nav a.active { color: var(--mustard); }
 }
 
 @media (max-width: 480px) {

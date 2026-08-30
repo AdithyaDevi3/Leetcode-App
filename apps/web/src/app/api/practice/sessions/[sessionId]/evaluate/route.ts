@@ -16,6 +16,7 @@ export async function POST(
     if (!body || typeof body.revisionNumber !== 'number') {
       return NextResponse.json({ error: 'revisionNumber is required' }, { status: 400 });
     }
+    const revisionNumber = body.revisionNumber;
 
     const rateLimit = takeRateLimit(`evaluation:${session.user.id}`, {
       limit: Number(process.env.EVALUATION_SUBMISSIONS_PER_MINUTE ?? 12),
@@ -31,14 +32,14 @@ export async function POST(
     const job = await enqueueRuntimeJob({
       userId: session.user.id,
       sessionId,
-      revisionNumber: body.revisionNumber,
+      revisionNumber,
     });
 
     await runRuntimeJob(job.id, async () =>
       evaluatePracticeRevision({
         userId: session.user.id,
         sessionId,
-        revisionNumber: body.revisionNumber,
+        revisionNumber,
       }),
     );
 

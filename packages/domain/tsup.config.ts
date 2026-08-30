@@ -9,7 +9,7 @@ export default defineConfig({
     evaluation: 'src/evaluation.ts',
   },
   format: ['cjs', 'esm'],
-  dts: true,
+  dts: process.env.TSUP_SKIP_DTS !== 'true',
   clean: true,
   sourcemap: true,
   splitting: false,

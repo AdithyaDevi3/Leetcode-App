@@ -10,8 +10,13 @@
     "lint": "pnpm --filter web lint",
     "test": "pnpm -r test",
     "test:e2e": "pnpm --filter web test:e2e",
-    "migrate": "pnpm --filter database migrate",
+    "migrate": "pnpm run db:bootstrap",
     "migrate:create": "pnpm --filter database migrate:create",
+    "db:up": "docker compose up -d postgres",
+    "db:down": "docker compose down",
+    "db:status": "docker compose ps postgres",
+    "db:logs": "docker compose logs --tail=100 postgres",
+    "db:bootstrap": "node scripts/local-db-bootstrap.mjs",
     "preflight": "node scripts/preflight.mjs"
   },
   "devDependencies": {

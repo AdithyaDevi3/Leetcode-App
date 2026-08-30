@@ -107,13 +107,17 @@ const analyzeStatementList = (
       const nested = analyzeStatementList(statement.body, new Map(symbols), findings);
       nested.uses.forEach((name) => uses.add(name));
       nested.assigns.forEach((name) => assigns.add(name));
+      hasLoop = hasLoop || nested.hasLoop;
+      hasBranch = hasBranch || nested.hasBranch;
       returnsAlways = returnsAlways && nested.returnsAlways;
       findings.push(
         createFinding(
           'operation-cost',
           statement,
-          'pass',
-          'Loop usage is tracked explicitly for bounded cost inference.',
+          nested.hasLoop || nested.hasBranch ? 'revise' : 'pass',
+          nested.hasLoop || nested.hasBranch
+            ? 'Nested control flow increases cost sensitivity; verify the intended bound.'
+            : 'Loop usage is tracked explicitly for bounded cost inference.',
         ),
       );
       continue;
@@ -135,6 +139,10 @@ const analyzeStatementList = (
   return { returnsAlways, uses, assigns, hasLoop, hasBranch };
 };
 
+const containsConditional = (statements: AstStatementNode[]): boolean => statements.some((statement) =>
+  statement.kind === 'condition' || (statement.kind === 'loop' && containsConditional(statement.body)),
+);
+
 const buildControlFlow = (fn: AstFunctionNode) => {
   const nodes: AstControlFlowNode[] = [
     { id: `${fn.id}:entry`, label: `entry:${fn.name}`, span: fn.span, kind: 'entry' },
@@ -145,7 +153,9 @@ const buildControlFlow = (fn: AstFunctionNode) => {
 
   fn.body.forEach((statement, index) => {
     const nodeId = `${fn.id}:statement:${index}`;
-    const kind = statement.kind === 'condition' ? 'branch' : 'statement';
+    const kind = statement.kind === 'condition' || (statement.kind === 'loop' && containsConditional(statement.body))
+      ? 'branch'
+      : 'statement';
     nodes.push({ id: nodeId, label: statement.kind, span: statement.span, kind });
     edges.push({ from: previous, to: nodeId });
 

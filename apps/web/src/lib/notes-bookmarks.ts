@@ -1,4 +1,4 @@
-import { createDatabaseClient, type DatabaseClient } from '@leetcode-app/database';
+import { createDatabaseClient, databaseConfigFromEnv, type DatabaseClient } from '@leetcode-app/database';
 
 type Timestamp = Date | string;
 type NoteRow = { id: string; user_id: string; content_id: string; session_id: string | null; body: string; anchor: string | null; created_at: Timestamp; updated_at: Timestamp };
@@ -9,7 +9,7 @@ export type LearnerBookmark = { id: string; userId: string; contentId: string; s
 export type NoteInput = { contentId: string; sessionId: string | null; body: string; anchor: string | null };
 export type BookmarkInput = { contentId: string; sessionId: string | null; label: string | null };
 
-const config = { host: process.env.POSTGRES_HOST ?? 'localhost', port: Number(process.env.POSTGRES_PORT ?? 5432), database: process.env.POSTGRES_DB ?? 'leetcode_app', user: process.env.POSTGRES_USER ?? 'postgres', password: process.env.POSTGRES_PASSWORD ?? 'postgres' };
+const config = databaseConfigFromEnv();
 const toIso = (value: Timestamp) => new Date(value).toISOString();
 const mapNote = (row: NoteRow): LearnerNote => ({ id: row.id, userId: row.user_id, contentId: row.content_id, sessionId: row.session_id, body: row.body, anchor: row.anchor, createdAt: toIso(row.created_at), updatedAt: toIso(row.updated_at) });
 const mapBookmark = (row: BookmarkRow): LearnerBookmark => ({ id: row.id, userId: row.user_id, contentId: row.content_id, sessionId: row.session_id, label: row.label, createdAt: toIso(row.created_at) });

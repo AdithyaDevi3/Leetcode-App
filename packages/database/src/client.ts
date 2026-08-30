@@ -13,6 +13,27 @@ export interface DatabaseConfig {
   connectionString?: string;
 }
 
+/** Reads a Supabase-style connection string or the existing component variables. */
+export function databaseConfigFromEnv(env: NodeJS.ProcessEnv = process.env): DatabaseConfig {
+  if (env.DATABASE_URL) {
+    const parsed = new URL(env.DATABASE_URL);
+    return {
+      host: parsed.hostname,
+      port: Number(parsed.port || 5432),
+      database: decodeURIComponent(parsed.pathname.slice(1) || 'postgres'),
+      user: decodeURIComponent(parsed.username),
+      password: decodeURIComponent(parsed.password),
+      ssl: parsed.searchParams.get('sslmode') === 'disable' ? undefined : { rejectUnauthorized: false },
+    };
+  }
+  return {
+    host: env.POSTGRES_HOST || 'localhost', port: Number(env.POSTGRES_PORT || 5432),
+    database: env.POSTGRES_DB || 'leetcode_app', user: env.POSTGRES_USER || 'postgres',
+    password: env.POSTGRES_PASSWORD || 'postgres',
+    ssl: env.POSTGRES_SSL === 'true' ? { rejectUnauthorized: false } : undefined,
+  };
+}
+
 export class DatabaseClient {
   private pool: pg.Pool;
 

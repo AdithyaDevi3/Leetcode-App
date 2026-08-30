@@ -17,6 +17,7 @@ export class DatabaseClient {
 }
 
 export function createDatabaseClient(config: DatabaseConfig): DatabaseClient;
+export function databaseConfigFromEnv(env?: NodeJS.ProcessEnv): DatabaseConfig;
 
 export class PostgresUserRepository {
   constructor(db: DatabaseClient);

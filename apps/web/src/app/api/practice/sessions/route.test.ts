@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const requireAuth = vi.fn();
+const getPracticeOwner = vi.fn();
 const startOrResumePracticeSession = vi.fn();
 
 vi.mock('@/lib/auth/session', () => ({
-  requireAuth,
+  getPracticeOwner,
 }));
 
 vi.mock('@/lib/practice-api', () => ({
@@ -13,12 +13,12 @@ vi.mock('@/lib/practice-api', () => ({
 
 describe('/api/practice/sessions', () => {
   beforeEach(() => {
-    requireAuth.mockReset();
+    getPracticeOwner.mockReset();
     startOrResumePracticeSession.mockReset();
   });
 
   it('returns 400 when contentId is missing', async () => {
-    requireAuth.mockResolvedValue({ user: { id: 'user-1' } });
+    getPracticeOwner.mockResolvedValue({ kind: 'user', id: 'user-1' });
     const { GET } = await import('./route');
 
     const response = await GET(new Request('http://localhost/api/practice/sessions'));
@@ -29,7 +29,7 @@ describe('/api/practice/sessions', () => {
   });
 
   it('delegates to the practice service', async () => {
-    requireAuth.mockResolvedValue({ user: { id: 'user-1' } });
+    getPracticeOwner.mockResolvedValue({ kind: 'guest', id: 'guest-1' });
     startOrResumePracticeSession.mockResolvedValue({
       created: true,
       session: {
@@ -53,6 +53,6 @@ describe('/api/practice/sessions', () => {
     );
 
     expect(response.status).toBe(201);
-    expect(startOrResumePracticeSession).toHaveBeenCalledWith({ userId: 'user-1', contentId: 'two-sum' });
+    expect(startOrResumePracticeSession).toHaveBeenCalledWith({ owner: { kind: 'guest', id: 'guest-1' }, contentId: 'two-sum' });
   });
 });

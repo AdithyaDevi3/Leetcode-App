@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const requireAuth = vi.fn();
+const getPracticeOwner = vi.fn();
 const appendPracticeRevision = vi.fn();
 
 vi.mock('@/lib/auth/session', () => ({
-  requireAuth,
+  getPracticeOwner,
 }));
 
 vi.mock('@/lib/practice-api', () => ({
@@ -13,12 +13,12 @@ vi.mock('@/lib/practice-api', () => ({
 
 describe('/api/practice/sessions/[sessionId]', () => {
   beforeEach(() => {
-    requireAuth.mockReset();
+    getPracticeOwner.mockReset();
     appendPracticeRevision.mockReset();
   });
 
   it('returns 400 when draft is missing', async () => {
-    requireAuth.mockResolvedValue({ user: { id: 'user-1' } });
+    getPracticeOwner.mockResolvedValue({ kind: 'user', id: 'user-1' });
     const { POST } = await import('./route');
 
     const response = await POST(
@@ -35,7 +35,7 @@ describe('/api/practice/sessions/[sessionId]', () => {
   });
 
   it('delegates revision appends to the practice service', async () => {
-    requireAuth.mockResolvedValue({ user: { id: 'user-1' } });
+    getPracticeOwner.mockResolvedValue({ kind: 'guest', id: 'guest-1' });
     appendPracticeRevision.mockResolvedValue({
       revision: {
         sessionId: 'session-1',
@@ -58,7 +58,7 @@ describe('/api/practice/sessions/[sessionId]', () => {
 
     expect(response.status).toBe(201);
     expect(appendPracticeRevision).toHaveBeenCalledWith({
-      userId: 'user-1',
+      owner: { kind: 'guest', id: 'guest-1' },
       sessionId: 'session-1',
       draft: 'Use a map.',
       currentStage: 'plan',

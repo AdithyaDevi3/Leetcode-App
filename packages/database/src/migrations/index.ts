@@ -1,5 +1,5 @@
 import runner from 'node-pg-migrate';
-import { DatabaseConfig } from './client.js';
+import type { DatabaseConfig } from './client.js';
 
 export async function runMigrations(config: DatabaseConfig, direction: 'up' | 'down' = 'up'): Promise<void> {
   await runner({

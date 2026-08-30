@@ -14,7 +14,9 @@ export default function Home() {
         <div className="mt-8 flex flex-wrap gap-x-6 gap-y-3 text-sm text-slate-300">
           <Link className="underline decoration-slate-600 underline-offset-4 hover:text-white" href="/learn">My learning plan</Link>
           <Link className="underline decoration-slate-600 underline-offset-4 hover:text-white" href="/dashboard">Dashboard</Link>
+          <Link className="underline decoration-slate-600 underline-offset-4 hover:text-white" href="/history">Practice history</Link>
           <Link className="underline decoration-slate-600 underline-offset-4 hover:text-white" href="/system-design">System design practice</Link>
+          <Link className="underline decoration-slate-600 underline-offset-4 hover:text-white" href="/offline">Continue offline</Link>
         </div>
       </div>
       <aside className="rounded-2xl border border-slate-700 bg-slate-900/70 p-7 shadow-2xl shadow-cyan-950/20">

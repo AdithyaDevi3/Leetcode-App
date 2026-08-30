@@ -42,7 +42,13 @@ export function StudyLibrary() {
     }
   };
 
-  useEffect(() => { void load(); }, []);
+  useEffect(() => {
+    // Defer the initial request until after the first paint. This keeps the
+    // effect focused on scheduling external I/O and avoids a synchronous
+    // state cascade during mount.
+    const handle = window.setTimeout(() => { void load(); }, 0);
+    return () => window.clearTimeout(handle);
+  }, []);
 
   const deleteItem = async (kind: 'notes' | 'bookmarks', id: string) => {
     setMessage('Removing saved item…');

@@ -28,7 +28,7 @@ This section supplements the roadmap; it does not replace or reorder the phases 
 - Learner appeal records, reviewer resolution state, and immutable appeal audit events are represented.
 - A reversible PostgreSQL migration and adapter now define durable evaluation jobs, appeals, and audit storage; production route selection is controlled by `EVALUATION_JOB_STORE=postgres`, while worker deployment remains a launch task.
 - Phase 4 foundations now include a validated concept graph, interpretable mastery updates, and explainable recommendation selection.
-- Phase 4 now includes onboarding, a persisted learner profile, and a profile-derived initial plan endpoint/page (pending the current working-tree commit).
+- Phase 4 now includes onboarding, a persisted learner profile, and a profile-derived initial plan endpoint/page.
 - Phase 5 has a bounded execution request/result contract; selecting and operating a sandbox remains required.
 - Phase 6 has content-publication validation and least-privilege administration authorization foundations.
 - Phase 7 has an ordered, account-safe offline revision queue foundation.
@@ -40,7 +40,8 @@ This section supplements the roadmap; it does not replace or reorder the phases 
 - Phase 6 now includes lifecycle transition rules for content versions.
 - Phase 7 now includes PWA metadata/offline fallback plus notification preference scheduling.
 - Phase 8 now includes a deterministic staged-practice flow.
-- The active implementation branch is `phase-3-evaluation-platform`.
+- The active integration branch is `main`; short-lived feature branches must
+  target `main` and stay independently reviewable.
 
 ### Launch target
 
@@ -59,7 +60,10 @@ AI evaluation, broad content expansion, social features, native mobile apps, and
 
 **Launch blocker 1: verify durable evaluation jobs in staging.** The database-backed job table, worker trigger, polling/cancellation, queue health, idempotency, retry/dead-letter state, and stale-lease recovery are implemented. Deploy the worker and scheduler against managed PostgreSQL, then prove recovery, cancellation, dead-letter, and queue-age alerts with staging failure injection.
 
-**Launch blocker 2: productionize the learner path.** Configure hosted PostgreSQL, authentication/session secrets, production environment variables, migrations, seed content, and a deployment target. Verify object ownership, guest behavior, revision conflicts, and resume behavior in staging.
+**Launch blocker 2: productionize the learner path.** Configure Supabase Auth,
+  Supabase PostgreSQL, Vercel environment variables, migrations, and seed
+  content. Verify object ownership, guest behavior, revision conflicts, and
+  resume behavior in staging.
 
 **Launch blocker 3: verify the UI resilience path.** The workspace is connected to evaluation job polling, exposes queued/running/failed/canceled feedback, supports cancellation, observes server backoff, and labels local deterministic fallback. Verify save conflicts, duplicate submissions, and retry flows through browser/staging tests.
 
@@ -69,8 +73,8 @@ AI evaluation, broad content expansion, social features, native mobile apps, and
 
 ### One-week execution sequence
 
-- **Day 1:** Freeze the beta scope; configure hosting, domain, environment variables, authentication, and managed PostgreSQL.
-- **Day 2:** Implement the durable evaluation job store/worker and migrate the current in-memory contract.
+- **Day 1:** Freeze the beta scope; configure Vercel, domain, environment variables, Supabase Auth, and Supabase PostgreSQL.
+- **Day 2:** Deploy and verify the durable evaluation job store/worker against Supabase Postgres; migrate the current in-memory contract.
 - **Day 3:** Connect the workspace to persistence and job polling; handle conflicts, retries, cancellation, and duplicate submits.
 - **Day 4:** Add monitoring, rate limits, backups, health checks, seed data, and rollback instructions.
 - **Day 5:** Run staging migrations, end-to-end browser tests, accessibility checks, and failure drills.

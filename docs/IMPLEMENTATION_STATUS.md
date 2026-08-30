@@ -1,6 +1,6 @@
 # Implementation status notes
 
-Snapshot: `phase-3-evaluation-platform` at the time of writing. This is an implementation ledger, not a declaration that any phase has passed its exit criteria. Code merged into the branch still requires tests, operational evidence, and the acceptance criteria named in [IMPLEMENTATION_ROADMAP.md](IMPLEMENTATION_ROADMAP.md).
+Snapshot: `main` after the Supabase/Vercel integration. This is an implementation ledger, not a declaration that any phase has passed its exit criteria. Code still requires tests, operational evidence, and the acceptance criteria named in [IMPLEMENTATION_ROADMAP.md](IMPLEMENTATION_ROADMAP.md).
 
 ## Current priority: private-beta path
 
@@ -13,11 +13,11 @@ Implemented foundations:
 - Appeals, second-pass triage, reviewer resolution, and appeal audit records.
 - Evaluation safety boundaries: AI kill switch, redaction, schema validation, timeout, and conservative evidence merge.
 - Request correlation, bounded in-process submission rate limits, evaluation/execution queue health, and stale-worker lease recovery.
-- The learner plan API and `/learn` page are implemented in the current working tree and awaiting commit/merge.
+- Supabase email/password Auth, server-side session refresh, durable Supabase Postgres persistence, curriculum seeds, guest continuity, notes/bookmarks, learner requests, and the study library are merged into `main`.
 
 Still required before a private beta can be claimed:
 
-- Deploy hosted PostgreSQL, authentication/session configuration, environment secrets, migrations, seed content, and a worker/queue runtime.
+- Configure the Supabase production project and Vercel environment secrets; apply all migrations, including curriculum, guest continuity, and learner requests.
 - Make the durable evaluation path the verified production path; prove retry, recovery, cancellation, and dead-letter behavior against staging infrastructure.
 - Verify learner resilience end-to-end: the UI now exposes evaluation progress, cancellation, retry/backoff, and a labeled local fallback, but needs browser/staging evidence for save conflicts and duplicate submission behavior.
 - Add and verify structured error tracking, distributed rate limits, database backups, alerts, and rollback/failed-job runbooks. Correlation IDs, bounded in-process rate limits, queue health, and stale-job recovery are present in code.
@@ -87,4 +87,7 @@ Remaining: export artifact generation/download expiry, deletion execution/provid
 
 ## Branch-management note
 
-The Phase 3 integration branch contains foundations from Phases 0 and 4–9. Keep those changes behind their relevant feature flags and do not treat their presence in the branch as permission to expose them in the private beta. Before opening or updating a PR to `main`, reconcile the branch with the current `origin/main`, keep unrelated future-phase changes separately reviewable where possible, and re-run the applicable checks.
+`main` is the deployable integration branch. Keep unfinished AI, code execution,
+notifications, and future curriculum behind their feature flags. Before opening
+any PR, reconcile with `origin/main`, keep one roadmap work package per branch,
+and re-run the applicable checks.

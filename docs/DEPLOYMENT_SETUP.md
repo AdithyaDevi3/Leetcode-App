@@ -15,8 +15,8 @@ and health checks.
 | Area | Required for an invited beta | Deployment-time action | Repository boundary |
 |---|---|---|---|
 | Hosting and domain | Yes | Create Vercel project, configure preview/staging/production domains and HTTPS, set `NEXT_PUBLIC_APP_URL` per environment | No provider/project configuration is committed |
-| Database | Yes | Provision managed PostgreSQL, restrict network access, create separate staging/production databases, run forward migrations, schedule backups and restore tests | Connection settings are server secrets; migrations are versioned here |
-| Authentication | Yes for saved data | Create OAuth applications, set exact callback URLs for each environment, generate `AUTH_SECRET`, and restrict approved redirect origins | Only provider identifiers/secret names belong in configuration; no OAuth secret is committed |
+| Database | Yes | Use Supabase PostgreSQL, create separate staging/production projects or branches, run forward migrations, enable backups/PITR, and rehearse restore | Connection settings are server secrets; migrations are versioned here |
+| Authentication | Yes for saved data | Configure Supabase email/password Auth, confirmation redirect URLs, password policies, and approved site URLs for each environment | Only public project URL/key and safe variable names belong in configuration |
 | Evaluation worker | Yes when `EVALUATION_JOB_STORE=postgres` | Deploy an authenticated worker/scheduler, provide `EVALUATION_WORKER_TOKEN`, and monitor queue age, stale leases, retries, and dead letters | Worker contracts and health endpoints live here; scheduling credentials do not |
 | Observability | Yes | Connect error tracking, central logs, uptime/health checks, request-correlation search, and alerts for failures, queue age, latency, and database capacity | Never send raw submissions, prompts, tokens, or user emails by default |
 | Backups and recovery | Yes | Set retention, encrypt backups, run a staging restore, define rollback owner and incident contacts | Do not commit snapshots or production exports |
@@ -43,11 +43,9 @@ local `.env` file into hosting configuration.
 
 Minimum beta configuration:
 
-- `AUTH_SECRET`
-- `AUTH_GOOGLE_ID` and `AUTH_GOOGLE_SECRET`, and/or `AUTH_GITHUB_ID` and
-  `AUTH_GITHUB_SECRET`
-- `POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_DB`, `POSTGRES_USER`,
-  `POSTGRES_PASSWORD`
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
+- `DATABASE_URL` (Supabase pooler URI with `sslmode=require`)
 - `NEXT_PUBLIC_APP_URL`
 - `EVALUATION_JOB_STORE=postgres`
 - `EVALUATION_WORKER_TOKEN` and `EVALUATION_REVIEWER_TOKEN`
@@ -64,8 +62,9 @@ credentials, database passwords, and worker tokens must never have a
    shared credentials or data.
 2. Provision PostgreSQL, apply migrations to a clean staging database, seed
    approved content, and prove backup restore.
-3. Configure OAuth callback URLs and secrets; confirm sign-in, sign-out,
-   session expiry, and account ownership in staging.
+3. Configure Supabase Auth site/redirect URLs and email/password policies;
+   confirm sign-in, sign-out, confirmation, session expiry, and account
+   ownership in staging.
 4. Deploy the web service and the evaluation worker; exercise queued,
    canceled, failed, retried, and stale-job recovery paths.
 5. Turn on logs, error tracking, health checks, database/queue alerts, and a

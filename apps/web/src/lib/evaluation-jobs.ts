@@ -34,6 +34,7 @@ const jobKeys = new Map<string, string>();
 const deadLetter = new Set<string>();
 
 const isCanceled = (job: EvaluationJob) => job.status === 'canceled';
+const getJobStatus = (job: EvaluationJob): EvaluationJobStatus => job.status;
 
 const buildJobKey = (request: Pick<EvaluationJobRequest, 'userId' | 'sessionId' | 'revisionNumber' | 'evaluatorVersion' | 'rubricVersion'>) =>
   [request.userId, request.sessionId, request.revisionNumber, request.evaluatorVersion ?? 'v1', request.rubricVersion ?? 'rubric-v1'].join(':');
@@ -106,7 +107,7 @@ export async function runEvaluationJob(
   while (job.attempts < job.maxAttempts && !isCanceled(job)) {
     job.attempts += 1;
     await completeJob(job, executor);
-    const completedStatus: EvaluationJobStatus = job.status;
+    const completedStatus = getJobStatus(job);
     if (completedStatus === 'completed' || completedStatus === 'canceled') return job;
     if (job.attempts < job.maxAttempts) {
       job.status = 'queued';
@@ -114,7 +115,7 @@ export async function runEvaluationJob(
       job.completedAt = null;
     }
   }
-  const finalStatus: EvaluationJobStatus = job.status;
+  const finalStatus = getJobStatus(job);
   if (finalStatus === 'failed' && job.attempts >= job.maxAttempts) {
     job.deadLetteredAt = new Date().toISOString();
     deadLetter.add(job.id);

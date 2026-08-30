@@ -9,18 +9,25 @@ export interface DatabaseConfig {
   user: string;
   password: string;
   ssl?: boolean | { rejectUnauthorized: boolean };
+  /** Server-only connection string for managed PostgreSQL providers. */
+  connectionString?: string;
 }
 
 export class DatabaseClient {
   private pool: pg.Pool;
 
   constructor(config: DatabaseConfig) {
+    const connectionString = config.connectionString ?? process.env.DATABASE_URL;
     this.pool = new Pool({
-      host: config.host,
-      port: config.port,
-      database: config.database,
-      user: config.user,
-      password: config.password,
+      ...(connectionString
+        ? { connectionString }
+        : {
+            host: config.host,
+            port: config.port,
+            database: config.database,
+            user: config.user,
+            password: config.password,
+          }),
       ssl: config.ssl,
     });
   }

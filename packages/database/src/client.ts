@@ -25,7 +25,7 @@ export class DatabaseClient {
     });
   }
 
-  async query<T = any>(text: string, params?: any[]): Promise<pg.QueryResult<T>> {
+  async query<T extends pg.QueryResultRow = pg.QueryResultRow>(text: string, params?: any[]): Promise<pg.QueryResult<T>> {
     return this.pool.query<T>(text, params);
   }
 

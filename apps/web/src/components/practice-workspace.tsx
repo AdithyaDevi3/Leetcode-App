@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import {
   Bell,
   BookOpen,
@@ -18,7 +19,6 @@ import {
   LockKeyhole,
   Play,
   Save,
-  Settings,
   Sparkles,
   Trash2,
   X,
@@ -27,6 +27,7 @@ import { useEffect, useState } from "react";
 
 import { defaultPracticeItem, getPracticeItem, practiceItems, starterDraft } from "@/lib/content";
 import { evaluatePseudocode, type Evaluation } from "@/lib/evaluator";
+import { recordLocalPracticeCompletion } from "@/lib/local-practice-history";
 import {
   buildCodeFromPlan,
   deserializePracticeSession,
@@ -351,6 +352,11 @@ export function PracticeWorkspace() {
     setCodeChecked(true);
     setCompleted(translationPassed);
     if (translationPassed) {
+      recordLocalPracticeCompletion({
+        practiceItemId: activePracticeItem.id,
+        label: activePracticeItem.label,
+        evaluationScore: evaluation?.score ?? null,
+      });
       window.localStorage.setItem(
         storageKey,
         serializePracticeSession({
@@ -412,28 +418,25 @@ export function PracticeWorkspace() {
           Method
         </div>
         <nav className="nav-group">
-          <button className="nav-item" type="button">
+          <Link className="nav-item" href="/">
             <LayoutDashboard size={17} /> Today
-          </button>
-          <button className="nav-item active" type="button">
+          </Link>
+          <Link className="nav-item active" href="/practice" aria-current="page">
             <Braces size={17} /> Algorithms
-          </button>
-          <button className="nav-item" type="button">
+          </Link>
+          <Link className="nav-item" href="/system-design">
             <GitBranch size={17} /> System design
-          </button>
-          <button className="nav-item" type="button">
-            <Compass size={17} /> Concept map
-          </button>
+          </Link>
+          <Link className="nav-item" href="/learn">
+            <Compass size={17} /> Learning plan
+          </Link>
           <p className="nav-label">Your work</p>
-          <button className="nav-item" type="button">
-            <ListChecks size={17} /> Review queue
-          </button>
-          <button className="nav-item" type="button">
-            <BookOpen size={17} /> Notes
-          </button>
-          <button className="nav-item" type="button">
-            <Settings size={17} /> Preferences
-          </button>
+          <Link className="nav-item" href="/history">
+            <ListChecks size={17} /> Practice history
+          </Link>
+          <Link className="nav-item" href="/onboarding">
+            <BookOpen size={17} /> Preferences
+          </Link>
         </nav>
         <div className="sidebar-progress">
           <strong>{activePracticeItem.label}</strong>
@@ -805,18 +808,18 @@ export function PracticeWorkspace() {
       </main>
 
       <nav className="mobile-nav" aria-label="Mobile navigation">
-        <button type="button">
+        <Link href="/">
           <LayoutDashboard size={18} />Today
-        </button>
-        <button className="active" type="button">
+        </Link>
+        <Link className="active" href="/practice" aria-current="page">
           <Braces size={18} />Practice
-        </button>
-        <button type="button">
-          <CircleHelp size={18} />Review
-        </button>
-        <button type="button">
-          <Settings size={18} />Settings
-        </button>
+        </Link>
+        <Link href="/history">
+          <CircleHelp size={18} />History
+        </Link>
+        <Link href="/onboarding">
+          <BookOpen size={18} />Plan
+        </Link>
       </nav>
     </div>
   );

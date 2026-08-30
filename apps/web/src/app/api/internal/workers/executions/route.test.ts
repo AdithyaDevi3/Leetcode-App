@@ -8,7 +8,7 @@ describe('/api/internal/workers/executions', () => {
     process.env.EXECUTION_WORKER_TOKEN = 'execution-token';
     failStaleExecutionJobs.mockResolvedValue(1);
     const { POST } = await import('./route');
-    expect((await POST(new Request('http://localhost', { method: 'POST' })).status)).toBe(401);
+    expect((await POST(new Request('http://localhost', { method: 'POST' }))).status).toBe(401);
   });
   it('processes a bounded batch', async () => {
     process.env.EXECUTION_WORKER_TOKEN = 'execution-token';

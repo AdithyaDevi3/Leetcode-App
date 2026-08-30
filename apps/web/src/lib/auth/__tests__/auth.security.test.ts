@@ -16,7 +16,9 @@ import { randomUUID } from 'crypto';
  * 6. Guest merge collision handling
  */
 
-describe('Authentication Security', () => {
+const describeIntegration = process.env.RUN_INTEGRATION_TESTS === 'true' ? describe : describe.skip;
+
+describeIntegration('Authentication Security', () => {
   let container: StartedTestContainer;
   let db: DatabaseClient;
   let userRepo: PostgresUserRepository;

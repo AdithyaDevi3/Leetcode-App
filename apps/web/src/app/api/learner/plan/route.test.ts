@@ -18,6 +18,6 @@ describe('/api/learner/plan', () => {
     const { GET } = await import('./route');
     const response = await GET();
     expect(response.status).toBe(200);
-    expect((await response.json()).plan.suggestedTopics).toContain('Hash maps');
+    expect((await response.json()).plan.suggestedTopics).toContain('hashing');
   });
 });

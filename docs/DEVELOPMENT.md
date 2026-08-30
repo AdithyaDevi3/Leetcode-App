@@ -36,8 +36,9 @@ pnpm dev
 ```
 
 Open `http://localhost:3000`. Copy `apps/web/.env.example` to `apps/web/.env.local` and fill in
-Postgres, `AUTH_SECRET`, and OAuth provider credentials before signing in; the practice workspace
-itself still falls back to local storage when signed out.
+the Supabase URL/publishable key for Auth. Use local `POSTGRES_*` values for Docker development,
+or a server-only Supabase `DATABASE_URL` when testing managed persistence. The practice workspace
+still supports guest use when no account is signed in.
 
 ## Local PostgreSQL runtime
 
@@ -325,10 +326,11 @@ npx vercel@latest --prod
 ```
 
 The project now requires the runtime environment variables listed in
-`apps/web/.env.example` (Postgres connection, `AUTH_SECRET`, and OAuth provider
-credentials). Set these as Vercel project environment variables before the
-first deploy. Connect the GitHub repository with `apps/web` as Vercel's root
-directory for automatic deployments.
+`apps/web/.env.example` (`NEXT_PUBLIC_SUPABASE_URL`,
+`NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, the server-only Supabase
+`DATABASE_URL`, and `NEXT_PUBLIC_APP_URL`). Set these as Vercel project
+environment variables before the first deploy. Connect the GitHub repository
+with `apps/web` as Vercel's root directory for automatic deployments.
 
 ### Target delivery flow
 

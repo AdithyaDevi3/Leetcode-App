@@ -120,7 +120,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       }
     },
     
-    async signOut({ session, token }) {
+    async signOut() {
       // Clean up any guest sessions if needed
       console.log(`User signed out`);
     },

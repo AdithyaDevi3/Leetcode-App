@@ -1,5 +1,5 @@
 import { formatStructuredEnglish, parseStructuredEnglish } from './ast-parser';
-import type { AstProgramNode } from './ast-v1';
+import type { AstExpressionNode, AstProgramNode } from './ast-v1';
 
 export type BlockModel = {
   blocks: string[];
@@ -40,7 +40,7 @@ export const astProgramToBlocks = (program: AstProgramNode) => {
   }) ?? [];
 };
 
-const formatReturnValue = (expression: AstProgramNode['body'][number]['body'][number] extends { value: infer Value } ? Value : never) => {
+const formatReturnValue = (expression: AstExpressionNode | null) => {
   if (!expression) {
     return 'nothing';
   }

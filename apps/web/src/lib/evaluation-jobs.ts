@@ -106,14 +106,16 @@ export async function runEvaluationJob(
   while (job.attempts < job.maxAttempts && !isCanceled(job)) {
     job.attempts += 1;
     await completeJob(job, executor);
-    if (job.status === 'completed' || isCanceled(job)) return job;
+    const completedStatus: EvaluationJobStatus = job.status;
+    if (completedStatus === 'completed' || completedStatus === 'canceled') return job;
     if (job.attempts < job.maxAttempts) {
       job.status = 'queued';
       job.startedAt = null;
       job.completedAt = null;
     }
   }
-  if (job.status === 'failed' && job.attempts >= job.maxAttempts) {
+  const finalStatus: EvaluationJobStatus = job.status;
+  if (finalStatus === 'failed' && job.attempts >= job.maxAttempts) {
     job.deadLetteredAt = new Date().toISOString();
     deadLetter.add(job.id);
   }

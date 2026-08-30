@@ -1,4 +1,4 @@
-import { createDatabaseClient, type DatabaseClient } from '@leetcode-app/database';
+import { createDatabaseClient, databaseConfigFromEnv, type DatabaseClient } from '@leetcode-app/database';
 import type { EvaluationJob, EvaluationJobRequest } from './evaluation-jobs';
 
 type JobRow = {
@@ -16,13 +16,7 @@ const mapJob = (row: JobRow): EvaluationJob => ({
   result: row.result, error: row.error, attempts: row.attempts, maxAttempts: row.max_attempts, deadLetteredAt: iso(row.dead_lettered_at),
 });
 
-export function createEvaluationJobStore(db: DatabaseClient = createDatabaseClient({
-  host: process.env.POSTGRES_HOST ?? 'localhost',
-  port: Number(process.env.POSTGRES_PORT ?? 5432),
-  database: process.env.POSTGRES_DB ?? 'leetcode_app',
-  user: process.env.POSTGRES_USER ?? 'postgres',
-  password: process.env.POSTGRES_PASSWORD ?? 'postgres',
-})) {
+export function createEvaluationJobStore(db: DatabaseClient = createDatabaseClient(databaseConfigFromEnv())) {
   return {
     async enqueue(request: EvaluationJobRequest): Promise<EvaluationJob> {
       const result = await db.query<JobRow>(

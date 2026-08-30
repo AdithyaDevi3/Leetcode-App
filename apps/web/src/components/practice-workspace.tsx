@@ -3,6 +3,7 @@
 import Link from "next/link";
 import {
   Bell,
+  Bookmark,
   BookOpen,
   Braces,
   Check,
@@ -67,6 +68,8 @@ export function PracticeWorkspace() {
   const [executionStatus, setExecutionStatus] = useState<'idle' | 'queued' | 'running' | 'completed' | 'failed' | 'timed_out' | 'canceled' | 'unavailable'>('idle');
   const [executionJobId, setExecutionJobId] = useState<string | null>(null);
   const [executionOutput, setExecutionOutput] = useState('');
+  const [noteDraft, setNoteDraft] = useState('');
+  const [libraryStatus, setLibraryStatus] = useState<string | null>(null);
   const activePracticeItem = getPracticeItem(activePracticeId);
   const storageKey = sessionStorageKey(activePracticeItem.id);
   const blockOptions = activePracticeItem.blockOptions;
@@ -297,6 +300,56 @@ export function PracticeWorkspace() {
       setExecutionOutput('Unable to cancel this execution.');
     }
   };
+
+  const saveBookmark = async () => {
+    setLibraryStatus('Saving bookmark…');
+    try {
+      const response = await fetch('/api/learner/bookmarks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contentId: activePracticeItem.id,
+          sessionId: readCachedPracticeSessionId(activePracticeItem.id) ?? null,
+          label: activePracticeItem.label,
+        }),
+      });
+      if (response.status === 401) {
+        setLibraryStatus('Sign in to save bookmarks across devices. Your practice draft is still local.');
+        return;
+      }
+      if (!response.ok) throw new Error('Bookmark could not be saved');
+      setLibraryStatus('Saved to your study library.');
+    } catch {
+      setLibraryStatus('Bookmark could not be saved. Check your connection and try again.');
+    }
+  };
+
+  const saveNote = async () => {
+    const body = noteDraft.trim();
+    if (!body) return;
+    setLibraryStatus('Saving note…');
+    try {
+      const response = await fetch('/api/learner/notes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contentId: activePracticeItem.id,
+          sessionId: readCachedPracticeSessionId(activePracticeItem.id) ?? null,
+          body,
+          anchor: 'practice-workspace',
+        }),
+      });
+      if (response.status === 401) {
+        setLibraryStatus('Sign in to save notes across devices.');
+        return;
+      }
+      if (!response.ok) throw new Error('Note could not be saved');
+      setNoteDraft('');
+      setLibraryStatus('Note saved to your study library.');
+    } catch {
+      setLibraryStatus('Note could not be saved. Check your connection and try again.');
+    }
+  };
   const secureConceptCount = completed ? 4 : 3;
   const progressPercent = Math.round((secureConceptCount / 7) * 100);
   const implementationSource = stripCodeComments(code);
@@ -433,6 +486,9 @@ export function PracticeWorkspace() {
           <p className="nav-label">Your work</p>
           <Link className="nav-item" href="/history">
             <ListChecks size={17} /> Practice history
+          </Link>
+          <Link className="nav-item" href="/library">
+            <Bookmark size={17} /> Study library
           </Link>
           <Link className="nav-item" href="/onboarding">
             <BookOpen size={17} /> Preferences
@@ -717,6 +773,30 @@ export function PracticeWorkspace() {
                   <p>Pass the critical reasoning checks, or complete this as pseudocode-only practice.</p>
                 </div>
               )}
+              <section className="study-capture" aria-labelledby="study-capture-title">
+                <div className="study-capture-heading">
+                  <div>
+                    <p className="pane-kicker">Keep the insight</p>
+                    <h3 id="study-capture-title">Study library</h3>
+                  </div>
+                  <button className="icon-button" aria-label={`Bookmark ${activePracticeItem.label}`} onClick={() => void saveBookmark()} type="button">
+                    <Bookmark size={17} />
+                  </button>
+                </div>
+                <textarea
+                  aria-label="Personal note for this practice item"
+                  className="study-note"
+                  maxLength={10000}
+                  onChange={(event) => setNoteDraft(event.target.value)}
+                  placeholder="Capture a pattern, edge case, or thing to revisit…"
+                  value={noteDraft}
+                />
+                <div className="study-capture-actions">
+                  <button className="text-button" disabled={!noteDraft.trim()} onClick={() => void saveNote()} type="button">Save note</button>
+                  <Link className="text-button muted" href="/library">View library</Link>
+                </div>
+                {libraryStatus ? <p className="study-status" aria-live="polite">{libraryStatus}</p> : null}
+              </section>
             </aside>
           </div>
 

@@ -1,4 +1,4 @@
-import { MigrationBuilder } from 'node-pg-migrate';
+import type { MigrationBuilder } from 'node-pg-migrate';
 
 export async function up(pgm: MigrationBuilder): Promise<void> {
   // Create hash-map content item
@@ -58,17 +58,17 @@ Output: {1: 1, 2: 2, 3: 3}
       '[
         {
           "input": "[1, 2, 2, 3, 3, 3]",
-          "expected": "{\"1\": 1, \"2\": 2, \"3\": 3}",
+          "expected": "{\\\"1\\\": 1, \\\"2\\\": 2, \\\"3\\\": 3}",
           "description": "Basic frequency count"
         },
         {
           "input": "[5, 5, 5, 5]",
-          "expected": "{\"5\": 4}",
+          "expected": "{\\\"5\\\": 4}",
           "description": "All same elements"
         },
         {
           "input": "[1, 2, 3, 4, 5]",
-          "expected": "{\"1\": 1, \"2\": 1, \"3\": 1, \"4\": 1, \"5\": 1}",
+          "expected": "{\\\"1\\\": 1, \\\"2\\\": 1, \\\"3\\\": 1, \\\"4\\\": 1, \\\"5\\\": 1}",
           "description": "All unique elements"
         }
       ]'::jsonb

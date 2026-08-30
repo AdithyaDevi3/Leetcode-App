@@ -2,7 +2,7 @@ import NextAuth, { type DefaultSession } from 'next-auth';
 import Google from 'next-auth/providers/google';
 import GitHub from 'next-auth/providers/github';
 import { type Adapter } from 'next-auth/adapters';
-import { createDatabaseClient, type DatabaseClient } from '@leetcode-app/database';
+import { createDatabaseClient, databaseConfigFromEnv, type DatabaseClient } from '@leetcode-app/database';
 import { createAuthAdapter } from './adapter';
 
 /**
@@ -28,13 +28,7 @@ declare module 'next-auth' {
 }
 
 // Create database client for auth
-const dbClient = createDatabaseClient({
-  host: process.env.POSTGRES_HOST || 'localhost',
-  port: parseInt(process.env.POSTGRES_PORT || '5432'),
-  database: process.env.POSTGRES_DB || 'leetcode_app',
-  user: process.env.POSTGRES_USER || 'postgres',
-  password: process.env.POSTGRES_PASSWORD || 'postgres',
-});
+const dbClient = createDatabaseClient(databaseConfigFromEnv());
 
 /**
  * NextAuth configuration

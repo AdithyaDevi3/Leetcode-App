@@ -1,4 +1,4 @@
-import { createDatabaseClient, type DatabaseClient } from '@leetcode-app/database';
+import { createDatabaseClient, databaseConfigFromEnv, type DatabaseClient } from '@leetcode-app/database';
 import type { ExecutionRequest, ExecutionResult, ExecutionStatus } from '@leetcode-app/domain';
 
 export type ExecutionJob = { id: string; userId: string; sessionId: string; request: ExecutionRequest; status: ExecutionStatus; result: ExecutionResult | null; error: string | null; attempts: number; maxAttempts: number; queuedAt: string; startedAt: string | null; completedAt: string | null };
@@ -7,7 +7,7 @@ type Row = { id: string; user_id: string; session_id: string; language: Executio
 const iso = (value: Date | string | null) => value === null ? null : new Date(value).toISOString();
 const mapJob = (row: Row): ExecutionJob => ({ id: row.id, userId: row.user_id, sessionId: row.session_id, request: { language: row.language, source: row.source, stdin: row.stdin, limits: row.limits }, status: row.status, result: row.result, error: row.error, attempts: row.attempts, maxAttempts: row.max_attempts, queuedAt: iso(row.queued_at)!, startedAt: iso(row.started_at), completedAt: iso(row.completed_at) });
 
-export function createExecutionJobStore(db: DatabaseClient = createDatabaseClient({ host: process.env.POSTGRES_HOST ?? 'localhost', port: Number(process.env.POSTGRES_PORT ?? 5432), database: process.env.POSTGRES_DB ?? 'leetcode_app', user: process.env.POSTGRES_USER ?? 'postgres', password: process.env.POSTGRES_PASSWORD ?? 'postgres' })) {
+export function createExecutionJobStore(db: DatabaseClient = createDatabaseClient(databaseConfigFromEnv())) {
   return {
     async enqueue(input: { userId: string; sessionId: string; request: ExecutionRequest }): Promise<ExecutionJob> {
       const result = await db.query<Row>(`INSERT INTO execution_jobs (user_id, session_id, language, source, stdin, limits) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`, [input.userId, input.sessionId, input.request.language, input.request.source, input.request.stdin ?? '', JSON.stringify(input.request.limits)]);

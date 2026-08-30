@@ -1,12 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { createServerClient } from '@supabase/ssr';
 import { getOrCreateRequestId, requestIdHeader } from '@/lib/request-correlation';
 
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const requestHeaders = new Headers(request.headers);
   const requestId = getOrCreateRequestId(requestHeaders.get(requestIdHeader));
   requestHeaders.set(requestIdHeader, requestId);
 
-  const response = NextResponse.next({ request: { headers: requestHeaders } });
+  let response = NextResponse.next({ request: { headers: requestHeaders } });
+  const supabase = createServerClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!, { cookies: {
+    getAll: () => request.cookies.getAll(),
+    setAll: (values) => { values.forEach(({ name, value }) => request.cookies.set(name, value)); response = NextResponse.next({ request: { headers: requestHeaders } }); values.forEach(({ name, value, options }) => response.cookies.set(name, value, options)); },
+  } });
+  await supabase.auth.getClaims();
   response.headers.set(requestIdHeader, requestId);
   return response;
 }

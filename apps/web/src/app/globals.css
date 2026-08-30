@@ -167,6 +167,13 @@ h1 { margin-bottom: 6px; font-size: clamp(26px, 3vw, 38px); line-height: 1.1; }
 .approved-panel { border: 1px solid #aec7b6; background: var(--moss-soft); }
 .locked-panel strong, .approved-panel strong { display: block; margin: 8px 0 5px; color: var(--ink); font-size: 13px; }
 .locked-panel p, .approved-panel p { margin-bottom: 0; font-size: 11px; line-height: 1.5; }
+.study-capture { margin-top: 18px; padding-top: 18px; border-top: 1px solid var(--line); }
+.study-capture-heading { display: flex; align-items: start; justify-content: space-between; gap: 10px; }
+.study-capture-heading h3 { margin: 3px 0 0; font-size: 14px; }
+.study-note { width: 100%; min-height: 82px; margin-top: 12px; padding: 10px; resize: vertical; border: 1px solid #cfd4cc; border-radius: 5px; background: #fffefa; color: var(--ink); font-size: 12px; line-height: 1.55; }
+.study-note::placeholder { color: #929a93; }
+.study-capture-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.study-status { margin: 6px 0 0; color: var(--muted); font-size: 11px; line-height: 1.45; }
 
 .coding-section { margin-top: 22px; padding: 24px; border: 1px solid var(--line); background: var(--surface); }
 .coding-grid { margin-top: 16px; display: grid; grid-template-columns: minmax(0, 1fr) 260px; gap: 18px; }

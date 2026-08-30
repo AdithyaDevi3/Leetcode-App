@@ -23,7 +23,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ ses
       status: 429,
       headers: { 'retry-after': String(rateLimit.retryAfterSeconds) },
     });
-    await getPracticeSessionHistory({ userId: session.user.id, sessionId });
+    await getPracticeSessionHistory({ owner: { kind: 'user', id: session.user.id }, sessionId });
     const job = await createExecutionJobStore().enqueue({ userId: session.user.id, sessionId, request: body });
     return NextResponse.json({ jobId: job.id, status: job.status, queuedAt: job.queuedAt }, { status: 202 });
   } catch (error) {

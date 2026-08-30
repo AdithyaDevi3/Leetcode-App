@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth/session';
-import { createDatabaseClient } from '@leetcode-app/database';
+import { createDatabaseClient, databaseConfigFromEnv } from '@leetcode-app/database';
 
 /**
  * DELETE /api/sessions/[sessionId]
@@ -17,13 +17,7 @@ export async function DELETE(
     const userId = session.user.id;
     const { sessionId } = await params;
     
-    const db = createDatabaseClient({
-      host: process.env.POSTGRES_HOST || 'localhost',
-      port: parseInt(process.env.POSTGRES_PORT || '5432'),
-      database: process.env.POSTGRES_DB || 'leetcode_app',
-      user: process.env.POSTGRES_USER || 'postgres',
-      password: process.env.POSTGRES_PASSWORD || 'postgres',
-    });
+    const db = createDatabaseClient(databaseConfigFromEnv());
     
     try {
       // Verify the session belongs to the current user

@@ -1,4 +1,4 @@
-import { createDatabaseClient } from '@leetcode-app/database';
+import { createDatabaseClient, databaseConfigFromEnv } from '@leetcode-app/database';
 import { evaluatePseudocode } from './evaluator';
 
 type PracticeSessionRecord = {
@@ -15,9 +15,11 @@ type PracticeSessionRecord = {
 };
 
 export type StartOrResumePracticeSessionInput = {
-  userId: string;
+  owner: PracticeOwner;
   contentId: string;
 };
+
+export type PracticeOwner = { kind: 'user' | 'guest'; id: string };
 
 export type StartOrResumePracticeSessionResult = {
   session: {
@@ -45,7 +47,7 @@ export type PracticeSessionSummary = {
 };
 
 export type AppendPracticeRevisionInput = {
-  userId: string;
+  owner: PracticeOwner;
   sessionId: string;
   draft: string;
   currentStage?: PracticeSessionRecord['current_stage'];
@@ -110,14 +112,10 @@ const mapPracticeSession = (session: PracticeSessionRecord): PracticeSessionSumm
   sessionMetadata: session.session_metadata,
 });
 
+const ownerColumn = (owner: PracticeOwner) => owner.kind === 'user' ? 'user_id' : 'guest_id';
+
 export function createPracticeDatabaseClient() {
-  return createDatabaseClient({
-    host: process.env.POSTGRES_HOST || 'localhost',
-    port: parseInt(process.env.POSTGRES_PORT || '5432', 10),
-    database: process.env.POSTGRES_DB || 'leetcode_app',
-    user: process.env.POSTGRES_USER || 'postgres',
-    password: process.env.POSTGRES_PASSWORD || 'postgres',
-  });
+  return createDatabaseClient(databaseConfigFromEnv());
 }
 
 export async function startOrResumePracticeSession(
@@ -129,10 +127,10 @@ export async function startOrResumePracticeSession(
     const existing = await db.query<PracticeSessionRecord>(
       `SELECT id, user_id, guest_id, content_id, current_stage, status, session_metadata, revision, created_at, updated_at
        FROM practice_sessions
-       WHERE user_id = $1 AND content_id = $2
+       WHERE ${ownerColumn(input.owner)} = $1 AND content_id = $2
        ORDER BY updated_at DESC
        LIMIT 1`,
-      [input.userId, input.contentId],
+      [input.owner.id, input.contentId],
     );
 
     if (existing.rows.length > 0) {
@@ -144,16 +142,17 @@ export async function startOrResumePracticeSession(
 
     const created = await db.query<PracticeSessionRecord>(
       `INSERT INTO practice_sessions (
-         user_id,
+         user_id, guest_id,
+         content_version,
          content_id,
          current_stage,
          status,
          session_metadata,
          revision
        )
-       VALUES ($1, $2, $3, $4, $5, $6)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
        RETURNING id, user_id, guest_id, content_id, current_stage, status, session_metadata, revision, created_at, updated_at`,
-      [input.userId, input.contentId, 'understand', 'not_started', {}, 1],
+      [input.owner.kind === 'user' ? input.owner.id : null, input.owner.kind === 'guest' ? input.owner.id : null, 1, input.contentId, 'understand', 'not_started', {}, 1],
     );
 
     return {
@@ -174,9 +173,9 @@ export async function appendPracticeRevision(
     const sessionResult = await db.query<PracticeSessionRecord>(
       `SELECT id, user_id, guest_id, content_id, current_stage, status, session_metadata, revision, created_at, updated_at
        FROM practice_sessions
-       WHERE id = $1 AND user_id = $2
+       WHERE id = $1 AND ${ownerColumn(input.owner)} = $2
        LIMIT 1`,
-      [input.sessionId, input.userId],
+      [input.sessionId, input.owner.id],
     );
 
     if (sessionResult.rows.length === 0) {
@@ -187,7 +186,7 @@ export async function appendPracticeRevision(
     const nextRevisionNumberResult = await db.query<{ next_revision_number: string }>(
       `SELECT COALESCE(MAX(revision_number), 0) + 1 AS next_revision_number
        FROM pseudocode_revisions
-       WHERE practice_session_id = $1`,
+       WHERE session_id = $1`,
       [session.id],
     );
 
@@ -195,8 +194,8 @@ export async function appendPracticeRevision(
     const normalizedDraft = input.draft.trim();
     const stage = input.currentStage ?? session.current_stage;
 
-    const result = await db.transaction(async () => {
-      await db.query(
+    const result = await db.transaction(async (client) => {
+      await client.query(
         `UPDATE practice_sessions
          SET session_metadata = jsonb_set(
                jsonb_set(session_metadata, '{draft}', $2::jsonb, true),
@@ -207,12 +206,12 @@ export async function appendPracticeRevision(
              status = CASE WHEN status = 'not_started' THEN 'in_progress' ELSE status END,
              revision = revision + 1,
              updated_at = NOW()
-         WHERE id = $1 AND user_id = $4`,
-        [session.id, JSON.stringify(normalizedDraft), stage, input.userId],
+         WHERE id = $1 AND ${ownerColumn(input.owner)} = $4`,
+        [session.id, JSON.stringify(normalizedDraft), stage, input.owner.id],
       );
 
-      await db.query(
-        `INSERT INTO pseudocode_revisions (practice_session_id, revision_number, content)
+      await client.query(
+        `INSERT INTO pseudocode_revisions (session_id, revision_number, content)
          VALUES ($1, $2, $3)`,
         [session.id, nextRevisionNumber, normalizedDraft],
       );
@@ -236,7 +235,7 @@ export async function appendPracticeRevision(
 }
 
 export async function getPracticeSessionHistory(input: {
-  userId: string;
+  owner: PracticeOwner;
   sessionId: string;
 }): Promise<{ session: PracticeSessionSummary; revisions: PracticeRevisionEntry[] }> {
   const db = createPracticeDatabaseClient();
@@ -245,9 +244,9 @@ export async function getPracticeSessionHistory(input: {
     const sessionResult = await db.query<PracticeSessionRecord>(
       `SELECT id, user_id, guest_id, content_id, current_stage, status, session_metadata, revision, created_at, updated_at
        FROM practice_sessions
-       WHERE id = $1 AND user_id = $2
+       WHERE id = $1 AND ${ownerColumn(input.owner)} = $2
        LIMIT 1`,
-      [input.sessionId, input.userId],
+      [input.sessionId, input.owner.id],
     );
 
     if (sessionResult.rows.length === 0) {
@@ -262,7 +261,7 @@ export async function getPracticeSessionHistory(input: {
     }>(
       `SELECT id, revision_number, content, created_at
        FROM pseudocode_revisions
-       WHERE practice_session_id = $1
+       WHERE session_id = $1
        ORDER BY revision_number ASC`,
       [input.sessionId],
     );
@@ -327,11 +326,11 @@ export async function listPracticeHistory(userId: string): Promise<PracticeHisto
               latest_evaluation.result AS evaluation_result,
               latest_evaluation.completed_at AS evaluation_completed_at
        FROM practice_sessions s
-       LEFT JOIN pseudocode_revisions r ON r.practice_session_id = s.id
+       LEFT JOIN pseudocode_revisions r ON r.session_id = s.id
        LEFT JOIN LATERAL (
          SELECT id, revision_number, created_at
          FROM pseudocode_revisions
-         WHERE practice_session_id = s.id
+         WHERE session_id = s.id
          ORDER BY revision_number DESC
          LIMIT 1
        ) latest_revision ON true
@@ -385,7 +384,7 @@ export async function evaluatePracticeRevision(input: {
     const revisionResult = await db.query<{ content: string }>(
       `SELECT content
        FROM pseudocode_revisions
-       WHERE practice_session_id = $1 AND revision_number = $2
+       WHERE session_id = $1 AND revision_number = $2
        LIMIT 1`,
       [input.sessionId, input.revisionNumber],
     );
@@ -415,7 +414,7 @@ export async function evaluatePracticeRevision(input: {
 }
 
 export async function completePracticeSession(input: {
-  userId: string;
+  owner: PracticeOwner;
   sessionId: string;
   completed: boolean;
   currentStage?: PracticeSessionRecord['current_stage'];
@@ -426,9 +425,9 @@ export async function completePracticeSession(input: {
     const sessionResult = await db.query<PracticeSessionRecord>(
       `SELECT id, user_id, guest_id, content_id, current_stage, status, session_metadata, revision, created_at, updated_at
        FROM practice_sessions
-       WHERE id = $1 AND user_id = $2
+       WHERE id = $1 AND ${ownerColumn(input.owner)} = $2
        LIMIT 1`,
-      [input.sessionId, input.userId],
+      [input.sessionId, input.owner.id],
     );
 
     if (sessionResult.rows.length === 0) {
@@ -446,16 +445,16 @@ export async function completePracticeSession(input: {
            session_metadata = jsonb_set(session_metadata, '{completed}', to_jsonb($4::boolean), true),
            revision = revision + 1,
            updated_at = NOW()
-       WHERE id = $1 AND user_id = $5`,
-      [input.sessionId, nextStage, nextStatus, input.completed, input.userId],
+       WHERE id = $1 AND ${ownerColumn(input.owner)} = $5`,
+      [input.sessionId, nextStage, nextStatus, input.completed, input.owner.id],
     );
 
     const refreshed = await db.query<PracticeSessionRecord>(
       `SELECT id, user_id, guest_id, content_id, current_stage, status, session_metadata, revision, created_at, updated_at
        FROM practice_sessions
-       WHERE id = $1 AND user_id = $2
+       WHERE id = $1 AND ${ownerColumn(input.owner)} = $2
        LIMIT 1`,
-      [input.sessionId, input.userId],
+      [input.sessionId, input.owner.id],
     );
 
     return {

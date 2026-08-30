@@ -1,4 +1,4 @@
-import { createDatabaseClient, type DatabaseClient } from '@leetcode-app/database';
+import { createDatabaseClient, databaseConfigFromEnv, type DatabaseClient } from '@leetcode-app/database';
 import type { EvaluationAppeal } from './evaluation-appeals';
 
 type AppealRow = {
@@ -13,10 +13,7 @@ const mapAppeal = (row: AppealRow): EvaluationAppeal => ({
   createdAt: iso(row.created_at)!, resolvedAt: iso(row.resolved_at),
 });
 
-export function createEvaluationAppealStore(db: DatabaseClient = createDatabaseClient({
-  host: process.env.POSTGRES_HOST ?? 'localhost', port: Number(process.env.POSTGRES_PORT ?? 5432),
-  database: process.env.POSTGRES_DB ?? 'leetcode_app', user: process.env.POSTGRES_USER ?? 'postgres', password: process.env.POSTGRES_PASSWORD ?? 'postgres',
-})) {
+export function createEvaluationAppealStore(db: DatabaseClient = createDatabaseClient(databaseConfigFromEnv())) {
   return {
     async submit(input: Pick<EvaluationAppeal, 'jobId' | 'userId' | 'findingId' | 'context'>): Promise<EvaluationAppeal> {
       const result = await db.query<AppealRow>(`INSERT INTO evaluation_appeals (job_id, user_id, finding_id, context) VALUES ($1, $2, $3, $4) RETURNING *`, [input.jobId, input.userId, input.findingId, input.context]);

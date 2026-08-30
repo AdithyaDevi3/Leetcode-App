@@ -1,4 +1,4 @@
-import { createDatabaseClient, type DatabaseClient } from '@leetcode-app/database';
+import { createDatabaseClient, databaseConfigFromEnv, type DatabaseClient } from '@leetcode-app/database';
 import type { NotificationChannel, NotificationPreference } from '@leetcode-app/domain';
 
 type PreferenceRow = {
@@ -15,13 +15,7 @@ const mapPreference = (row: PreferenceRow): NotificationPreference => ({
   quietHoursEnd: row.quiet_hours_end ?? undefined,
 });
 
-const defaultDatabase = () => createDatabaseClient({
-  host: process.env.POSTGRES_HOST ?? 'localhost',
-  port: Number(process.env.POSTGRES_PORT ?? 5432),
-  database: process.env.POSTGRES_DB ?? 'leetcode_app',
-  user: process.env.POSTGRES_USER ?? 'postgres',
-  password: process.env.POSTGRES_PASSWORD ?? 'postgres',
-});
+const defaultDatabase = () => createDatabaseClient(databaseConfigFromEnv());
 
 export function createNotificationPreferencesStore(db: DatabaseClient = defaultDatabase()) {
   return {

@@ -15,6 +15,8 @@
   "dependencies": {
     "@leetcode-app/database": "workspace:*",
     "@leetcode-app/domain": "workspace:*",
+    "@supabase/ssr": "^0.12.5",
+    "@supabase/supabase-js": "^2.112.4",
     "lucide-react": "^1.26.0",
     "next": "16.3.2",
     "next-auth": "^5.0.0-beta.25",
@@ -22,6 +24,7 @@
     "react-dom": "19.2.8"
   },
   "devDependencies": {
+    "@playwright/test": "^1.55.0",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/pg": "^8.11.10",
@@ -29,7 +32,6 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.3.2",
-    "@playwright/test": "^1.55.0",
     "tailwindcss": "^4",
     "testcontainers": "^12.1.0",
     "typescript": "^5",

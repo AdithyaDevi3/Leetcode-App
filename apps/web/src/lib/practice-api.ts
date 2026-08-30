@@ -69,6 +69,21 @@ export type PracticeRevisionEntry = {
   createdAt: string;
 };
 
+export type PracticeHistoryItem = {
+  session: PracticeSessionSummary;
+  revisionCount: number;
+  latestRevision: Pick<PracticeRevisionEntry, 'id' | 'revisionNumber' | 'createdAt'> | null;
+  evaluation: {
+    status: 'queued' | 'running' | 'completed' | 'failed' | 'canceled';
+    approved: boolean | null;
+    score: number | null;
+    summary: string | null;
+    completedAt: string | null;
+  } | null;
+};
+
+type EvaluationHistoryStatus = NonNullable<PracticeHistoryItem['evaluation']>['status'];
+
 export type EvaluatePracticeRevisionResult = {
   evaluation: {
     sessionId: string;
@@ -261,6 +276,87 @@ export async function getPracticeSessionHistory(input: {
         createdAt: revision.created_at.toISOString(),
       })),
     };
+  } finally {
+    await db.close();
+  }
+}
+
+type PracticeHistoryRow = PracticeSessionRecord & {
+  revision_count: string | number;
+  latest_revision_id: string | null;
+  latest_revision_number: number | null;
+  latest_revision_created_at: Date | string | null;
+  evaluation_status: EvaluationHistoryStatus | null;
+  evaluation_result: unknown;
+  evaluation_completed_at: Date | string | null;
+};
+
+const evaluationSummary = (row: Pick<PracticeHistoryRow, 'evaluation_status' | 'evaluation_result' | 'evaluation_completed_at'>): PracticeHistoryItem['evaluation'] => {
+  if (!row.evaluation_status) return null;
+  const result = row.evaluation_result;
+  const evaluation = result && typeof result === 'object' && 'evaluation' in result
+    ? (result as { evaluation?: unknown }).evaluation
+    : null;
+  const details = evaluation && typeof evaluation === 'object' ? evaluation as Record<string, unknown> : {};
+  return {
+    status: row.evaluation_status,
+    approved: typeof details.approved === 'boolean' ? details.approved : null,
+    score: typeof details.score === 'number' ? details.score : null,
+    summary: typeof details.summary === 'string' ? details.summary : null,
+    completedAt: iso(row.evaluation_completed_at),
+  };
+};
+
+const iso = (value: Date | string | null): string | null => value === null ? null : new Date(value).toISOString();
+
+/**
+ * Returns only the authenticated learner's session metadata and aggregate history.
+ * Draft contents stay behind the existing owner-scoped per-session history endpoint.
+ */
+export async function listPracticeHistory(userId: string): Promise<PracticeHistoryItem[]> {
+  const db = createPracticeDatabaseClient();
+
+  try {
+    const result = await db.query<PracticeHistoryRow>(
+      `SELECT s.id, s.user_id, s.guest_id, s.content_id, s.current_stage, s.status, s.session_metadata, s.revision, s.created_at, s.updated_at,
+              COUNT(r.id)::integer AS revision_count,
+              latest_revision.id AS latest_revision_id,
+              latest_revision.revision_number AS latest_revision_number,
+              latest_revision.created_at AS latest_revision_created_at,
+              latest_evaluation.status AS evaluation_status,
+              latest_evaluation.result AS evaluation_result,
+              latest_evaluation.completed_at AS evaluation_completed_at
+       FROM practice_sessions s
+       LEFT JOIN pseudocode_revisions r ON r.practice_session_id = s.id
+       LEFT JOIN LATERAL (
+         SELECT id, revision_number, created_at
+         FROM pseudocode_revisions
+         WHERE practice_session_id = s.id
+         ORDER BY revision_number DESC
+         LIMIT 1
+       ) latest_revision ON true
+       LEFT JOIN LATERAL (
+         SELECT status, result, completed_at
+         FROM evaluation_jobs
+         WHERE user_id = $1 AND session_id = s.id
+         ORDER BY queued_at DESC
+         LIMIT 1
+       ) latest_evaluation ON true
+       WHERE s.user_id = $1
+       GROUP BY s.id, latest_revision.id, latest_revision.revision_number, latest_revision.created_at,
+                latest_evaluation.status, latest_evaluation.result, latest_evaluation.completed_at
+       ORDER BY s.updated_at DESC`,
+      [userId],
+    );
+
+    return result.rows.map((row) => ({
+      session: mapPracticeSession(row),
+      revisionCount: Number(row.revision_count),
+      latestRevision: row.latest_revision_id && row.latest_revision_number !== null && row.latest_revision_created_at !== null
+        ? { id: row.latest_revision_id, revisionNumber: row.latest_revision_number, createdAt: iso(row.latest_revision_created_at)! }
+        : null,
+      evaluation: evaluationSummary(row),
+    }));
   } finally {
     await db.close();
   }

@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const requireAuth = vi.fn();
+const getPracticeOwner = vi.fn();
 const getPracticeSessionHistory = vi.fn();
 
 vi.mock('@/lib/auth/session', () => ({
-  requireAuth,
+  getPracticeOwner,
 }));
 
 vi.mock('@/lib/practice-api', () => ({
@@ -13,12 +13,12 @@ vi.mock('@/lib/practice-api', () => ({
 
 describe('/api/practice/sessions/[sessionId]/history', () => {
   beforeEach(() => {
-    requireAuth.mockReset();
+    getPracticeOwner.mockReset();
     getPracticeSessionHistory.mockReset();
   });
 
   it('returns the current session history', async () => {
-    requireAuth.mockResolvedValue({ user: { id: 'user-1' } });
+    getPracticeOwner.mockResolvedValue({ kind: 'user', id: 'user-1' });
     getPracticeSessionHistory.mockResolvedValue({
       session: {
         id: 'session-1',
@@ -39,6 +39,6 @@ describe('/api/practice/sessions/[sessionId]/history', () => {
     });
 
     expect(response.status).toBe(200);
-    expect(getPracticeSessionHistory).toHaveBeenCalledWith({ userId: 'user-1', sessionId: 'session-1' });
+    expect(getPracticeSessionHistory).toHaveBeenCalledWith({ owner: { kind: 'user', id: 'user-1' }, sessionId: 'session-1' });
   });
 });

@@ -22,7 +22,6 @@ export function PracticeHistory() {
   const [items, setItems] = useState<PracticeHistoryItem[]>([]);
 
   const load = async () => {
-    setState('loading');
     try {
       const response = await fetch('/api/practice/history');
       const body = await response.json().catch(() => null) as { sessions?: PracticeHistoryItem[] } | null;
@@ -35,11 +34,16 @@ export function PracticeHistory() {
     }
   };
 
+  const retry = () => {
+    setState('loading');
+    void load();
+  };
+
   useEffect(() => { void load(); }, []);
 
   if (state === 'loading') return <p aria-live="polite" className="text-slate-600">Loading your practice history…</p>;
   if (state === 'unauthenticated') return <section className="rounded-xl border border-slate-200 bg-white p-6"><h2 className="text-xl font-semibold">Sign in to see your history</h2><p className="mt-2 text-slate-600">Practice history is available for your signed-in account.</p><Link className="mt-5 inline-block rounded bg-slate-900 px-4 py-2 font-semibold text-white" href="/api/auth/signin">Sign in</Link></section>;
-  if (state === 'error') return <section className="rounded-xl border border-amber-200 bg-amber-50 p-6"><h2 className="text-xl font-semibold text-slate-900">We couldn’t load your history</h2><p className="mt-2 text-slate-700">Check your connection and try again.</p><button className="mt-5 rounded bg-slate-900 px-4 py-2 font-semibold text-white" type="button" onClick={() => void load()}>Try again</button></section>;
+  if (state === 'error') return <section className="rounded-xl border border-amber-200 bg-amber-50 p-6"><h2 className="text-xl font-semibold text-slate-900">We couldn’t load your history</h2><p className="mt-2 text-slate-700">Check your connection and try again.</p><button className="mt-5 rounded bg-slate-900 px-4 py-2 font-semibold text-white" type="button" onClick={retry}>Try again</button></section>;
   if (items.length === 0) return <section className="rounded-xl border border-slate-200 bg-white p-6"><h2 className="text-xl font-semibold">No practice sessions yet</h2><p className="mt-2 text-slate-600">Your saved sessions and evaluation summaries will appear here.</p><Link className="mt-5 inline-block rounded bg-slate-900 px-4 py-2 font-semibold text-white" href="/practice">Start practicing</Link></section>;
 
   return <ol className="space-y-4" aria-label="Practice sessions">

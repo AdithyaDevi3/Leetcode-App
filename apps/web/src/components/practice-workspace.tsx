@@ -29,6 +29,7 @@ import { useEffect, useState } from "react";
 import { defaultPracticeItem, getPracticeItem, practiceItems, starterDraft } from "@/lib/content";
 import { evaluatePseudocode, type Evaluation } from "@/lib/evaluator";
 import { recordLocalPracticeCompletion } from "@/lib/local-practice-history";
+import { readBrowserStorage, removeBrowserStorage, writeBrowserStorage } from "@/lib/safe-browser-storage";
 import {
   buildCodeFromPlan,
   deserializePracticeSession,
@@ -78,14 +79,14 @@ export function PracticeWorkspace() {
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      const savedPracticeId = window.localStorage.getItem(selectedPracticeItemKey);
+      const savedPracticeId = readBrowserStorage(selectedPracticeItemKey);
       const restoredPracticeItem = savedPracticeId ? getPracticeItem(savedPracticeId) : activePracticeItem;
 
       if (restoredPracticeItem.id !== activePracticeItem.id) {
         setActivePracticeId(restoredPracticeItem.id);
       }
 
-      const savedSession = window.localStorage.getItem(sessionStorageKey(restoredPracticeItem.id));
+      const savedSession = readBrowserStorage(sessionStorageKey(restoredPracticeItem.id));
       if (!savedSession) {
         setSavedAt("Ready");
         return;
@@ -121,8 +122,8 @@ export function PracticeWorkspace() {
         evaluation,
       };
 
-      window.localStorage.setItem(storageKey, serializePracticeSession(session));
-      window.localStorage.setItem(selectedPracticeItemKey, activePracticeItem.id);
+      const locallySaved = writeBrowserStorage(storageKey, serializePracticeSession(session));
+      writeBrowserStorage(selectedPracticeItemKey, activePracticeItem.id);
       const hasChanges =
         draft ||
         mode !== "text" ||
@@ -131,7 +132,7 @@ export function PracticeWorkspace() {
         completed ||
         evaluation;
 
-      setSavedAt(hasChanges ? "Saving" : "Ready");
+      setSavedAt(hasChanges ? (locallySaved ? "Saving" : "Session active") : "Ready");
       setSyncStatus(hasChanges ? "saving" : "ready");
 
       if (!hasChanges) {
@@ -410,7 +411,7 @@ export function PracticeWorkspace() {
         label: activePracticeItem.label,
         evaluationScore: evaluation?.score ?? null,
       });
-      window.localStorage.setItem(
+      writeBrowserStorage(
         storageKey,
         serializePracticeSession({
           draft,
@@ -431,7 +432,7 @@ export function PracticeWorkspace() {
     setCode(defaultCode(activePracticeItem.codeFunction, activePracticeItem.codeSignature));
     setCodeChecked(false);
     setCompleted(false);
-    window.localStorage.removeItem(storageKey);
+    removeBrowserStorage(storageKey);
     clearCachedPracticeSessionId(activePracticeItem.id);
     setSavedAt("Ready");
     setSyncStatus("ready");
@@ -443,7 +444,7 @@ export function PracticeWorkspace() {
       return;
     }
 
-    window.localStorage.setItem(storageKey, serializePracticeSession({
+    writeBrowserStorage(storageKey, serializePracticeSession({
       draft,
       mode,
       code,
@@ -451,7 +452,7 @@ export function PracticeWorkspace() {
       completed,
       evaluation,
     }));
-    window.localStorage.setItem(selectedPracticeItemKey, nextPracticeItem.id);
+    writeBrowserStorage(selectedPracticeItemKey, nextPracticeItem.id);
     setActivePracticeId(nextPracticeItem.id);
     setDraft("");
     setMode("text");

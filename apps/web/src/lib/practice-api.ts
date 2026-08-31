@@ -1,5 +1,6 @@
 import { createDatabaseClient, databaseConfigFromEnv } from '@leetcode-app/database';
 import { evaluatePseudocode } from './evaluator';
+import { toPersistedContentId } from './content-id';
 
 type PracticeSessionRecord = {
   id: string;
@@ -122,6 +123,7 @@ export async function startOrResumePracticeSession(
   input: StartOrResumePracticeSessionInput,
 ): Promise<StartOrResumePracticeSessionResult> {
   const db = createPracticeDatabaseClient();
+  const persistedContentId = toPersistedContentId(input.contentId);
 
   try {
     const existing = await db.query<PracticeSessionRecord>(
@@ -130,7 +132,7 @@ export async function startOrResumePracticeSession(
        WHERE ${ownerColumn(input.owner)} = $1 AND content_id = $2
        ORDER BY updated_at DESC
        LIMIT 1`,
-      [input.owner.id, input.contentId],
+      [input.owner.id, persistedContentId],
     );
 
     if (existing.rows.length > 0) {
@@ -152,7 +154,7 @@ export async function startOrResumePracticeSession(
        )
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
        RETURNING id, user_id, guest_id, content_id, current_stage, status, session_metadata, revision, created_at, updated_at`,
-      [input.owner.kind === 'user' ? input.owner.id : null, input.owner.kind === 'guest' ? input.owner.id : null, 1, input.contentId, 'understand', 'not_started', {}, 1],
+      [input.owner.kind === 'user' ? input.owner.id : null, input.owner.kind === 'guest' ? input.owner.id : null, 1, persistedContentId, 'understand', 'not_started', {}, 1],
     );
 
     return {

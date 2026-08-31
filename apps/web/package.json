@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "prebuild": "pnpm --filter @leetcode-app/domain build && pnpm --filter @leetcode-app/database build",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",

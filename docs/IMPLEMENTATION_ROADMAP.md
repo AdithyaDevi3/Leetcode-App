@@ -2,6 +2,8 @@
 
 This roadmap is the execution companion to [PRODUCT_PLAN.md](PRODUCT_PLAN.md). It covers the path from the current walking skeleton to the complete product while preserving deployable increments.
 
+The active dependency gates and pull-request sequence are maintained in [DELIVERY_PLAN.md](DELIVERY_PLAN.md). That plan takes precedence for current execution; the numbered phases below remain the broader product roadmap.
+
 ## How to use this roadmap
 
 - Work in order within a phase unless a dependency explicitly allows parallel work.
@@ -82,7 +84,7 @@ AI evaluation, broad content expansion, social features, native mobile apps, and
 
 ### Rules for efficient continuation
 
-- Work in small, mergeable slices on `phase-3-evaluation-platform` and keep `main` deployable.
+- Start each small, mergeable slice from the latest `origin/main`, use one short-lived branch/worktree per pull request, and keep `main` deployable.
 - Treat the existing API contracts as the compatibility boundary while replacing local adapters with managed services.
 - Prefer managed infrastructure and the deterministic evaluator for the first release.
 - Do not expose AI, code execution, or unfinished features until their feature flags, budgets, safety checks, and rollback path exist.

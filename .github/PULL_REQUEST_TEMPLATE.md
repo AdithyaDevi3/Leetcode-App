@@ -2,9 +2,19 @@
 
 <!-- Provide a clear and concise description of the changes in this PR -->
 
+## Outcome and non-goals
+
+<!-- State the single user/operational outcome and what this PR intentionally does not change. -->
+
 ## Related Issues
 
 <!-- Link to related issues, e.g., "Closes #123" or "Related to #456" -->
+
+## Traceability
+
+- Delivery gate / roadmap work package:
+- Requirement IDs:
+- Acceptance criteria:
 
 ## Type of Change
 
@@ -61,11 +71,26 @@ Which implementation phase does this PR support? (See IMPLEMENTATION_ROADMAP.md)
 2. 
 3. 
 
+### Evidence
+
+<!-- Link CI jobs/artifacts and record commands. Do not claim staging/production behavior without environment evidence. -->
+
+- Targeted tests:
+- `pnpm preflight`:
+- Integration/migration/browser/accessibility evidence:
+
 ## Security Considerations
 
 - [ ] This PR has no security implications
 - [ ] This PR has been reviewed for security issues
 - [ ] Security documentation has been updated (if applicable)
+
+## Data, privacy, and authorization
+
+- [ ] No data-contract, retention, consent, export, or deletion impact
+- [ ] Ownership/RLS and abuse cases are tested where applicable
+- [ ] No direct identifiers, free text, or post-decision data were added to personalization features
+- [ ] Model/evaluator inputs, outputs, and versions are allowlisted and auditable where applicable
 
 ## Performance Impact
 
@@ -90,3 +115,19 @@ Which implementation phase does this PR support? (See IMPLEMENTATION_ROADMAP.md)
 - [ ] Requires infrastructure changes
 - [ ] Requires external service configuration
 - [ ] Can be deployed independently
+
+## Failure behavior, observability, and rollback
+
+<!-- Explain retries/idempotency/conflicts/fallbacks, new logs/metrics/alerts, feature flags, and exact rollback or forward-fix steps. -->
+
+- Failure behavior:
+- Telemetry/alerts:
+- Rollout/feature flag:
+- Rollback/forward fix:
+
+## Review handoff
+
+- [ ] Branch is reconciled with the latest `origin/main`
+- [ ] Commits are atomic and use Conventional Commits
+- [ ] A reviewer other than the implementation agent inspected the branch diff
+- [ ] Requirements/status documentation reflects delivered behavior and evidence

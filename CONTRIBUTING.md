@@ -26,7 +26,7 @@ Thank you for your interest in contributing to the Leetcode-App project! This do
 ### Prerequisites
 
 - Node.js >= 20.0.0
-- npm >= 10.0.0
+- pnpm 9 (managed through Corepack)
 - Git
 
 ### Initial Setup
@@ -37,16 +37,17 @@ git clone https://github.com/your-org/leetcode-app.git
 cd leetcode-app
 
 # Install dependencies
-npm install
+corepack enable
+pnpm install --frozen-lockfile
 
 # Run development server
-npm run dev
+pnpm dev
 
 # Run tests
-npm test
+pnpm test
 
 # Run linting
-npm run lint
+pnpm lint
 ```
 
 ## Development Workflow
@@ -126,17 +127,11 @@ packages/
 ### Running Tests
 
 ```bash
-# Run all tests
-npm test
-
-# Run tests in watch mode
-npm run test:watch
-
-# Run tests with coverage
-npm run test:coverage
+# Run the required local preflight
+pnpm preflight
 
 # Run tests for specific workspace
-npm test --workspace=web
+pnpm --filter web test
 ```
 
 ## Commit Messages
@@ -186,9 +181,9 @@ Fixes #456
 
 ### Before Submitting
 
-1. Ensure all tests pass: `npm test`
-2. Run linting: `npm run lint`
-3. Format code: `npm run format`
+1. Run the required validation: `pnpm preflight`
+2. Run PR-specific integration, migration, browser, accessibility, or security checks.
+3. Confirm the branch is current with `origin/main`.
 4. Update documentation if needed
 5. Add/update tests for your changes
 6. Rebase on latest `main` if needed
@@ -212,7 +207,7 @@ Fixes #456
 
 ### After Approval
 
-- Maintainer will merge using squash merge
+- Maintainer will merge using the repository's configured merge strategy
 - Delete your branch after merge
 - Update local `main` branch
 

@@ -8,6 +8,7 @@ This directory is the source of truth for what the product should do, how it sho
 |---|---|
 | [Product plan](PRODUCT_PLAN.md) | Vision, learning model, complete scope, security posture, release gates, and success metrics |
 | [Implementation roadmap](IMPLEMENTATION_ROADMAP.md) | Dependency-ordered phases, issue-sized work packages, acceptance checks, and the next 12 issues |
+| [Delivery and personalization plan](DELIVERY_PLAN.md) | Active end-to-end delivery gates, PR train, ML data foundations, neural-model readiness, and rollout controls |
 | [Target architecture](ARCHITECTURE.md) | Repository/runtime boundaries, domains, data model, AST, APIs, security boundaries, and ADRs |
 | [Development guide](DEVELOPMENT.md) | Local setup, validation, issue/PR workflow, coding boundaries, tests, migrations, security, and deployment |
 | [External deployment setup](DEPLOYMENT_SETUP.md) | Provider provisioning, secrets, workers, observability, launch order, and integrations that remain disabled until safely configured |
@@ -21,14 +22,16 @@ This directory is the source of truth for what the product should do, how it sho
 1. Product plan sections 1-12.
 2. Requirements matrix for current status.
 3. Relevant implementation-roadmap phase.
+4. Delivery plan gate when the work affects the active learner journey or personalization.
 
 ### Engineering work
 
 1. Development guide.
 2. Target architecture.
 3. Relevant implementation-roadmap work package.
-4. Requirements matrix IDs named by the issue.
-5. Product-plan section for deeper context and release constraints.
+4. Delivery plan gate and PR boundary.
+5. Requirements matrix IDs named by the issue.
+6. Product-plan section for deeper context and release constraints.
 
 ### Release or operations work
 

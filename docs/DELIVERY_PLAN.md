@@ -16,9 +16,9 @@ This document is the active execution plan. It narrows the broader product roadm
 | --- | --- | --- |
 | Deployed baseline | `origin/main` at `837fd52`; deployed, not yet proven by the new browser gate | Do not call the learner journey release-ready until the CI stack lands and passes on `main`. |
 | Supabase content identity | PR [#50](https://github.com/AdithyaDevi3/Leetcode-App/pull/50) open | Rebase after the delivery stack, resolve overlap with the database corrections, and require the Slice 1B proof before merge. |
-| Database integrity | Validated locally at `8d59662`; PR publication pending | 32/32 database tests and database TypeScript validation pass. Merge only after hosted CI repeats the result. |
-| Observability dependency | Validated locally at `14858dc`; PR publication pending | Direct metrics SDK dependency and frozen lockfile are present. Merge only after hosted CI. |
-| Truthful CI and browser gate | Validated locally at `89950d2`; PR publication pending | The complete non-mutating `pnpm preflight` passes, including 7/7 Playwright journeys against an isolated production server. Hosted checks remain required. |
+| Database integrity | PR [#65](https://github.com/AdithyaDevi3/Leetcode-App/pull/65) at `8d59662`; locally validated | 32/32 database tests and database TypeScript validation pass. Merge only after hosted CI repeats the result. |
+| Observability dependency | Stacked PR [#66](https://github.com/AdithyaDevi3/Leetcode-App/pull/66) at `14858dc`; locally validated | Direct metrics SDK dependency and frozen lockfile are present. Merge after #65 and hosted CI. |
+| Truthful CI and browser gate | Stacked PR [#67](https://github.com/AdithyaDevi3/Leetcode-App/pull/67) at `85f9618`; locally validated | The complete non-mutating `pnpm preflight` passes, including 7/7 Playwright journeys against an isolated production server. Merge after #65/#66 and hosted checks. |
 | Workspace cleanup | Complete for this session | Reduced eight worktrees to three; removed 96 merged local branches and 33 merged remote branches while preserving dirty and unmerged work. |
 
 This snapshot must be updated in the PR that changes any listed fact. Local or pending work must name a commit; merged and production claims require a linked check, artifact, probe, or PR.

@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted for the current roadmap implementation period.
+Superseded on 2026-09-01 by [the gated delivery plan](../DELIVERY_PLAN.md).
 
 ## Context
 
@@ -14,6 +14,9 @@ overlapping, duplicate pull requests because the integration branch already
 contains those commits.
 
 ## Decision
+
+This decision records the historical Phase 3 integration period and is no
+longer the active branch policy.
 
 - Keep `phase-3-evaluation-platform` as the integration branch and its open
   pull request as the single route to `main`.

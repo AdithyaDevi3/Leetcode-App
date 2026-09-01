@@ -12,13 +12,16 @@ This document is the active execution plan. It narrows the broader product roadm
 
 ## Current execution state — 2026-09-01
 
-- `origin/main` is deployed, but the repository does not yet prove the critical learner journey in a browser.
-- PR #50 is the only non-automation product PR currently open. It addresses Supabase content identity and ownership behavior and must be rebased and retested under the new gates before merge.
-- The first truthful full-suite run exposed and fixed isolated-database selection, invalid curriculum migration SQL, raw PostgreSQL row leakage, partial preference upserts, Supabase test primitives, and a missing observability dependency.
-- Unit/integration tests, lint, typecheck, and the production build pass on the current delivery stack. Browser tests currently expose a client-hydration readiness race and stale sync expectations; this is the first Gate 1 implementation slice, not a waived check.
-- Workspace cleanup reduced eight worktrees to three and removed 96 merged local branches plus 33 merged remote branches. Active work is limited to PR #50, delivery governance, and truthful CI.
+| Work | State | Evidence and next decision |
+| --- | --- | --- |
+| Deployed baseline | `origin/main` at `837fd52`; deployed, not yet proven by the new browser gate | Do not call the learner journey release-ready until the CI stack lands and passes on `main`. |
+| Supabase content identity | PR [#50](https://github.com/AdithyaDevi3/Leetcode-App/pull/50) open | Rebase after the delivery stack, resolve overlap with the database corrections, and require the Slice 1B proof before merge. |
+| Database integrity | Validated locally at `8d59662`; PR publication pending | 32/32 database tests and database TypeScript validation pass. Merge only after hosted CI repeats the result. |
+| Observability dependency | Validated locally at `14858dc`; PR publication pending | Direct metrics SDK dependency and frozen lockfile are present. Merge only after hosted CI. |
+| Truthful CI and browser gate | Validated locally at `89950d2`; PR publication pending | The complete non-mutating `pnpm preflight` passes, including 7/7 Playwright journeys against an isolated production server. Hosted checks remain required. |
+| Workspace cleanup | Complete for this session | Reduced eight worktrees to three; removed 96 merged local branches and 33 merged remote branches while preserving dirty and unmerged work. |
 
-This snapshot must be updated in the PR that changes any listed fact. A status claim without a linked check, test artifact, production probe, or PR is not evidence.
+This snapshot must be updated in the PR that changes any listed fact. Local or pending work must name a commit; merged and production claims require a linked check, artifact, probe, or PR.
 
 ## Workspace and branch hygiene
 
@@ -31,8 +34,6 @@ Keep the workspace small enough that branch state is obvious:
 - Run a workspace audit at the start and end of each delivery session: fetch/prune, list worktrees, list dirty state, compare branches to `origin/main`, and reconcile open PRs.
 - Add an automated, read-only `workspace:audit` command that fails when worktree limits, stale merged branches, missing upstreams, or undocumented stacked dependencies are detected. Cleanup remains an explicit human-reviewed action.
 
-Current allowed local branches are `main`, `fix/supabase-rls-policies`, `chore/delivery-governance`, `fix/database-test-integrity`, `fix/workspace-test-dependencies`, and `ci/truthful-gates`. Automation PR branches may exist remotely but do not receive worktrees unless selected for review.
-
 ## Gate 0: trustworthy delivery
 
 Outcome: every merge is independently reviewable and protected by truthful CI.
@@ -44,6 +45,8 @@ Required evidence:
 - Critical-path browser tests with failure traces and screenshots.
 - Migration, repository integration, RLS/ownership, accessibility, and security checks added as their boundaries enter the active journey.
 - Root `AGENTS.md`, current PR template, and status/requirements updates enforced during review.
+
+`main` is not currently protected. After the CI PR lands, the repository maintainer must enable a branch ruleset requiring pull requests, one approval, the branch to be current, resolved conversations, and the `quality`, `browser`, and `evaluation-quality` checks. Direct pushes and bypasses must be disabled. Record the ruleset URL or screenshot in the Gate 0 evidence; until then, branch protection is an open Gate 0 requirement, not a completed control.
 
 ## Gate 1: reliable end-to-end learner loop
 
@@ -71,7 +74,7 @@ Each slice is a vertical change with a user-visible outcome. Its PR must include
 
 | Slice | Functional implementation | Required proof | Merge decision |
 | --- | --- | --- | --- |
-| 1A. Browser-ready workspace | Expose an explicit client-ready state, prevent pre-hydration input loss, update Playwright to wait on that state, and assert local/offline/server/conflict status against current behavior. Run against the production build, not only the dev server. | All critical Playwright journeys green with trace/screenshot artifacts on failure; no console or hydration errors. | Blocks every later Gate 1 slice. |
+| 1A. Browser-ready workspace | Treat the existing `Ready` status as the client-ready signal, prevent pre-hydration input loss by withholding browser interaction until it appears, and assert local/offline/server/conflict status against current behavior. Playwright owns an isolated production-built server rather than reusing an unrelated development process. | All critical Playwright journeys green with trace/screenshot artifacts on failure; no console or hydration errors. | Validated locally in the pending CI stack; hosted CI evidence blocks every later Gate 1 slice. |
 | 1B. Content identity | Use one immutable content/version identity from published curriculum through UI, session creation, revisions, evaluation, history, and analytics. Reject unknown/unpublished IDs with a typed error. | Migration test, repository integration test, API contract test, and browser start-session test on seeded content. | PR #50 may satisfy part of this only after rebase and evidence review. |
 | 1C. Session bootstrap and hydration | `POST /api/practice/sessions` returns an existing resumable session or creates one idempotently; `GET /api/practice/sessions/:id` returns owned state and latest revision. The workspace loads server state before accepting edits and deep links resume the exact content/version. | Guest and account tests; cross-browser/device resume; ownership denial; empty/corrupt/stale-state behavior; hydration latency metric. | No autosave work merges until the read model is authoritative. |
 | 1D. Atomic autosave and conflict recovery | Persist the session snapshot and revision in one transaction using `expectedRevision` and an idempotency key. Queue one ordered client save at a time, retry safely, and present server/local comparison with explicit resolution. | Concurrent-write integration tests, duplicate/retry tests, offline/reconnect browser test, real 409 conflict browser test, save success/error/latency telemetry. | Reject if any path silently overwrites newer work. |
@@ -144,9 +147,11 @@ Initial architecture:
 - Multi-task predictions for start, completion, first-attempt performance, delayed transfer gain, and overload risk.
 - Deterministic prerequisite, availability, diversity, privacy, and safety constraints applied before and after scoring.
 
-Never use email, name, device fingerprint, raw user ID, raw pseudocode/code, notes, appeal/reflection text, accessibility notes, support data, or post-decision information as model features.
+Never use email, name, device fingerprint, raw user ID, raw pseudocode/code, notes, appeal/reflection text, accessibility notes, support data, or information unavailable at scoring time for the decision being evaluated, including outcomes caused by that recommendation, as model features.
 
 Readiness thresholds require a formal power analysis. The initial planning assumptions are 30-50 validated activities across at least 10 concepts, about 5,000 consenting learners, about 100,000 valid impressions, at least 10,000 mature outcomes, greater than 99% critical-field completeness and decision/outcome joinability, less than 0.1% duplicates, 100% opt-out enforcement, and at least four weeks of stable collection.
+
+Before training begins, the named ML owner, product owner, and privacy/security reviewer must approve a versioned evaluation protocol and ADR. It must preregister the minimum worthwhile effect and 95% uncertainty interval, calibration limits, minimum subgroup sample sizes and suppression rules, latency and error budgets, guardrails, and automatic stop/rollback thresholds. No offline model advances to shadow, and no shadow model advances to canary, without a signed decision against that protocol.
 
 If these gates are not met, keep the neural model offline or in shadow mode.
 
@@ -165,10 +170,10 @@ Outcome: model promotion is evidence-based and reversible.
 
 Each item is a separate reviewable PR unless its acceptance criteria cannot operate independently:
 
-1. Delivery rules, roadmap, PR evidence contract, and workspace lifecycle policy.
-2. Isolated database integration and legacy repository contract corrections.
-3. Complete workspace runtime dependency declarations.
-4. Browser-ready workspace and truthful CI with current critical-path Playwright tests.
+1. Isolated database integration and legacy repository contract corrections.
+2. Complete workspace runtime dependency declarations.
+3. Browser-ready workspace and truthful CI for every PR base, with current critical-path Playwright tests.
+4. Delivery rules, roadmap, PR evidence contract, and workspace lifecycle policy, stacked on the truthful CI change so its required preflight is non-mutating.
 5. Read-only `workspace:audit` automation.
 6. Content identity contract and clean migration proof.
 7. Server hydration and cross-device resume.

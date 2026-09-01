@@ -168,14 +168,12 @@ Do not commit directly to protected `main` once branch protection is enabled.
 
 ### Current integration policy
 
-While the consolidated `phase-3-evaluation-platform` pull request to `main` is
-open, create one branch and one focused pull request for each remaining roadmap
-work package. Target those focused pull requests at
-`phase-3-evaluation-platform`, not `main`; merging an approved focused PR into
-the integration branch updates the consolidated PR automatically. Do not open
-duplicate PRs for historical branches whose commits are already reachable from
-the integration branch. Each focused PR must remain independently testable and
-must not include unrelated roadmap work.
+The Phase 3 integration branch is historical. Follow the active gated delivery
+sequence in [DELIVERY_PLAN.md](DELIVERY_PLAN.md) and the repository rules in
+[`AGENTS.md`](../AGENTS.md). New work normally targets `main`. A stacked PR may
+temporarily target a named prerequisite branch only when the dependency and
+merge order are explicit in every affected PR; change its base back to `main`
+and rerun validation as soon as the prerequisite merges.
 
 ## Issue template
 

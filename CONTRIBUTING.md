@@ -25,7 +25,7 @@ Thank you for your interest in contributing to the Leetcode-App project! This do
 
 ### Prerequisites
 
-- Node.js >= 20.0.0
+- Node.js 24
 - pnpm 9 (managed through Corepack)
 - Git
 
@@ -33,8 +33,8 @@ Thank you for your interest in contributing to the Leetcode-App project! This do
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-org/leetcode-app.git
-cd leetcode-app
+git clone https://github.com/AdithyaDevi3/Leetcode-App.git
+cd Leetcode-App
 
 # Install dependencies
 corepack enable
@@ -54,9 +54,8 @@ pnpm lint
 
 ### Branch Strategy
 
-- `main` - Production-ready code, protected branch
-- `phase-N-*` - Feature branches for implementation phases
-- `feature/*` - Individual feature branches
+- `main` - Deployed integration branch; protection is a Gate 0 administrative requirement
+- `feat/*` - Individual feature branches
 - `fix/*` - Bug fix branches
 - `docs/*` - Documentation updates
 
@@ -64,17 +63,18 @@ pnpm lint
 
 ```bash
 # Create and switch to a new branch
-git checkout -b feature/your-feature-name
+git fetch origin main
+git switch -c feat/your-feature-name origin/main
 
 # Make your changes
 # ...
 
 # Commit your changes
-git add .
+git add path/to/changed-file path/to/related-test
 git commit -m "feat: add your feature"
 
 # Push to remote
-git push origin feature/your-feature-name
+git push -u origin feat/your-feature-name
 ```
 
 ## Coding Standards
@@ -88,8 +88,8 @@ git push origin feature/your-feature-name
 
 ### Code Style
 
-- Follow the Prettier configuration (`.prettierrc.json`)
-- Run `npm run format` before committing
+- Follow the existing ESLint and repository formatting conventions
+- Run `pnpm preflight` before pushing; it validates without rewriting source
 - Use meaningful variable and function names
 - Keep functions small and focused (single responsibility)
 - Avoid deep nesting (max 3 levels)
@@ -230,7 +230,7 @@ Check the project README or roadmap document for the current active phase.
 
 ## Questions?
 
-- Open a [GitHub Discussion](https://github.com/your-org/leetcode-app/discussions) for questions
+- Open a [GitHub Discussion](https://github.com/AdithyaDevi3/Leetcode-App/discussions) for questions
 - Check existing issues and PRs for similar work
 - Read the [documentation](docs/) for architecture and design decisions
 

@@ -16,6 +16,13 @@
 - Requirement IDs:
 - Acceptance criteria:
 
+## Branch, dependencies, and write ownership
+
+- PR base branch:
+- Stacked prerequisite PRs (or `N/A` with rationale):
+- Declared write paths:
+- Concurrent branches touching these paths (or `N/A` with rationale):
+
 ## Type of Change
 
 - [ ] Bug fix (non-breaking change which fixes an issue)
@@ -79,6 +86,9 @@ Which implementation phase does this PR support? (See IMPLEMENTATION_ROADMAP.md)
 - `pnpm preflight`:
 - Integration/migration/browser/accessibility evidence:
 
+Use `N/A — <rationale>` for every evidence category that does not apply; do not
+leave required fields blank.
+
 ## Security Considerations
 
 - [ ] This PR has no security implications
@@ -89,7 +99,7 @@ Which implementation phase does this PR support? (See IMPLEMENTATION_ROADMAP.md)
 
 - [ ] No data-contract, retention, consent, export, or deletion impact
 - [ ] Ownership/RLS and abuse cases are tested where applicable
-- [ ] No direct identifiers, free text, or post-decision data were added to personalization features
+- [ ] No direct identifiers, free text, or information unavailable at scoring time for the evaluated decision were added to personalization features
 - [ ] Model/evaluator inputs, outputs, and versions are allowlisted and auditable where applicable
 
 ## Performance Impact
@@ -115,6 +125,13 @@ Which implementation phase does this PR support? (See IMPLEMENTATION_ROADMAP.md)
 - [ ] Requires infrastructure changes
 - [ ] Requires external service configuration
 - [ ] Can be deployed independently
+
+### Migration compatibility
+
+- Migration identifier (or `N/A` with rationale):
+- Expand/contract and mixed-version compatibility:
+- Restore impact:
+- Rollback or forward-fix procedure:
 
 ## Failure behavior, observability, and rollback
 

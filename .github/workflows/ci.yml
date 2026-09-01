@@ -3,8 +3,9 @@ name: CI
 on:
   push:
     branches: [main, 'phase-*']
-  pull_request:
-    branches: [main, 'phase-*']
+  # Stacked pull requests use temporary feature branches as their base. Every
+  # pull request must receive the same checks regardless of that base branch.
+  pull_request: {}
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}

@@ -39,3 +39,17 @@ recordings/
 
 # Internal documentation (not for public repo)
 documentation/
+.env
+.env.*
+*.env
+*.env.*
+.envrc
+!.env.example
+!*.env.example
+!*.example.env
+CLAUDE.md
+claude.md
+AGENT.md
+agent.md
+AGENTS.md
+agents.md

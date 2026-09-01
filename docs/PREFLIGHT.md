@@ -1,6 +1,6 @@
 # Preflight Checks
 
-`pnpm preflight` runs the same checks CI runs for the web workspace before you
+`pnpm preflight` runs the same mandatory repository checks CI runs before you
 open a pull request, so failures show up on your machine instead of in a CI
 run you have to wait on.
 
@@ -9,27 +9,25 @@ run you have to wait on.
 Running `pnpm preflight` (or `node scripts/preflight.mjs` directly) executes,
 in order:
 
-1. **Install** — `pnpm install --filter web...` so the workspace matches what
-   CI installs.
-2. **Lint (auto-fix)** — runs ESLint with `--fix` first, so formatting and
-   auto-fixable rule violations are corrected automatically.
-3. **Lint (verify)** — runs ESLint again without `--fix` to confirm nothing
-   auto-fixable was missed and to surface any remaining issues that need a
-   manual change.
-4. **Type check** — `tsc --noEmit` against the web workspace.
-5. **Unit tests** — `pnpm -r test`, covering every workspace package.
-6. **Build** — `pnpm --filter web build`, the same production build CI runs.
+1. **Install** — `pnpm install --frozen-lockfile` so dependency declarations
+   cannot silently rewrite the lockfile.
+2. **Shared builds** — builds the domain and database workspaces used through
+   their package exports.
+3. **Lint** — verifies ESLint without changing source files.
+4. **Type check** — runs `tsc --noEmit` against the web workspace.
+5. **Workspace tests** — `pnpm -r test`, covering every workspace package.
+6. **Production build** — `pnpm --filter web build`.
+7. **Browser tests** — runs the Playwright critical learner journey.
 
 Each step prints a pass/fail line in a summary at the end, so you can see at a
 glance what needs attention.
 
-## What it fixes automatically
+## Non-mutating validation
 
-Only lint issues that ESLint's `--fix` can safely resolve (formatting, import
-ordering, and similar mechanical rules) are corrected automatically. Type
-errors, failing tests, and build failures are **not** auto-fixed — those
-require a human decision about the actual code change, so the script reports
-them clearly instead of guessing.
+Preflight does not auto-fix or rewrite source. Make intentional fixes in a
+reviewable diff, then run it again. Install the Chromium runtime once with
+`pnpm --filter web exec playwright install chromium` if Playwright reports
+that the local browser is missing.
 
 ## When to run it
 
@@ -41,9 +39,9 @@ them clearly instead of guessing.
 
 ## Exit codes
 
-The script exits `0` only if lint, type check, tests, and build all pass. Any
-other outcome exits non-zero, so it can also be wired into a git hook or CI
-step if desired.
+The script exits `0` only if shared builds, lint, typecheck, workspace tests,
+the production build, and browser tests all pass. Any other outcome exits
+non-zero.
 
 ## Related
 

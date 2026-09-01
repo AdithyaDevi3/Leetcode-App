@@ -1,14 +1,19 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
+
+async function openHydratedWorkspace(page: Page) {
+  await page.goto('/practice');
+  await expect(page.getByRole('heading', { name: 'Think in complements' })).toBeVisible();
+  await expect(page.getByText('Ready', { exact: true })).toBeVisible();
+}
 
 test('guest can open the workspace and autosave a draft locally', async ({ page }) => {
-  await page.goto('/');
+  await openHydratedWorkspace(page);
 
-  await expect(page.getByRole('heading', { name: 'Think in complements' })).toBeVisible();
   await expect(page.getByLabel('Pseudocode draft')).toBeVisible();
 
   await page.getByLabel('Pseudocode draft').fill('Create a map.\nCheck the complement.');
 
-  await expect(page.getByText('Saved locally')).toBeVisible();
+  await expect(page.getByText('Offline draft')).toBeVisible();
 
   const sessionValue = await page.evaluate(() => {
     const key = 'method:pair-with-target-v1:session';
@@ -20,7 +25,7 @@ test('guest can open the workspace and autosave a draft locally', async ({ page 
 });
 
 test('guest can use the guided start and pass the reasoning check', async ({ page }) => {
-  await page.goto('/');
+  await openHydratedWorkspace(page);
 
   await page.getByRole('button', { name: 'Use guided start' }).click();
   await page.getByRole('button', { name: 'Evaluate reasoning' }).click();
@@ -46,10 +51,10 @@ test('guest can use the guided start and pass the reasoning check', async ({ pag
 });
 
 test('guest draft resumes after reload', async ({ page }) => {
-  await page.goto('/');
+  await openHydratedWorkspace(page);
 
   await page.getByLabel('Pseudocode draft').fill('Create a map.\nStore values as you go.');
-  await expect(page.getByText('Saved locally')).toBeVisible();
+  await expect(page.getByText('Offline draft')).toBeVisible();
 
   await page.reload();
 
@@ -58,7 +63,7 @@ test('guest draft resumes after reload', async ({ page }) => {
 });
 
 test('guest can finish the translation check', async ({ page }) => {
-  await page.goto('/');
+  await openHydratedWorkspace(page);
 
   await page.getByRole('button', { name: 'Use guided start' }).click();
   await page.getByRole('button', { name: 'Evaluate reasoning' }).click();
@@ -82,7 +87,7 @@ test('guest can finish the translation check', async ({ page }) => {
 });
 
 test('sync helper reports offline draft without a signed-in session', async ({ page }) => {
-  await page.goto('/');
+  await openHydratedWorkspace(page);
 
   await page.evaluate(() => {
     window.fetch = async () => new Response('', { status: 401 });
@@ -94,7 +99,7 @@ test('sync helper reports offline draft without a signed-in session', async ({ p
 });
 
 test('guest sees a server save when sync succeeds', async ({ page }) => {
-  await page.goto('/');
+  await openHydratedWorkspace(page);
 
   await page.evaluate(() => {
     const originalFetch = window.fetch.bind(window);
@@ -124,7 +129,7 @@ test('guest sees a server save when sync succeeds', async ({ page }) => {
 });
 
 test('guest sees a conflict when sync reports one', async ({ page }) => {
-  await page.goto('/');
+  await openHydratedWorkspace(page);
 
   await page.evaluate(() => {
     const originalFetch = window.fetch.bind(window);

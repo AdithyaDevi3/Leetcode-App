@@ -2,9 +2,8 @@
 /**
  * Preflight check runner.
  *
- * Runs the same checks CI runs for the web workspace, auto-fixing what is
- * safely auto-fixable (lint) and reporting anything that needs a human to
- * look at (typecheck, tests, build). Run this before opening a pull request.
+ * Runs the same mandatory repository checks CI runs without changing source
+ * files. Run this before opening a pull request.
  *
  * Usage:
  *   node scripts/preflight.mjs
@@ -28,9 +27,7 @@ function run(label, command, args, options = {}) {
 
 const installOk = run("Install workspace dependencies", "pnpm", [
   "install",
-  "--filter",
-  "web...",
-  "--no-frozen-lockfile",
+  "--frozen-lockfile",
 ]);
 
 if (!installOk) {
@@ -38,17 +35,38 @@ if (!installOk) {
   process.exit(1);
 }
 
-// Lint is auto-fixable: try --fix first, then verify with a clean run.
-run("Lint (auto-fix)", "pnpm", ["--filter", "web", "lint", "--", "--fix"]);
-const lintOk = run("Lint (verify)", "pnpm", ["--filter", "web", "lint"]);
+const domainBuildOk = run("Build domain workspace", "pnpm", [
+  "--filter",
+  "@leetcode-app/domain",
+  "build",
+]);
+const databaseBuildOk = run("Build database workspace", "pnpm", [
+  "--filter",
+  "@leetcode-app/database",
+  "build",
+]);
+const lintOk = run("Lint", "pnpm", ["--filter", "web", "lint"]);
 
 const typecheckOk = run("Type check", "pnpm", ["--filter", "web", "typecheck"]);
-const testOk = run("Unit tests", "pnpm", ["-r", "test"]);
+const testOk = run("All workspace tests", "pnpm", ["-r", "test"]);
 const buildOk = run("Build", "pnpm", ["--filter", "web", "build"]);
+const browserOk = run("Critical-path browser tests", "pnpm", [
+  "--filter",
+  "web",
+  "test:e2e",
+]);
 
 printSummary();
 
-const allPassed = [lintOk, typecheckOk, testOk, buildOk].every(Boolean);
+const allPassed = [
+  domainBuildOk,
+  databaseBuildOk,
+  lintOk,
+  typecheckOk,
+  testOk,
+  buildOk,
+  browserOk,
+].every(Boolean);
 process.exit(allPassed ? 0 : 1);
 
 function printSummary() {
@@ -61,8 +79,8 @@ function printSummary() {
   const failed = steps.filter((step) => !step.passed);
   if (failed.length > 0) {
     process.stdout.write(
-      "\nSome checks still need manual fixes (lint issues that could not be\n" +
-        "auto-fixed, type errors, failing tests, or a broken build). Fix the\n" +
+      "\nSome checks still need fixes (lint, type errors, workspace tests,\n" +
+        "browser tests, or a broken build). Fix the\n" +
         "reported output above, then re-run `pnpm preflight`.\n",
     );
   } else {

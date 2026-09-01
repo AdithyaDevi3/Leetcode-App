@@ -1,5 +1,19 @@
 import type { PoolClient } from 'pg';
 
+/** Convert a PostgreSQL row's top-level snake_case columns to API camelCase. */
+export function mapDatabaseRow<T>(row: object): T {
+  return Object.fromEntries(
+    Object.entries(row as Record<string, unknown>).map(([key, value]) => [
+      key.replace(/_([a-z])/g, (_, letter: string) => letter.toUpperCase()),
+      value,
+    ])
+  ) as T;
+}
+
+export function mapDatabaseRows<T>(rows: object[]): T[] {
+  return rows.map((row) => mapDatabaseRow<T>(row));
+}
+
 /**
  * Base repository interface with common CRUD operations
  */

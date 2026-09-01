@@ -4,6 +4,7 @@ import { DatabaseClient, createDatabaseClient, type DatabaseConfig } from '../sr
 import { PostgresContentRepository } from '../src/repositories/content.repository.js';
 import { OptimisticConcurrencyError } from '../src/repositories/base.js';
 import { runMigrations } from '../src/migrations/index.js';
+import { prepareSupabaseTestDatabase } from './support/supabase.js';
 
 let container: StartedTestContainer;
 let dbClient: DatabaseClient;
@@ -28,6 +29,7 @@ beforeAll(async () => {
   };
 
   dbClient = createDatabaseClient(dbConfig);
+  await prepareSupabaseTestDatabase(dbClient);
   await runMigrations(dbConfig, 'up');
   contentRepo = new PostgresContentRepository(dbClient);
 }, 60000);

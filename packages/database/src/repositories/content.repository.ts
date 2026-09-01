@@ -1,7 +1,41 @@
 import type { PoolClient } from 'pg';
-import type { ContentItem, ContentVersion, RubricVersion } from '@leetcode-app/domain';
 import { DatabaseClient } from '../client.js';
-import { Repository, EntityNotFoundError, OptimisticConcurrencyError } from './base.js';
+import { Repository, EntityNotFoundError, OptimisticConcurrencyError, mapDatabaseRow, mapDatabaseRows } from './base.js';
+
+/** Persistence types for the legacy content tables in the initial schema. */
+export interface ContentItem {
+  id: string;
+  slug: string;
+  type: 'lesson' | 'problem' | 'module';
+  status: 'draft' | 'published' | 'archived';
+  difficulty: 'beginner' | 'intermediate' | 'advanced';
+  estimatedMinutes: number;
+  tags: string[];
+  createdAt: Date;
+  updatedAt: Date;
+  revision: number;
+}
+
+export interface ContentVersion {
+  id: string;
+  contentId: string;
+  version: number;
+  title: string;
+  description: string;
+  markdownContent: string;
+  starterCode: string | null;
+  solutionCode: string | null;
+  testCases: unknown[];
+  createdAt: Date;
+}
+
+export interface RubricVersion {
+  id: string;
+  contentId: string;
+  version: number;
+  criteria: Record<string, { weight: number; description: string }>;
+  createdAt: Date;
+}
 
 export interface ContentRepository extends Repository<ContentItem> {
   findBySlug(slug: string, client?: PoolClient): Promise<ContentItem | null>;
@@ -22,7 +56,7 @@ export class PostgresContentRepository implements ContentRepository {
       'SELECT * FROM content_items WHERE id = $1',
       [id]
     );
-    return result.rows[0] || null;
+    return result.rows[0] ? mapDatabaseRow<ContentItem>(result.rows[0]) : null;
   }
 
   async findBySlug(slug: string, client?: PoolClient): Promise<ContentItem | null> {
@@ -31,7 +65,7 @@ export class PostgresContentRepository implements ContentRepository {
       'SELECT * FROM content_items WHERE slug = $1',
       [slug]
     );
-    return result.rows[0] || null;
+    return result.rows[0] ? mapDatabaseRow<ContentItem>(result.rows[0]) : null;
   }
 
   async findAll(client?: PoolClient): Promise<ContentItem[]> {
@@ -39,7 +73,7 @@ export class PostgresContentRepository implements ContentRepository {
     const result = await executor.query<ContentItem>(
       'SELECT * FROM content_items ORDER BY created_at DESC'
     );
-    return result.rows;
+    return mapDatabaseRows<ContentItem>(result.rows);
   }
 
   async create(content: Omit<ContentItem, 'id' | 'createdAt' | 'updatedAt'>, client?: PoolClient): Promise<ContentItem> {
@@ -50,7 +84,7 @@ export class PostgresContentRepository implements ContentRepository {
        RETURNING *`,
       [content.slug, content.type, content.status, content.difficulty, content.estimatedMinutes, content.tags]
     );
-    return result.rows[0];
+    return mapDatabaseRow<ContentItem>(result.rows[0]);
   }
 
   async update(id: string, content: Partial<ContentItem>, revision: number, client?: PoolClient): Promise<ContentItem> {
@@ -98,7 +132,7 @@ export class PostgresContentRepository implements ContentRepository {
       throw new OptimisticConcurrencyError('ContentItem was modified by another transaction');
     }
 
-    return result.rows[0];
+    return mapDatabaseRow<ContentItem>(result.rows[0]);
   }
 
   async delete(id: string, client?: PoolClient): Promise<void> {
@@ -115,7 +149,7 @@ export class PostgresContentRepository implements ContentRepository {
        LIMIT 1`,
       [contentId]
     );
-    return result.rows[0] || null;
+    return result.rows[0] ? mapDatabaseRow<ContentVersion>(result.rows[0]) : null;
   }
 
   async getVersion(contentId: string, version: number, client?: PoolClient): Promise<ContentVersion | null> {
@@ -124,7 +158,7 @@ export class PostgresContentRepository implements ContentRepository {
       'SELECT * FROM content_versions WHERE content_id = $1 AND version = $2',
       [contentId, version]
     );
-    return result.rows[0] || null;
+    return result.rows[0] ? mapDatabaseRow<ContentVersion>(result.rows[0]) : null;
   }
 
   async createVersion(contentId: string, version: ContentVersion, client?: PoolClient): Promise<ContentVersion> {
@@ -145,7 +179,7 @@ export class PostgresContentRepository implements ContentRepository {
         JSON.stringify(version.testCases),
       ]
     );
-    return result.rows[0];
+    return mapDatabaseRow<ContentVersion>(result.rows[0]);
   }
 
   async getLatestRubric(contentId: string, client?: PoolClient): Promise<RubricVersion | null> {
@@ -157,7 +191,7 @@ export class PostgresContentRepository implements ContentRepository {
        LIMIT 1`,
       [contentId]
     );
-    return result.rows[0] || null;
+    return result.rows[0] ? mapDatabaseRow<RubricVersion>(result.rows[0]) : null;
   }
 
   async getRubric(contentId: string, version: number, client?: PoolClient): Promise<RubricVersion | null> {
@@ -166,7 +200,7 @@ export class PostgresContentRepository implements ContentRepository {
       'SELECT * FROM rubric_versions WHERE content_id = $1 AND version = $2',
       [contentId, version]
     );
-    return result.rows[0] || null;
+    return result.rows[0] ? mapDatabaseRow<RubricVersion>(result.rows[0]) : null;
   }
 
   async createRubric(contentId: string, rubric: RubricVersion, client?: PoolClient): Promise<RubricVersion> {
@@ -177,6 +211,6 @@ export class PostgresContentRepository implements ContentRepository {
        RETURNING *`,
       [contentId, rubric.version, JSON.stringify(rubric.criteria)]
     );
-    return result.rows[0];
+    return mapDatabaseRow<RubricVersion>(result.rows[0]);
   }
 }

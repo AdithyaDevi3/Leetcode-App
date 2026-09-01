@@ -1,6 +1,6 @@
 import type { PoolClient } from 'pg';
 import { DatabaseClient } from '../client.js';
-import { Repository, EntityNotFoundError, OptimisticConcurrencyError } from './base.js';
+import { Repository, EntityNotFoundError, OptimisticConcurrencyError, mapDatabaseRow, mapDatabaseRows } from './base.js';
 
 /** Persistence contract for the legacy auth tables defined in the initial migration. */
 export type StoredUser = {
@@ -38,7 +38,7 @@ export class PostgresUserRepository implements UserRepository {
       'SELECT * FROM users WHERE id = $1',
       [id]
     );
-    return result.rows[0] || null;
+    return result.rows[0] ? mapDatabaseRow<StoredUser>(result.rows[0]) : null;
   }
 
   async findByEmail(email: string, client?: PoolClient): Promise<StoredUser | null> {
@@ -47,13 +47,13 @@ export class PostgresUserRepository implements UserRepository {
       'SELECT * FROM users WHERE email = $1',
       [email]
     );
-    return result.rows[0] || null;
+    return result.rows[0] ? mapDatabaseRow<StoredUser>(result.rows[0]) : null;
   }
 
   async findAll(client?: PoolClient): Promise<StoredUser[]> {
     const executor = client || this.db.getPool();
     const result = await executor.query<StoredUser>('SELECT * FROM users ORDER BY created_at DESC');
-    return result.rows;
+    return mapDatabaseRows<StoredUser>(result.rows);
   }
 
   async create(user: Omit<StoredUser, 'id' | 'createdAt' | 'updatedAt'>, client?: PoolClient): Promise<StoredUser> {
@@ -64,7 +64,7 @@ export class PostgresUserRepository implements UserRepository {
        RETURNING *`,
       [user.email, user.displayName, user.role]
     );
-    return result.rows[0];
+    return mapDatabaseRow<StoredUser>(result.rows[0]);
   }
 
   async update(id: string, user: Partial<StoredUser>, revision: number, client?: PoolClient): Promise<StoredUser> {
@@ -108,7 +108,7 @@ export class PostgresUserRepository implements UserRepository {
       throw new OptimisticConcurrencyError('User was modified by another transaction');
     }
 
-    return result.rows[0];
+    return mapDatabaseRow<StoredUser>(result.rows[0]);
   }
 
   async delete(id: string, client?: PoolClient): Promise<void> {
@@ -122,7 +122,7 @@ export class PostgresUserRepository implements UserRepository {
       'SELECT * FROM user_preferences WHERE user_id = $1',
       [userId]
     );
-    return result.rows[0] || null;
+    return result.rows[0] ? mapDatabaseRow<StoredUserPreference>(result.rows[0]) : null;
   }
 
   async updatePreferences(userId: string, preferences: Partial<StoredUserPreference>, client?: PoolClient): Promise<StoredUserPreference> {
@@ -130,7 +130,7 @@ export class PostgresUserRepository implements UserRepository {
     
     const result = await executor.query<StoredUserPreference>(
       `INSERT INTO user_preferences (user_id, theme, language, email_notifications)
-       VALUES ($1, $2, $3, $4)
+       VALUES ($1, COALESCE($2, 'light'), COALESCE($3, 'en'), COALESCE($4, true))
        ON CONFLICT (user_id) DO UPDATE
        SET theme = COALESCE($2, user_preferences.theme),
            language = COALESCE($3, user_preferences.language),
@@ -140,7 +140,7 @@ export class PostgresUserRepository implements UserRepository {
       [userId, preferences.theme, preferences.language, preferences.emailNotifications]
     );
 
-    return result.rows[0];
+    return mapDatabaseRow<StoredUserPreference>(result.rows[0]);
   }
 }
 
@@ -153,7 +153,7 @@ export class PostgresGuestIdentityRepository implements GuestIdentityRepository 
       'SELECT * FROM guest_identities WHERE id = $1',
       [id]
     );
-    return result.rows[0] || null;
+    return result.rows[0] ? mapDatabaseRow<StoredGuestIdentity>(result.rows[0]) : null;
   }
 
   async findBySessionToken(token: string, client?: PoolClient): Promise<StoredGuestIdentity | null> {
@@ -162,7 +162,7 @@ export class PostgresGuestIdentityRepository implements GuestIdentityRepository 
       'SELECT * FROM guest_identities WHERE session_token = $1',
       [token]
     );
-    return result.rows[0] || null;
+    return result.rows[0] ? mapDatabaseRow<StoredGuestIdentity>(result.rows[0]) : null;
   }
 
   async findAll(client?: PoolClient): Promise<StoredGuestIdentity[]> {
@@ -170,7 +170,7 @@ export class PostgresGuestIdentityRepository implements GuestIdentityRepository 
     const result = await executor.query<StoredGuestIdentity>(
       'SELECT * FROM guest_identities ORDER BY created_at DESC'
     );
-    return result.rows;
+    return mapDatabaseRows<StoredGuestIdentity>(result.rows);
   }
 
   async create(guest: Omit<StoredGuestIdentity, 'id' | 'createdAt'>, client?: PoolClient): Promise<StoredGuestIdentity> {
@@ -181,7 +181,7 @@ export class PostgresGuestIdentityRepository implements GuestIdentityRepository 
        RETURNING *`,
       [guest.deviceFingerprint, guest.sessionToken, guest.expiresAt]
     );
-    return result.rows[0];
+    return mapDatabaseRow<StoredGuestIdentity>(result.rows[0]);
   }
 
   async update(id: string, guest: Partial<StoredGuestIdentity>, _revision: number, client?: PoolClient): Promise<StoredGuestIdentity> {
@@ -220,7 +220,7 @@ export class PostgresGuestIdentityRepository implements GuestIdentityRepository 
       throw new EntityNotFoundError('GuestIdentity', id);
     }
 
-    return result.rows[0];
+    return mapDatabaseRow<StoredGuestIdentity>(result.rows[0]);
   }
 
   async delete(id: string, client?: PoolClient): Promise<void> {

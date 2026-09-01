@@ -1,7 +1,57 @@
 import type { PoolClient } from 'pg';
-import type { Evaluation, EvaluationFinding } from '@leetcode-app/domain';
 import { DatabaseClient } from '../client.js';
-import { Repository, EntityNotFoundError } from './base.js';
+import { Repository, EntityNotFoundError, mapDatabaseRow } from './base.js';
+
+/** Persistence types for the legacy evaluation tables in the initial schema. */
+export interface Evaluation {
+  id: string;
+  attemptId: string;
+  rubricVersion: number;
+  status: 'pending' | 'completed' | 'failed';
+  overallScore: number | null;
+  overallFeedback: string | null;
+  evaluatedAt: Date | null;
+  createdAt: Date;
+}
+
+export interface EvaluationFinding {
+  id: string;
+  evaluationId: string;
+  criterionId: string;
+  score: number;
+  feedback: string;
+  codeSnippet: string | null;
+  lineRange?: { start: number; end: number };
+}
+
+function mapEvaluation(row: object): Evaluation {
+  const evaluation = mapDatabaseRow<Evaluation>(row);
+  const score = evaluation.overallScore as number | string | null;
+  if (score !== undefined && score !== null) {
+    evaluation.overallScore = Number(score);
+  }
+  return evaluation;
+}
+
+function mapFinding(row: object): EvaluationFinding {
+  const finding = mapDatabaseRow<EvaluationFinding & {
+    lineRangeStart?: number | null;
+    lineRangeEnd?: number | null;
+  }>(row);
+  const score = finding.score as number | string;
+  if (score !== undefined) {
+    finding.score = Number(score);
+  }
+  if (finding.lineRangeStart !== null && finding.lineRangeStart !== undefined) {
+    finding.lineRange = {
+      start: finding.lineRangeStart,
+      end: finding.lineRangeEnd ?? finding.lineRangeStart,
+    };
+  }
+  delete finding.lineRangeStart;
+  delete finding.lineRangeEnd;
+  return finding;
+}
 
 export interface EvaluationRepository extends Repository<Evaluation> {
   findByAttempt(attemptId: string, client?: PoolClient): Promise<Evaluation | null>;
@@ -18,7 +68,7 @@ export class PostgresEvaluationRepository implements EvaluationRepository {
       'SELECT * FROM evaluations WHERE id = $1',
       [id]
     );
-    return result.rows[0] || null;
+    return result.rows[0] ? mapEvaluation(result.rows[0]) : null;
   }
 
   async findByAttempt(attemptId: string, client?: PoolClient): Promise<Evaluation | null> {
@@ -27,7 +77,7 @@ export class PostgresEvaluationRepository implements EvaluationRepository {
       'SELECT * FROM evaluations WHERE attempt_id = $1',
       [attemptId]
     );
-    return result.rows[0] || null;
+    return result.rows[0] ? mapEvaluation(result.rows[0]) : null;
   }
 
   async findAll(client?: PoolClient): Promise<Evaluation[]> {
@@ -35,7 +85,7 @@ export class PostgresEvaluationRepository implements EvaluationRepository {
     const result = await executor.query<Evaluation>(
       'SELECT * FROM evaluations ORDER BY created_at DESC'
     );
-    return result.rows;
+    return result.rows.map(mapEvaluation);
   }
 
   async create(evaluation: Omit<Evaluation, 'id' | 'createdAt'>, client?: PoolClient): Promise<Evaluation> {
@@ -54,7 +104,7 @@ export class PostgresEvaluationRepository implements EvaluationRepository {
         evaluation.evaluatedAt,
       ]
     );
-    return result.rows[0];
+    return mapEvaluation(result.rows[0]);
   }
 
   async update(id: string, evaluation: Partial<Evaluation>, _revision: number, client?: PoolClient): Promise<Evaluation> {
@@ -101,7 +151,7 @@ export class PostgresEvaluationRepository implements EvaluationRepository {
       throw new EntityNotFoundError('Evaluation', id);
     }
 
-    return result.rows[0];
+    return mapEvaluation(result.rows[0]);
   }
 
   async delete(id: string, client?: PoolClient): Promise<void> {
@@ -115,7 +165,7 @@ export class PostgresEvaluationRepository implements EvaluationRepository {
       'SELECT * FROM evaluation_findings WHERE evaluation_id = $1',
       [evaluationId]
     );
-    return result.rows;
+    return result.rows.map(mapFinding);
   }
 
   async createFinding(evaluationId: string, finding: EvaluationFinding, client?: PoolClient): Promise<EvaluationFinding> {
@@ -135,6 +185,6 @@ export class PostgresEvaluationRepository implements EvaluationRepository {
         finding.lineRange?.end,
       ]
     );
-    return result.rows[0];
+    return mapFinding(result.rows[0]);
   }
 }

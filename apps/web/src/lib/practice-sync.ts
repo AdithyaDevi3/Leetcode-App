@@ -1,4 +1,5 @@
 import { serializePracticeSession, type PracticeSessionState } from './practice-session';
+import { readBrowserStorage, removeBrowserStorage, writeBrowserStorage } from './safe-browser-storage';
 
 export type PracticeSyncStatus = 'ready' | 'saving' | 'saved' | 'offline' | 'conflict';
 
@@ -19,18 +20,15 @@ export type PracticeSyncResult = {
 const practiceSessionCacheKey = (contentId: string) => `method:${contentId}:remote-session`;
 
 export const readCachedPracticeSessionId = (contentId: string) => {
-  if (typeof window === 'undefined') return null;
-  return window.localStorage.getItem(practiceSessionCacheKey(contentId));
+  return readBrowserStorage(practiceSessionCacheKey(contentId));
 };
 
 export const writeCachedPracticeSessionId = (contentId: string, sessionId: string) => {
-  if (typeof window === 'undefined') return;
-  window.localStorage.setItem(practiceSessionCacheKey(contentId), sessionId);
+  writeBrowserStorage(practiceSessionCacheKey(contentId), sessionId);
 };
 
 export const clearCachedPracticeSessionId = (contentId: string) => {
-  if (typeof window === 'undefined') return;
-  window.localStorage.removeItem(practiceSessionCacheKey(contentId));
+  removeBrowserStorage(practiceSessionCacheKey(contentId));
 };
 
 export async function syncPracticeSession(payload: PracticeSyncPayload): Promise<PracticeSyncResult> {

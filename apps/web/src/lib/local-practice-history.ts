@@ -1,3 +1,5 @@
+import { readBrowserStorage, writeBrowserStorage } from './safe-browser-storage';
+
 export type LocalPracticeHistoryEntry = {
   practiceItemId: string;
   label: string;
@@ -18,7 +20,7 @@ export function readLocalPracticeHistory(): LocalPracticeHistoryEntry[] {
   if (typeof window === 'undefined') return [];
 
   try {
-    const stored = JSON.parse(window.localStorage.getItem(localPracticeHistoryKey) ?? '[]');
+    const stored = JSON.parse(readBrowserStorage(localPracticeHistoryKey) ?? '[]');
     if (!Array.isArray(stored)) return [];
     return stored.filter((entry): entry is LocalPracticeHistoryEntry => (
       typeof entry?.practiceItemId === 'string' &&
@@ -38,5 +40,5 @@ export function recordLocalPracticeCompletion(entry: Omit<LocalPracticeHistoryEn
     ...entry,
     completedAt: new Date().toISOString(),
   });
-  window.localStorage.setItem(localPracticeHistoryKey, JSON.stringify(updated));
+  writeBrowserStorage(localPracticeHistoryKey, JSON.stringify(updated));
 }

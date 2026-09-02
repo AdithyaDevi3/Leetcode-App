@@ -1,4 +1,5 @@
 import { createDatabaseClient, databaseConfigFromEnv, type DatabaseClient } from '@leetcode-app/database';
+import { toPersistedContentId } from './content-id';
 
 type Timestamp = Date | string;
 type NoteRow = { id: string; user_id: string; content_id: string; session_id: string | null; body: string; anchor: string | null; created_at: Timestamp; updated_at: Timestamp };
@@ -48,7 +49,7 @@ export function createNotesBookmarksStore(db: DatabaseClient = createDatabaseCli
   return {
     async listNotes(userId: string, filters: { contentId?: string | null; sessionId?: string | null } = {}): Promise<LearnerNote[]> {
       const clauses = ['user_id = $1']; const params: string[] = [userId];
-      if (filters.contentId) { params.push(filters.contentId); clauses.push(`content_id = $${params.length}`); }
+      if (filters.contentId) { params.push(toPersistedContentId(filters.contentId)); clauses.push(`content_id = $${params.length}`); }
       if (filters.sessionId) { params.push(filters.sessionId); clauses.push(`session_id = $${params.length}`); }
       const result = await db.query<NoteRow>(`SELECT * FROM learner_notes WHERE ${clauses.join(' AND ')} ORDER BY updated_at DESC, id DESC`, params);
       return result.rows.map(mapNote);
@@ -56,7 +57,7 @@ export function createNotesBookmarksStore(db: DatabaseClient = createDatabaseCli
     async createNote(userId: string, input: NoteInput): Promise<LearnerNote | null> {
       const result = await db.query<NoteRow>(`INSERT INTO learner_notes (user_id, content_id, session_id, body, anchor)
         SELECT $1, $2, $3, $4, $5 WHERE $3::uuid IS NULL OR EXISTS (SELECT 1 FROM practice_sessions WHERE id = $3 AND user_id = $1)
-        RETURNING *`, [userId, input.contentId, input.sessionId, input.body, input.anchor]);
+        RETURNING *`, [userId, toPersistedContentId(input.contentId), input.sessionId, input.body, input.anchor]);
       return result.rows[0] ? mapNote(result.rows[0]) : null;
     },
     async updateNote(id: string, userId: string, input: Pick<NoteInput, 'body' | 'anchor'>): Promise<LearnerNote | null> {
@@ -68,7 +69,7 @@ export function createNotesBookmarksStore(db: DatabaseClient = createDatabaseCli
     },
     async listBookmarks(userId: string, filters: { contentId?: string | null; sessionId?: string | null } = {}): Promise<LearnerBookmark[]> {
       const clauses = ['user_id = $1']; const params: string[] = [userId];
-      if (filters.contentId) { params.push(filters.contentId); clauses.push(`content_id = $${params.length}`); }
+      if (filters.contentId) { params.push(toPersistedContentId(filters.contentId)); clauses.push(`content_id = $${params.length}`); }
       if (filters.sessionId) { params.push(filters.sessionId); clauses.push(`session_id = $${params.length}`); }
       const result = await db.query<BookmarkRow>(`SELECT * FROM learner_bookmarks WHERE ${clauses.join(' AND ')} ORDER BY created_at DESC, id DESC`, params);
       return result.rows.map(mapBookmark);
@@ -80,7 +81,7 @@ export function createNotesBookmarksStore(db: DatabaseClient = createDatabaseCli
         : `INSERT INTO learner_bookmarks (user_id, content_id, session_id, label)
            SELECT $1, $2, $3, $4 WHERE EXISTS (SELECT 1 FROM practice_sessions WHERE id = $3 AND user_id = $1)
            ON CONFLICT (user_id, content_id, session_id) WHERE session_id IS NOT NULL DO UPDATE SET label = EXCLUDED.label RETURNING *`;
-      const result = await db.query<BookmarkRow>(query, [userId, input.contentId, input.sessionId, input.label]);
+      const result = await db.query<BookmarkRow>(query, [userId, toPersistedContentId(input.contentId), input.sessionId, input.label]);
       return result.rows[0] ? mapBookmark(result.rows[0]) : null;
     },
     async deleteBookmark(id: string, userId: string): Promise<boolean> {

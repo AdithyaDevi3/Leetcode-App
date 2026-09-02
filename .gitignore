@@ -39,6 +39,8 @@ recordings/
 
 # Internal documentation (not for public repo)
 documentation/
+.agents/
+.codex/
 .env
 .env.*
 *.env

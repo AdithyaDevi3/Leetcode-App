@@ -38,7 +38,7 @@ export class DatabaseClient {
   private pool: pg.Pool;
 
   constructor(config: DatabaseConfig) {
-    const connectionString = config.connectionString ?? process.env.DATABASE_URL;
+    const connectionString = config.connectionString;
     this.pool = new Pool({
       ...(connectionString
         ? { connectionString }

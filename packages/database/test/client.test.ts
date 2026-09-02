@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, it, expect } from 'vitest';
 import { GenericContainer, StartedTestContainer } from 'testcontainers';
 import { DatabaseClient, createDatabaseClient, type DatabaseConfig } from '../src/client.js';
 import { runMigrations } from '../src/migrations/index.js';
+import { prepareSupabaseTestDatabase } from './support/supabase.js';
 
 let container: StartedTestContainer;
 let dbClient: DatabaseClient;
@@ -29,6 +30,7 @@ beforeAll(async () => {
 
   // Create client and run migrations
   dbClient = createDatabaseClient(dbConfig);
+  await prepareSupabaseTestDatabase(dbClient);
   await runMigrations(dbConfig, 'up');
 }, 60000);
 

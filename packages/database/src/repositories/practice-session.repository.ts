@@ -1,7 +1,37 @@
 import type { PoolClient } from 'pg';
-import type { PracticeSession, Attempt, PseudocodeRevision } from '@leetcode-app/domain';
 import { DatabaseClient } from '../client.js';
-import { Repository, EntityNotFoundError, OptimisticConcurrencyError } from './base.js';
+import { Repository, EntityNotFoundError, OptimisticConcurrencyError, mapDatabaseRow, mapDatabaseRows } from './base.js';
+
+/** Persistence types for the legacy practice tables in the initial schema. */
+export interface PracticeSession {
+  id: string;
+  userId: string | null;
+  guestId: string | null;
+  contentId: string;
+  contentVersion: number;
+  status: 'active' | 'completed' | 'abandoned';
+  startedAt: Date;
+  completedAt: Date | null;
+  totalTimeSeconds: number;
+  revision: number;
+}
+
+export interface Attempt {
+  id: string;
+  sessionId: string;
+  attemptNumber: number;
+  submittedCode: string;
+  submittedPseudocode: string | null;
+  submittedAt: Date;
+}
+
+export interface PseudocodeRevision {
+  id: string;
+  sessionId: string;
+  revisionNumber: number;
+  content: string;
+  createdAt: Date;
+}
 
 export interface PracticeSessionRepository extends Repository<PracticeSession> {
   findByUser(userId: string, client?: PoolClient): Promise<PracticeSession[]>;
@@ -22,7 +52,7 @@ export class PostgresPracticeSessionRepository implements PracticeSessionReposit
       'SELECT * FROM practice_sessions WHERE id = $1',
       [id]
     );
-    return result.rows[0] || null;
+    return result.rows[0] ? mapDatabaseRow<PracticeSession>(result.rows[0]) : null;
   }
 
   async findByUser(userId: string, client?: PoolClient): Promise<PracticeSession[]> {
@@ -31,7 +61,7 @@ export class PostgresPracticeSessionRepository implements PracticeSessionReposit
       'SELECT * FROM practice_sessions WHERE user_id = $1 ORDER BY started_at DESC',
       [userId]
     );
-    return result.rows;
+    return mapDatabaseRows<PracticeSession>(result.rows);
   }
 
   async findByGuest(guestId: string, client?: PoolClient): Promise<PracticeSession[]> {
@@ -40,7 +70,7 @@ export class PostgresPracticeSessionRepository implements PracticeSessionReposit
       'SELECT * FROM practice_sessions WHERE guest_id = $1 ORDER BY started_at DESC',
       [guestId]
     );
-    return result.rows;
+    return mapDatabaseRows<PracticeSession>(result.rows);
   }
 
   async findByContent(contentId: string, client?: PoolClient): Promise<PracticeSession[]> {
@@ -49,7 +79,7 @@ export class PostgresPracticeSessionRepository implements PracticeSessionReposit
       'SELECT * FROM practice_sessions WHERE content_id = $1 ORDER BY started_at DESC',
       [contentId]
     );
-    return result.rows;
+    return mapDatabaseRows<PracticeSession>(result.rows);
   }
 
   async findAll(client?: PoolClient): Promise<PracticeSession[]> {
@@ -57,7 +87,7 @@ export class PostgresPracticeSessionRepository implements PracticeSessionReposit
     const result = await executor.query<PracticeSession>(
       'SELECT * FROM practice_sessions ORDER BY started_at DESC'
     );
-    return result.rows;
+    return mapDatabaseRows<PracticeSession>(result.rows);
   }
 
   async create(session: Omit<PracticeSession, 'id' | 'startedAt'>, client?: PoolClient): Promise<PracticeSession> {
@@ -77,7 +107,7 @@ export class PostgresPracticeSessionRepository implements PracticeSessionReposit
         session.totalTimeSeconds,
       ]
     );
-    return result.rows[0];
+    return mapDatabaseRow<PracticeSession>(result.rows[0]);
   }
 
   async update(id: string, session: Partial<PracticeSession>, revision: number, client?: PoolClient): Promise<PracticeSession> {
@@ -121,7 +151,7 @@ export class PostgresPracticeSessionRepository implements PracticeSessionReposit
       throw new OptimisticConcurrencyError('PracticeSession was modified by another transaction');
     }
 
-    return result.rows[0];
+    return mapDatabaseRow<PracticeSession>(result.rows[0]);
   }
 
   async delete(id: string, client?: PoolClient): Promise<void> {
@@ -135,7 +165,7 @@ export class PostgresPracticeSessionRepository implements PracticeSessionReposit
       'SELECT * FROM attempts WHERE session_id = $1 ORDER BY attempt_number ASC',
       [sessionId]
     );
-    return result.rows;
+    return mapDatabaseRows<Attempt>(result.rows);
   }
 
   async createAttempt(sessionId: string, attempt: Attempt, client?: PoolClient): Promise<Attempt> {
@@ -146,7 +176,7 @@ export class PostgresPracticeSessionRepository implements PracticeSessionReposit
        RETURNING *`,
       [sessionId, attempt.attemptNumber, attempt.submittedCode, attempt.submittedPseudocode]
     );
-    return result.rows[0];
+    return mapDatabaseRow<Attempt>(result.rows[0]);
   }
 
   async getPseudocodeRevisions(sessionId: string, client?: PoolClient): Promise<PseudocodeRevision[]> {
@@ -155,7 +185,7 @@ export class PostgresPracticeSessionRepository implements PracticeSessionReposit
       'SELECT * FROM pseudocode_revisions WHERE session_id = $1 ORDER BY revision_number ASC',
       [sessionId]
     );
-    return result.rows;
+    return mapDatabaseRows<PseudocodeRevision>(result.rows);
   }
 
   async createPseudocodeRevision(sessionId: string, revision: PseudocodeRevision, client?: PoolClient): Promise<PseudocodeRevision> {
@@ -166,6 +196,6 @@ export class PostgresPracticeSessionRepository implements PracticeSessionReposit
        RETURNING *`,
       [sessionId, revision.revisionNumber, revision.content]
     );
-    return result.rows[0];
+    return mapDatabaseRow<PseudocodeRevision>(result.rows[0]);
   }
 }

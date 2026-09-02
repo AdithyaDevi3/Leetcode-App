@@ -31,11 +31,11 @@
     "@types/pg": "^8.11.10",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "eslint": "^10",
+    "eslint": "~9.39.5",
     "eslint-config-next": "16.3.2",
     "tailwindcss": "^4",
     "testcontainers": "^12.1.0",
-    "typescript": "^7",
+    "typescript": "~5.9.3",
     "vite": "^8.2.2",
     "vitest": "^4.1.11"
   },

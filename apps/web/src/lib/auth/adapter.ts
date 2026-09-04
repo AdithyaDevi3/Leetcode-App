@@ -1,6 +1,6 @@
 import type { Adapter, AdapterUser, AdapterAccount, AdapterSession, VerificationToken } from 'next-auth/adapters';
 import type { DatabaseClient } from '@leetcode-app/database';
-import { PostgresUserRepository, PostgresGuestIdentityRepository } from '@leetcode-app/database';
+import { PostgresUserRepository } from '@leetcode-app/database';
 import { randomUUID } from 'crypto';
 
 /**
@@ -9,7 +9,6 @@ import { randomUUID } from 'crypto';
  */
 export function createAuthAdapter(db: DatabaseClient): Adapter {
   const userRepo = new PostgresUserRepository(db);
-  const guestRepo = new PostgresGuestIdentityRepository(db);
 
   return {
     /**
@@ -218,7 +217,7 @@ export function createAuthAdapter(db: DatabaseClient): Adapter {
     /**
      * Update session expiration
      */
-    async updateSession({ sessionToken, expires, userId }): Promise<AdapterSession | null | undefined> {
+    async updateSession({ sessionToken, expires }): Promise<AdapterSession | null | undefined> {
       const result = await db.query<{ session_token: string; user_id: string; expires: Date }>(
         `UPDATE sessions SET expires = $1, updated_at = NOW() WHERE session_token = $2 RETURNING session_token, user_id, expires`,
         [expires, sessionToken]

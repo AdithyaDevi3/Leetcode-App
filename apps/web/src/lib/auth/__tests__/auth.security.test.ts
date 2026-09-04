@@ -1,6 +1,6 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { GenericContainer, StartedTestContainer, Wait } from 'testcontainers';
-import { createDatabaseClient, PostgresUserRepository, PostgresGuestIdentityRepository } from '@leetcode-app/database';
+import { createDatabaseClient, PostgresUserRepository } from '@leetcode-app/database';
 import type { DatabaseClient } from '@leetcode-app/database';
 import { randomUUID } from 'crypto';
 
@@ -22,7 +22,6 @@ describeIntegration('Authentication Security', () => {
   let container: StartedTestContainer;
   let db: DatabaseClient;
   let userRepo: PostgresUserRepository;
-  let guestRepo: PostgresGuestIdentityRepository;
 
   beforeAll(async () => {
     // Start PostgreSQL container for testing
@@ -48,7 +47,6 @@ describeIntegration('Authentication Security', () => {
     });
 
     userRepo = new PostgresUserRepository(db);
-    guestRepo = new PostgresGuestIdentityRepository(db);
 
     // Run migrations
     await db.query(`

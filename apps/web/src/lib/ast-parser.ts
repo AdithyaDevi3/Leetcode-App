@@ -6,8 +6,6 @@ import {
   type AstAssignmentNode,
   type AstExpressionNode,
   type AstFunctionNode,
-  type AstIdentifierNode,
-  type AstIntentNode,
   type AstLoopNode,
   type AstProgramNode,
   type AstReturnNode,

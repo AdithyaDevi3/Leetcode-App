@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { LocalPracticeEntryLink } from '@/components/local-practice-entry-link';
 
 export default function Home() {
   return <main className="min-h-screen px-6 py-8 text-[var(--ink)] sm:py-12">
@@ -9,7 +10,7 @@ export default function Home() {
         <h1 className="mt-5 max-w-3xl text-4xl font-bold tracking-tight sm:text-6xl">Learn the reasoning before the syntax.</h1>
         <p className="mt-6 max-w-2xl text-lg leading-8 text-[var(--muted)]">Practice algorithms in structured English, receive evidence-based feedback, and move into code only when your plan is ready. Your learning plan and drafts work locally in this browser.</p>
         <div className="mt-9 flex flex-wrap gap-3">
-          <a className="rounded-md bg-[var(--moss)] px-5 py-3 font-semibold text-white transition hover:bg-[#193e2e]" href="/practice">Start a practice session</a>
+          <LocalPracticeEntryLink className="rounded-md bg-[var(--moss)] px-5 py-3 font-semibold text-white transition hover:bg-[#193e2e]">Start a practice session</LocalPracticeEntryLink>
           <a className="rounded-md border border-[#b9c8bd] bg-[var(--surface)] px-5 py-3 font-semibold text-[var(--moss)]" href="/onboarding">Build my learning plan</a>
           <a className="rounded-md border border-[var(--coral)] px-5 py-3 font-semibold text-[var(--coral)]" href="/auth">Sign in to save progress</a>
         </div>

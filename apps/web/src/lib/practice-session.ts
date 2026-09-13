@@ -2,10 +2,12 @@ import type { Evaluation } from "./evaluator";
 import { astProgramToBlocks, blockModelToDraft, draftToBlockModel } from "./ast-block-adapter";
 
 export type EditorMode = "text" | "blocks";
+export type CodingLanguage = "typescript" | "python";
 
 export type PracticeSessionState = {
   draft: string;
   mode: EditorMode;
+  language: CodingLanguage;
   code: string;
   codeChecked: boolean;
   completed: boolean;
@@ -18,7 +20,25 @@ export const selectedPracticeItemKey = "method:selected-practice-item";
 const defaultSignatureFor = (functionName: string) =>
   functionName === "findFirstUniqueIndex" ? "values: number[]" : "values: number[], target: number";
 
-export const defaultCode = (functionName: string, signature = defaultSignatureFor(functionName)) => `function ${functionName}(${signature}) {
+const snakeCase = (value: string) => value.replace(/([a-z0-9])([A-Z])/g, "$1_$2").toLowerCase();
+
+const pythonSignature = (signature: string) => signature
+  .replace(/number\[\]\[\]/g, "list[list[int]]")
+  .replace(/number\[\]/g, "list[int]")
+  .replace(/string\[\]/g, "list[str]")
+  .replace(/TreeNode \| null/g, "TreeNode | None")
+  .replace(/number/g, "int")
+  .replace(/string/g, "str");
+
+export const defaultCode = (
+  functionName: string,
+  signature = defaultSignatureFor(functionName),
+  language: CodingLanguage = "typescript",
+) => language === "python"
+  ? `def ${snakeCase(functionName)}(${pythonSignature(signature)}):
+    # Translate your approved plan here.
+    pass`
+  : `function ${functionName}(${signature}) {
   // Translate your approved plan here.
 }`;
 
@@ -47,8 +67,24 @@ ${planComments || "  // Translate your approved plan here."}
 }`;
 };
 
+export const buildCodeFromPlanForLanguage = (
+  functionName: string,
+  signature: string,
+  plan: string,
+  language: CodingLanguage,
+) => {
+  if (language === "typescript") return buildCodeFromPlan(functionName, signature, plan);
+
+  const planComments = splitDraftIntoBlocks(plan)
+    .map((line) => `    # ${line}`)
+    .join("\n");
+  return `def ${snakeCase(functionName)}(${pythonSignature(signature)}):
+${planComments || "    # Translate your approved plan here."}
+    pass`;
+};
+
 export const stripCodeComments = (source: string) =>
-  source.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
+  source.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "").replace(/#.*$/gm, "");
 
 const isEvaluation = (value: unknown): value is Evaluation => {
   if (typeof value !== "object" || value === null) {
@@ -82,6 +118,7 @@ export const deserializePracticeSession = (value: string): PracticeSessionState 
     return {
       draft: parsed.draft,
       mode: parsed.mode,
+      language: parsed.language === "python" ? "python" : "typescript",
       code: parsed.code,
       codeChecked: parsed.codeChecked,
       completed: parsed.completed,

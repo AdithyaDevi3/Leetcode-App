@@ -56,4 +56,15 @@ For each value and position:
     expect(result.approved).toBe(true);
     expect(result.score).toBe(100);
   });
+
+  it.each(practiceItems)("approves the guided strategy for $label", (practiceItem) => {
+    const result = evaluatePseudocode(practiceItem.starterDraft, practiceItem.id);
+
+    expect(result.approved).toBe(true);
+    expect(result.score).toBe(100);
+  });
+
+  it.each(practiceItems)("keeps the flawed strategy for $label locked", (practiceItem) => {
+    expect(evaluatePseudocode(practiceItem.flawedDraft, practiceItem.id).approved).toBe(false);
+  });
 });

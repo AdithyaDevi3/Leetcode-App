@@ -26,18 +26,20 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 
-import { defaultPracticeItem, getPracticeItem, practiceItems, starterDraft } from "@/lib/content";
+import { defaultPracticeItem, getPracticeItem, practiceItems } from "@/lib/content";
 import { evaluatePseudocode, type Evaluation } from "@/lib/evaluator";
+import { readLocalLearnerProfile } from "@/lib/local-learner";
 import { recordLocalPracticeCompletion } from "@/lib/local-practice-history";
 import { readBrowserStorage, removeBrowserStorage, writeBrowserStorage } from "@/lib/safe-browser-storage";
 import {
-  buildCodeFromPlan,
+  buildCodeFromPlanForLanguage,
   deserializePracticeSession,
   joinBlocksIntoDraft,
   projectDraftBlocks,
   sessionStorageKey,
   splitDraftIntoBlocks,
   stripCodeComments,
+  type CodingLanguage,
   type EditorMode,
   type PracticeSessionState,
   serializePracticeSession,
@@ -56,6 +58,7 @@ export function PracticeWorkspace() {
   const [activePracticeId, setActivePracticeId] = useState(defaultPracticeItem.id);
   const [draft, setDraft] = useState("");
   const [mode, setMode] = useState<EditorMode>("text");
+  const [codingLanguage, setCodingLanguage] = useState<CodingLanguage>("typescript");
   const [evaluation, setEvaluation] = useState<Evaluation | null>(null);
   const [savedAt, setSavedAt] = useState("Not saved");
   const [syncStatus, setSyncStatus] = useState<PracticeSyncStatus>("ready");
@@ -79,27 +82,38 @@ export function PracticeWorkspace() {
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      const savedPracticeId = readBrowserStorage(selectedPracticeItemKey);
-      const restoredPracticeItem = savedPracticeId ? getPracticeItem(savedPracticeId) : activePracticeItem;
+      const requestedPracticeId = new URLSearchParams(window.location.search).get("problem");
+      const savedPracticeId = requestedPracticeId ? null : readBrowserStorage(selectedPracticeItemKey);
+      const restoredPracticeItem = requestedPracticeId
+        ? getPracticeItem(requestedPracticeId)
+        : savedPracticeId
+          ? getPracticeItem(savedPracticeId)
+          : defaultPracticeItem;
+      const preferredLanguage = readLocalLearnerProfile()?.preferredLanguage ?? "typescript";
 
-      if (restoredPracticeItem.id !== activePracticeItem.id) {
+      if (restoredPracticeItem.id !== defaultPracticeItem.id) {
         setActivePracticeId(restoredPracticeItem.id);
       }
 
       const savedSession = readBrowserStorage(sessionStorageKey(restoredPracticeItem.id));
       if (!savedSession) {
+        setCodingLanguage(preferredLanguage);
+        setCode(defaultCode(restoredPracticeItem.codeFunction, restoredPracticeItem.codeSignature, preferredLanguage));
         setSavedAt("Ready");
         return;
       }
 
       const restoredSession = deserializePracticeSession(savedSession);
       if (!restoredSession) {
+        setCodingLanguage(preferredLanguage);
+        setCode(defaultCode(restoredPracticeItem.codeFunction, restoredPracticeItem.codeSignature, preferredLanguage));
         setSavedAt("Ready");
         return;
       }
 
       setDraft(restoredSession.draft);
       setMode(restoredSession.mode);
+      setCodingLanguage(restoredSession.language);
       setCode(restoredSession.code);
       setCodeChecked(restoredSession.codeChecked);
       setCompleted(restoredSession.completed);
@@ -109,13 +123,14 @@ export function PracticeWorkspace() {
     }, 0);
 
     return () => window.clearTimeout(timer);
-  }, [activePracticeItem]);
+  }, []);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
       const session: PracticeSessionState = {
         draft,
         mode,
+        language: codingLanguage,
         code,
         codeChecked,
         completed,
@@ -127,7 +142,7 @@ export function PracticeWorkspace() {
       const hasChanges =
         draft ||
         mode !== "text" ||
-        code !== defaultCode(activePracticeItem.codeFunction, activePracticeItem.codeSignature) ||
+        code !== defaultCode(activePracticeItem.codeFunction, activePracticeItem.codeSignature, codingLanguage) ||
         codeChecked ||
         completed ||
         evaluation;
@@ -166,7 +181,7 @@ export function PracticeWorkspace() {
     }, 450);
 
     return () => window.clearTimeout(timer);
-  }, [draft, mode, code, codeChecked, completed, evaluation, storageKey, activePracticeItem]);
+  }, [draft, mode, codingLanguage, code, codeChecked, completed, evaluation, storageKey, activePracticeItem]);
 
   const blocks = mode === "blocks"
     ? projectDraftBlocks(draft, activePracticeItem.codeFunction)
@@ -280,7 +295,7 @@ export function PracticeWorkspace() {
     try {
       const response = await fetch(`/api/practice/sessions/${sessionId}/execute`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ language: 'typescript', source: code, limits: { timeoutMs: 3000, memoryMb: 256, outputBytes: 50_000 } }),
+        body: JSON.stringify({ language: codingLanguage, source: code, limits: { timeoutMs: 3000, memoryMb: 256, outputBytes: 50_000 } }),
       });
       if (response.status === 503) { setExecutionStatus('unavailable'); setExecutionOutput('Sandbox execution is not enabled for this environment.'); return; }
       if (!response.ok) throw new Error('Execution request failed');
@@ -354,13 +369,20 @@ export function PracticeWorkspace() {
   const secureConceptCount = completed ? 4 : 3;
   const progressPercent = Math.round((secureConceptCount / 7) * 100);
   const implementationSource = stripCodeComments(code);
-  const loopCount = implementationSource.match(/\bfor\s*\(|\.forEach\s*\(/g)?.length ?? 0;
+  const implementationBody = (codingLanguage === "python"
+    ? implementationSource.split("\n").slice(1).join("\n").replace(/\bpass\b/g, "")
+    : implementationSource.slice(implementationSource.indexOf("{") + 1, implementationSource.lastIndexOf("}")))
+    .trim();
+  const loopCount = implementationSource.match(/\bfor\s*\(|\.forEach\s*\(|\bfor\s+\w+\s+in\b/g)?.length ?? 0;
+  const hasMapState = codingLanguage === "python"
+    ? /=\s*\{\}|\bdict\s*\(/.test(implementationSource)
+    : /\bnew\s+Map\b|\bMap\s*</.test(implementationSource);
   const translationChecks =
     activePracticeItem.id === "first-unique-index-v1"
       ? [
           {
             label: "Counts values in a map",
-            passed: /\bnew\s+Map\b|\bMap\s*</.test(implementationSource) && /count|frequency/i.test(implementationSource),
+            passed: hasMapState && /count|frequency/i.test(implementationSource),
           },
           {
             label: "Separates counting from selection",
@@ -379,10 +401,11 @@ export function PracticeWorkspace() {
             passed: /-1|no unique|none/i.test(implementationSource),
           },
         ]
-      : [
+      : activePracticeItem.id === "pair-with-target-v1"
+        ? [
           {
             label: "Map state mirrors the plan",
-            passed: /\bnew\s+Map\b|\bMap\s*</.test(implementationSource),
+            passed: hasMapState,
           },
           {
             label: "One traversal over values",
@@ -392,12 +415,27 @@ export function PracticeWorkspace() {
             label: "Complement lookup before storing",
             passed:
               /target\s*-/.test(implementationSource) &&
-              /\.has\s*\(|\.get\s*\(/.test(implementationSource) &&
-              /\.set\s*\(/.test(implementationSource),
+              (codingLanguage === "python"
+                ? /\bin\s+\w+|\.get\s*\(/.test(implementationSource) && /\w+\[[^\]]+\]\s*=/.test(implementationSource)
+                : /\.has\s*\(|\.get\s*\(/.test(implementationSource) && /\.set\s*\(/.test(implementationSource)),
           },
           {
             label: "Returns two positions",
             passed: /return\s*\[[^\]]+,[^\]]+\]/.test(implementationSource),
+          },
+        ]
+        : [
+          {
+            label: "Adds executable logic beyond the plan comments",
+            passed: implementationBody.length > 0,
+          },
+          {
+            label: "Uses control flow to express the algorithm",
+            passed: /\b(if|for|while|switch)\b/.test(implementationSource),
+          },
+          {
+            label: "Returns a result",
+            passed: /\breturn\b/.test(implementationSource),
           },
         ];
   const translationPassed = translationChecks.every((check) => check.passed);
@@ -416,6 +454,7 @@ export function PracticeWorkspace() {
         serializePracticeSession({
           draft,
           mode,
+          language: codingLanguage,
           code,
           codeChecked: true,
           completed: true,
@@ -429,7 +468,7 @@ export function PracticeWorkspace() {
     setDraft("");
     setMode("text");
     setEvaluation(null);
-    setCode(defaultCode(activePracticeItem.codeFunction, activePracticeItem.codeSignature));
+    setCode(defaultCode(activePracticeItem.codeFunction, activePracticeItem.codeSignature, codingLanguage));
     setCodeChecked(false);
     setCompleted(false);
     removeBrowserStorage(storageKey);
@@ -447,6 +486,7 @@ export function PracticeWorkspace() {
     writeBrowserStorage(storageKey, serializePracticeSession({
       draft,
       mode,
+      language: codingLanguage,
       code,
       codeChecked,
       completed,
@@ -457,7 +497,7 @@ export function PracticeWorkspace() {
     setDraft("");
     setMode("text");
     setEvaluation(null);
-    setCode(defaultCode(nextPracticeItem.codeFunction, nextPracticeItem.codeSignature));
+    setCode(defaultCode(nextPracticeItem.codeFunction, nextPracticeItem.codeSignature, codingLanguage));
     setCodeChecked(false);
     setCompleted(false);
     setSavedAt("Ready");
@@ -696,7 +736,7 @@ export function PracticeWorkspace() {
                 )}
                 <div className="editor-footer">
                   <div className="editor-tools">
-                    <button className="text-button" onClick={() => updateDraft(starterDraft)} type="button">
+                    <button className="text-button" onClick={() => updateDraft(activePracticeItem.starterDraft)} type="button">
                       Use guided start
                     </button>
                     <button
@@ -765,7 +805,7 @@ export function PracticeWorkspace() {
                 <div className="approved-panel">
                   <Code2 size={19} />
                   <strong>Implementation unlocked</strong>
-                  <p>Your approved reasoning stays visible while you translate it into TypeScript.</p>
+                  <p>Your approved reasoning stays visible while you translate it into {codingLanguage === "python" ? "Python" : "TypeScript"}.</p>
                 </div>
               ) : (
                 <div className="locked-panel">
@@ -807,14 +847,14 @@ export function PracticeWorkspace() {
                 <p className="eyebrow">Optional next step</p>
                 <h2 id="coding-title">Translate the approved plan</h2>
                 <span className="pane-kicker">
-                  TypeScript · structure check only in this local milestone
+                  {codingLanguage === "python" ? "Python" : "TypeScript"} · structure check
                 </span>
               </div>
               {approved ? <Check color="var(--moss)" /> : <LockKeyhole color="var(--muted)" />}
             </div>
             <div className="coding-grid">
               <textarea
-                aria-label="TypeScript implementation"
+                aria-label={`${codingLanguage === "python" ? "Python" : "TypeScript"} implementation`}
                 className="editor code-editor"
                 disabled={!approved}
                 onChange={(event) => {
@@ -841,7 +881,7 @@ export function PracticeWorkspace() {
                   className="button secondary full-button"
                   disabled={!approved}
                   onClick={() => {
-                    setCode(buildCodeFromPlan(activePracticeItem.codeFunction, activePracticeItem.codeSignature, draft));
+                    setCode(buildCodeFromPlanForLanguage(activePracticeItem.codeFunction, activePracticeItem.codeSignature, draft, codingLanguage));
                     setCodeChecked(false);
                     setCompleted(false);
                   }}

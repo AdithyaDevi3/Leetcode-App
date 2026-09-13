@@ -18,11 +18,11 @@ Start with [docs/README.md](docs/README.md) for the complete documentation map. 
 
 The first deployable product slice lives in [apps/web](apps/web). It includes:
 
-- An original hash-map lesson and practice problem.
+- Ten original algorithm activities spanning hashing, windows, trees, stacks, graphs, queues, two pointers, and dynamic programming.
 - Structured-English and semantic-block pseudocode modes.
-- Local draft autosave for guest learners.
-- Deterministic, evidence-based reasoning evaluation.
-- A coding workspace that unlocks only after the plan passes.
+- Local profiles, history-aware practice recommendations, and draft autosave for guest learners.
+- Deterministic, activity-specific reasoning evaluation for every algorithm activity.
+- TypeScript and Python coding starters that follow the learner's local language preference.
 - Responsive desktop and mobile layouts.
 - Unit tests, CI, a health endpoint, and a non-root production container.
 
@@ -57,7 +57,7 @@ The service health check is available at `GET /api/health`.
 
 ### Current security note
 
-Next.js `16.2.11`, the latest stable release as of July 25, 2026, pins a PostCSS version covered by current npm advisories. The application does not accept or compile user-controlled CSS, which limits exposure, but production deployment should remain gated on an upstream patched stable Next.js release. The vulnerable transitive Sharp release is overridden to patched version `0.35.3`. Do not use npm's suggested forced downgrade to Next.js 9.
+The project pins Next.js `16.3.2`. The vulnerable transitive Sharp release is overridden to patched version `0.35.3`. Do not use npm's suggested forced downgrade to Next.js 9.
 
 ## Content and trademark note
 

@@ -6,6 +6,34 @@ async function openHydratedWorkspace(page: Page) {
   await expect(page.getByText('Ready', { exact: true })).toBeVisible();
 }
 
+test('home practice button performs a document navigation into the workspace', async ({ page }) => {
+  await page.goto('/');
+
+  const practiceLink = page.getByRole('link', { name: 'Start a practice session' });
+  await expect(practiceLink).toHaveAttribute('href', '/practice');
+  await page.evaluate(() => {
+    document.documentElement.dataset.navigationSentinel = 'old-document';
+  });
+
+  const navigation = page.waitForEvent('framenavigated');
+  await practiceLink.click();
+  await navigation;
+
+  await expect(page).toHaveURL(/\/practice$/);
+  await expect(page.locator('html')).not.toHaveAttribute('data-navigation-sentinel');
+  await expect(page.getByRole('heading', { name: 'Think in complements' })).toBeVisible();
+  await expect(page.getByText('Ready', { exact: true })).toBeVisible();
+});
+
+test('service worker leaves Next.js static assets on the network', async ({ request }) => {
+  const response = await request.get('/sw.js');
+  expect(response.ok()).toBe(true);
+
+  const source = await response.text();
+  expect(source).toContain("event.request.mode !== 'navigate'");
+  expect(source).not.toContain("url.pathname.startsWith('/_next/static/')");
+});
+
 test('guest can open the workspace and autosave a draft locally', async ({ page }) => {
   await openHydratedWorkspace(page);
 

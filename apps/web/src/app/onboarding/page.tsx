@@ -2,6 +2,7 @@
 
 import { type FormEvent, useEffect, useState } from 'react';
 
+import { SiteNavigation } from '@/components/site-navigation';
 import {
   buildLocalLearningPlan,
   defaultLocalLearnerProfile,
@@ -45,7 +46,7 @@ export default function OnboardingPage() {
       : 'Saved locally. Your learning plan is ready.');
   };
 
-  return <main className="min-h-screen bg-slate-50 px-6 py-12 text-slate-900"><form className="mx-auto max-w-xl space-y-6 rounded-xl bg-white p-8 shadow-sm" onSubmit={save}>
+  return <main className="min-h-screen bg-slate-50 px-6 py-8 text-slate-900 sm:py-12"><div className="mx-auto max-w-5xl"><SiteNavigation currentPath="/onboarding" /><form className="mx-auto mt-10 max-w-xl space-y-6 rounded-xl bg-white p-6 shadow-sm sm:p-8" onSubmit={save}>
     <div><p className="text-sm font-semibold uppercase tracking-wide text-slate-500">Personalize Method</p><h1 className="mt-2 text-3xl font-bold">Build your learning plan</h1><p className="mt-3 text-slate-600">Your answers stay in this browser and choose the algorithms you see next.</p></div>
     <label className="block">Goal<select className="mt-1 w-full rounded border p-2" value={profile.goal} onChange={(event) => setProfile({ ...profile, goal: event.target.value as LocalLearnerProfile['goal'] })}><option value="interview">Interview preparation</option><option value="coursework">Coursework</option><option value="career_change">Career change</option><option value="exploration">Exploration</option></select></label>
     <label className="block">Experience<select className="mt-1 w-full rounded border p-2" value={profile.experience} onChange={(event) => setProfile({ ...profile, experience: event.target.value as LocalLearnerProfile['experience'] })}><option value="new">New to algorithms</option><option value="some">Some experience</option><option value="experienced">Experienced</option></select></label>
@@ -56,5 +57,5 @@ export default function OnboardingPage() {
     <button className="rounded bg-slate-900 px-4 py-2 font-semibold text-white" type="submit">Save plan</button>
     {message ? <p aria-live="polite" className="text-slate-600">{message}</p> : null}
     {nextPracticeId ? <div className="flex flex-wrap gap-4"><a className="font-semibold underline" href={`/practice?problem=${encodeURIComponent(nextPracticeId)}`}>Start recommended practice</a><a className="font-semibold underline" href="/learn">View my learning path</a></div> : null}
-  </form></main>;
+  </form></div></main>;
 }

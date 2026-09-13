@@ -1,9 +1,9 @@
-import Link from 'next/link';
 import { LocalPracticeEntryLink } from '@/components/local-practice-entry-link';
+import { SiteNavigation } from '@/components/site-navigation';
 
 export default function Home() {
   return <main className="min-h-screen px-6 py-8 text-[var(--ink)] sm:py-12">
-    <nav className="mx-auto flex max-w-6xl items-center justify-between border-b border-[var(--line)] pb-6"><Link className="flex items-center gap-2 text-lg font-bold" href="/"><span className="grid h-8 w-8 place-items-center rounded-md bg-[var(--mustard)] font-mono text-sm">M</span>Method</Link><a className="rounded-md border border-[#b9c8bd] bg-[var(--surface)] px-4 py-2 text-sm font-bold text-[var(--moss)]" href="/auth">Sign in</a></nav>
+    <div className="mx-auto max-w-6xl"><SiteNavigation currentPath="/" /></div>
     <section className="mx-auto grid max-w-6xl gap-8 py-12 lg:grid-cols-[1.2fr_.8fr] lg:items-center">
       <div>
         <p className="text-sm font-semibold uppercase tracking-[0.2em] text-[var(--coral)]">Structured practice</p>

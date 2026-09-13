@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
+import { SiteNavigation } from '@/components/site-navigation';
 import { buildLocalLearningPlan, readLocalLearnerProfile, type LocalLearningPlan } from '@/lib/local-learner';
 import { readLocalPracticeHistory } from '@/lib/local-practice-history';
 
@@ -25,7 +26,7 @@ export default function LearnPage() {
 
   const nextPractice = plan?.recommendations[0];
 
-  return <main className="min-h-screen bg-slate-50 px-6 py-12 text-slate-900"><section className="mx-auto max-w-2xl rounded-xl bg-white p-8 shadow-sm">
+  return <main className="min-h-screen bg-slate-50 px-6 py-8 text-slate-900 sm:py-12"><div className="mx-auto max-w-5xl"><SiteNavigation currentPath="/learn" /><section className="mx-auto mt-10 max-w-2xl rounded-xl bg-white p-6 shadow-sm sm:p-8">
     <p className="text-sm font-semibold uppercase tracking-wide text-slate-500">Your learning path</p><h1 className="mt-2 text-3xl font-bold">Today’s next step</h1>
     {plan ? <>
       <p className="mt-4 text-slate-700">{plan.explanation}</p>
@@ -39,5 +40,5 @@ export default function LearnPage() {
       </ol>
       {nextPractice ? <a className="mt-8 inline-block rounded bg-slate-900 px-4 py-2 font-semibold text-white" href={`/practice?problem=${encodeURIComponent(nextPractice.practiceItemId)}`}>Start {nextPractice.label}</a> : null}
     </> : <><p className="mt-4 text-slate-700" aria-live="polite">{message}</p>{message.startsWith('Set your goals') ? <Link className="mt-6 inline-block rounded bg-slate-900 px-4 py-2 font-semibold text-white" href="/onboarding">Set up my plan</Link> : null}</>}
-  </section></main>;
+  </section></div></main>;
 }

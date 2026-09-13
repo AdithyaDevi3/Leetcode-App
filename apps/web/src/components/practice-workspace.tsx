@@ -1,5 +1,8 @@
 "use client";
 
+/* Primary navigation deliberately reloads the document after a deployment. */
+/* eslint-disable @next/next/no-html-link-for-pages */
+
 import Link from "next/link";
 import {
   Bell,
@@ -506,34 +509,40 @@ export function PracticeWorkspace() {
 
   return (
     <div className="app-shell">
-      <aside className="sidebar" aria-label="Primary navigation">
+      <aside className="sidebar">
         <div className="brand">
           <span className="brand-mark">M/</span>
           Method
         </div>
-        <nav className="nav-group">
-          <Link className="nav-item" href="/">
+        <nav className="nav-group" aria-label="Primary navigation">
+          <a className="nav-item" href="/">
             <LayoutDashboard size={17} /> Today
-          </Link>
-          <Link className="nav-item active" href="/practice" aria-current="page">
+          </a>
+          <a className="nav-item active" href="/practice" aria-current="page">
             <Braces size={17} /> Algorithms
-          </Link>
-          <Link className="nav-item" href="/system-design">
+          </a>
+          <a className="nav-item" href="/system-design">
             <GitBranch size={17} /> System design
-          </Link>
-          <Link className="nav-item" href="/learn">
+          </a>
+          <a className="nav-item" href="/learn">
             <Compass size={17} /> Learning plan
-          </Link>
+          </a>
+          <a className="nav-item" href="/dashboard">
+            <LayoutDashboard size={17} /> Dashboard
+          </a>
           <p className="nav-label">Your work</p>
-          <Link className="nav-item" href="/history">
+          <a className="nav-item" href="/history">
             <ListChecks size={17} /> Practice history
-          </Link>
-          <Link className="nav-item" href="/library">
+          </a>
+          <a className="nav-item" href="/library">
             <Bookmark size={17} /> Study library
-          </Link>
-          <Link className="nav-item" href="/onboarding">
+          </a>
+          <a className="nav-item" href="/settings">
             <BookOpen size={17} /> Preferences
-          </Link>
+          </a>
+          <a className="nav-item" href="/requests">
+            <CircleHelp size={17} /> Feedback
+          </a>
         </nav>
         <div className="sidebar-progress">
           <strong>{activePracticeItem.label}</strong>
@@ -929,18 +938,18 @@ export function PracticeWorkspace() {
       </main>
 
       <nav className="mobile-nav" aria-label="Mobile navigation">
-        <Link href="/">
+        <a href="/">
           <LayoutDashboard size={18} />Today
-        </Link>
-        <Link className="active" href="/practice" aria-current="page">
+        </a>
+        <a className="active" href="/practice" aria-current="page">
           <Braces size={18} />Practice
-        </Link>
-        <Link href="/history">
+        </a>
+        <a href="/history">
           <CircleHelp size={18} />History
-        </Link>
-        <Link href="/onboarding">
+        </a>
+        <a href="/onboarding">
           <BookOpen size={18} />Plan
-        </Link>
+        </a>
       </nav>
     </div>
   );

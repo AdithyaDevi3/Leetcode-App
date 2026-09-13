@@ -1,6 +1,21 @@
+export type PracticeTopic =
+  | "dynamic-programming"
+  | "graphs"
+  | "hashing"
+  | "queues"
+  | "sliding-window"
+  | "stacks"
+  | "trees"
+  | "two-pointers";
+
+export type PracticeDifficulty = "foundation" | "intermediate" | "advanced";
+
 export type PracticeItem = {
   id: string;
   label: string;
+  topic: PracticeTopic;
+  difficulty: PracticeDifficulty;
+  estimatedMinutes: number;
   lesson: {
     eyebrow: string;
     title: string;
@@ -34,6 +49,9 @@ export const practiceItems: PracticeItem[] = [
   {
     id: "pair-with-target-v1",
     label: "Pair With Target",
+    topic: "hashing",
+    difficulty: "foundation",
+    estimatedMinutes: 18,
     lesson: {
       eyebrow: "Hash maps · Foundation",
       title: "Remember what you have seen",
@@ -90,6 +108,9 @@ Return no pair.`,
   {
     id: "max-window-sum-v1",
     label: "Max Window Sum",
+    topic: "sliding-window",
+    difficulty: "intermediate",
+    estimatedMinutes: 22,
     lesson: {
       eyebrow: "Windows · Sliding window",
       title: "Hold a moving slice",
@@ -143,6 +164,9 @@ Return the largest sum.`,
   {
     id: "tree-max-depth-v1",
     label: "Tree Max Depth",
+    topic: "trees",
+    difficulty: "intermediate",
+    estimatedMinutes: 22,
     lesson: {
       eyebrow: "Recursion · Trees",
       title: "Let the shape recurse",
@@ -192,6 +216,9 @@ Return one plus the left child depth.`,
   {
     id: "balanced-brackets-v1",
     label: "Balanced Brackets",
+    topic: "stacks",
+    difficulty: "foundation",
+    estimatedMinutes: 16,
     lesson: {
       eyebrow: "Stacks · Validation",
       title: "Match the most recent opener",
@@ -245,6 +272,9 @@ Return true.`,
   {
     id: "climb-stairs-v1",
     label: "Climb Stairs",
+    topic: "dynamic-programming",
+    difficulty: "foundation",
+    estimatedMinutes: 18,
     lesson: {
       eyebrow: "Dynamic programming · Basics",
       title: "Remember the smaller answers",
@@ -296,6 +326,9 @@ Return the answer.`,
   {
     id: "island-count-v1",
     label: "Island Count",
+    topic: "graphs",
+    difficulty: "intermediate",
+    estimatedMinutes: 28,
     lesson: {
       eyebrow: "Graphs · Flood fill",
       title: "Visit each connected piece once",
@@ -346,6 +379,9 @@ Return the count.`,
   {
     id: "task-order-v1",
     label: "Task Order",
+    topic: "queues",
+    difficulty: "advanced",
+    estimatedMinutes: 32,
     lesson: {
       eyebrow: "Queues · Ordering",
       title: "Process in arrival order",
@@ -399,6 +435,9 @@ Return the tasks.`,
   {
     id: "two-sum-window-v1",
     label: "Two Sum Window",
+    topic: "two-pointers",
+    difficulty: "foundation",
+    estimatedMinutes: 18,
     lesson: {
       eyebrow: "Two pointers · Windows",
       title: "Move both ends with intent",
@@ -450,6 +489,9 @@ Return the first pair that matches.`,
   {
     id: "coin-change-lite-v1",
     label: "Coin Change Lite",
+    topic: "dynamic-programming",
+    difficulty: "advanced",
+    estimatedMinutes: 30,
     lesson: {
       eyebrow: "Dynamic programming · Optimization",
       title: "Build from the cheapest subproblem",
@@ -501,6 +543,9 @@ Return the first answer found.`,
   {
     id: "first-unique-index-v1",
     label: "First Unique Index",
+    topic: "hashing",
+    difficulty: "foundation",
+    estimatedMinutes: 16,
     lesson: {
       eyebrow: "Hash maps · Counting",
       title: "Count first, decide second",

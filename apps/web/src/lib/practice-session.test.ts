@@ -30,10 +30,17 @@ describe("practice-session helpers", () => {
     );
   });
 
+  it("builds Python starters from the saved language preference", () => {
+    expect(defaultCode("countIslands", "grid: number[][]", "python")).toContain(
+      "def count_islands(grid: list[list[int]]):",
+    );
+  });
+
   it("round-trips a practice session snapshot", () => {
     const serialized = serializePracticeSession({
       draft: "Create a map.",
       mode: "blocks",
+      language: "typescript",
       code: "function findPair() {}",
       codeChecked: true,
       completed: false,
@@ -48,6 +55,7 @@ describe("practice-session helpers", () => {
     expect(deserializePracticeSession(serialized)).toMatchObject({
       draft: "Create a map.",
       mode: "blocks",
+      language: "typescript",
       codeChecked: true,
       completed: false,
     });

@@ -34,6 +34,34 @@ test('service worker leaves Next.js static assets on the network', async ({ requ
   expect(source).not.toContain("url.pathname.startsWith('/_next/static/')");
 });
 
+test('local preferences choose a working personalized algorithm', async ({ page }) => {
+  await page.goto('/onboarding');
+
+  await page.getByLabel('Goal').selectOption('exploration');
+  await page.getByLabel('Experience').selectOption('experienced');
+  await page.getByLabel('Preferred language').selectOption('python');
+  await page.getByLabel('Weekly minutes').fill('360');
+  await page.getByLabel('Include an optional diagnostic challenge in my plan').check();
+  await page.getByRole('button', { name: 'Save plan' }).click();
+
+  await expect(page.getByText('Saved locally. Your first recommendation is Island Count.')).toBeVisible();
+  const recommendation = page.getByRole('link', { name: 'Start recommended practice' });
+  await expect(recommendation).toHaveAttribute('href', '/practice?problem=island-count-v1');
+
+  await page.goto('/');
+  const practiceLink = page.getByRole('link', { name: 'Start a practice session' });
+  await expect(practiceLink).toHaveAttribute('href', '/practice?problem=island-count-v1');
+  await practiceLink.click();
+
+  await expect(page).toHaveURL(/\/practice\?problem=island-count-v1$/);
+  await expect(page.getByRole('heading', { name: 'Island Count' })).toBeVisible();
+  await page.getByRole('button', { name: 'Use guided start' }).click();
+  await expect(page.getByLabel('Pseudocode draft')).toHaveValue(/For each cell in the grid/);
+  await page.getByRole('button', { name: 'Evaluate reasoning' }).click();
+  await expect(page.getByText('Implementation unlocked')).toBeVisible();
+  await expect(page.getByLabel('Python implementation')).toHaveValue(/def count_islands\(grid: list\[list\[int\]\]\):/);
+});
+
 test('guest can open the workspace and autosave a draft locally', async ({ page }) => {
   await openHydratedWorkspace(page);
 

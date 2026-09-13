@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import type { SystemDesignStage } from '@leetcode-app/domain';
+import { SiteNavigation } from '@/components/site-navigation';
 import {
   addDraftComponent,
   addDraftConnection,
@@ -76,8 +77,9 @@ export function SystemDesignWorkspace() {
     writeLocalSystemDesignDraft({ document, submittedAt: completedAt });
   };
 
-  return <main className="min-h-screen px-4 py-8 text-[var(--ink)] sm:px-8"><div className="mx-auto max-w-5xl">
-    <header className="mb-6"><p className="eyebrow">System design practice</p><h1>Design a reliable service</h1><p className="max-w-2xl text-[var(--muted)]">Build a structured design using ordinary forms and lists. This draft saves in this browser and is never shared.</p>{hydrated ? <p className="mt-2 text-sm text-[var(--muted)]" role="status">Saved locally{submittedAt ? ` · submitted ${new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(submittedAt))}` : ''}</p> : <p className="mt-2 text-sm text-[var(--muted)]" role="status">Restoring local draft…</p>}</header>
+  return <main className="min-h-screen px-4 py-8 text-[var(--ink)] sm:px-8 sm:py-12"><div className="mx-auto max-w-5xl">
+    <SiteNavigation currentPath="/system-design" />
+    <header className="mb-6 mt-10"><p className="eyebrow">System design practice</p><h1>Design a reliable service</h1><p className="max-w-2xl text-[var(--muted)]">Build a structured design using ordinary forms and lists. This draft saves in this browser and is never shared.</p>{hydrated ? <p className="mt-2 text-sm text-[var(--muted)]" role="status">Saved locally{submittedAt ? ` · submitted ${new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(submittedAt))}` : ''}</p> : <p className="mt-2 text-sm text-[var(--muted)]" role="status">Restoring local draft…</p>}</header>
     <section className="mb-6 rounded-lg border border-[var(--line)] bg-[var(--surface)] p-4" aria-label="Practice stages"><ol className="grid gap-2 sm:grid-cols-5">{stages.map((stage, index) => <li key={stage.id}><button type="button" onClick={() => setActiveStage(stage.id)} aria-current={activeStage === stage.id ? 'step' : undefined} className={`w-full rounded border p-3 text-left ${activeStage === stage.id ? 'border-[var(--moss)] bg-[var(--moss-soft)]' : 'border-[var(--line)] bg-white'}`}><span className="block text-xs font-bold uppercase tracking-wide">{index + 1}. {stageStatus[stage.id] ? 'Complete' : 'In progress'}</span><span className="mt-1 block font-bold">{stage.label}</span></button></li>)}</ol></section>
     <p className="mb-5 rounded border-l-4 border-[var(--mustard)] bg-[#fbf5e6] p-3 text-sm" aria-live="polite"><strong>{stages.find((stage) => stage.id === activeStage)?.label}:</strong> {stages.find((stage) => stage.id === activeStage)?.hint}</p>
     <section className="mb-6 rounded-lg border border-[var(--line)] bg-white p-5"><label className="block font-bold" htmlFor="design-title">Design title</label><input id="design-title" className="mt-2 w-full rounded border border-[var(--line)] px-3 py-2" value={document.title} onChange={(event) => setDocument((current) => ({ ...current, title: event.target.value }))} placeholder="For example: Photo sharing service" /></section>

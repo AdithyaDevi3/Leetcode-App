@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
+import { SiteNavigation } from '@/components/site-navigation';
 
 type Note = { id: string; contentId: string; body: string; anchor: string | null; updatedAt: string };
 type Bookmark = { id: string; contentId: string; label: string | null; createdAt: string };
@@ -65,10 +66,7 @@ export function StudyLibrary() {
 
   return <main className="min-h-screen px-6 py-8 text-[var(--ink)] sm:py-12">
     <section className="mx-auto max-w-5xl">
-      <nav aria-label="Learner navigation" className="flex flex-wrap items-center justify-between gap-4 border-b border-[var(--line)] pb-5 text-sm">
-        <Link className="flex items-center gap-2 font-bold" href="/"><span className="grid h-7 w-7 place-items-center rounded-md bg-[var(--mustard)] font-mono text-xs">M</span>Method</Link>
-        <div className="flex flex-wrap gap-4 font-semibold text-[var(--moss)]"><Link href="/dashboard">Dashboard</Link><Link href="/history">History</Link><Link href="/practice">Practice</Link></div>
-      </nav>
+      <SiteNavigation currentPath="/library" />
       <header className="mt-10 flex flex-wrap items-end justify-between gap-5">
         <div><p className="eyebrow">Your reference shelf</p><h1>Study library</h1><p className="mt-3 max-w-2xl text-[var(--muted)]">Save patterns, edge cases, and problems worth revisiting. Notes and bookmarks follow your account across devices.</p></div>
         <Link className="button" href="/practice">Continue practice</Link>

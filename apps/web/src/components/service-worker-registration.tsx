@@ -4,7 +4,12 @@ import { useEffect } from 'react';
 
 export function ServiceWorkerRegistration() {
   useEffect(() => {
-    if ('serviceWorker' in navigator) void navigator.serviceWorker.register('/sw.js').catch(() => undefined);
+    if (!('serviceWorker' in navigator)) return;
+
+    void navigator.serviceWorker
+      .register('/sw.js', { updateViaCache: 'none' })
+      .then((registration) => registration.update())
+      .catch(() => undefined);
   }, []);
   return null;
 }

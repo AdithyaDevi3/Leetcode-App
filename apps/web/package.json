@@ -16,7 +16,7 @@
   "dependencies": {
     "@leetcode-app/database": "workspace:*",
     "@leetcode-app/domain": "workspace:*",
-    "@supabase/ssr": "^0.12.5",
+    "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.112.4",
     "@vercel/sandbox": "3.3.0",
     "lucide-react": "^1.35.0",

@@ -29,13 +29,13 @@ This section supplements the roadmap; it does not replace or reorder the phases 
 - A reversible PostgreSQL migration and adapter now define durable evaluation jobs, appeals, and audit storage; production route selection is controlled by `EVALUATION_JOB_STORE=postgres`, while worker deployment remains a launch task.
 - Phase 4 foundations now include a validated concept graph, interpretable mastery updates, and explainable recommendation selection.
 - Phase 4 now includes onboarding, a persisted learner profile, and a profile-derived initial plan endpoint/page.
-- Phase 5 has a bounded execution request/result contract; selecting and operating a sandbox remains required.
+- Phase 5 has a bounded execution request/result contract and a selected Vercel Sandbox production adapter; production verification and ongoing operations remain required.
 - Phase 6 has content-publication validation and least-privilege administration authorization foundations.
 - Phase 7 has an ordered, account-safe offline revision queue foundation.
 - Phase 8 has a validated system-design document model.
 - Phase 9 has a release-readiness checklist.
 - Phase 3 now also includes a protected worker trigger, gold-set fixtures, quality metrics, and second-pass appeal triage.
-- Phase 5 now includes a server-only Judge0 adapter and an execution safety policy; durable execution queues and sandbox operations remain required.
+- Phase 5 now includes a Vercel Sandbox production adapter, a self-hosted Judge0 fallback, and an execution safety policy; durable exploratory-execution queues and sandbox operations remain required.
 - Evaluation and execution queue health endpoints, request correlation IDs, and bounded in-process per-user submission limits are now present; production alerting and distributed enforcement remain required.
 - Phase 6 now includes lifecycle transition rules for content versions.
 - Phase 7 now includes PWA metadata/offline fallback plus notification preference scheduling.

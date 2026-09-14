@@ -167,6 +167,10 @@ Use managed identity or workload identity where supported. Resolve secrets at ru
 
 Use an external sandbox initially. Disable outbound networking and arbitrary package installation. Enforce CPU, memory, process, filesystem, output, and wall-clock limits. The sandbox receives no application credentials and cannot reach production data services.
 
+Practice completion is a server-owned decision. The browser submits source code to the session verification endpoint; the API appends the activity's versioned test harness, applies server-owned limits, and runs it in the configured sandbox. Only a valid all-tests-passing report can mark the session complete. Raw execution remains an asynchronous job for exploratory runs, while verified practice grading returns the bounded structured report needed by the active workspace.
+
+For guest learners, versioned concept evidence is stored locally and feeds the deterministic recommendation policy. Signed-in persistence and cross-device mastery remain server responsibilities; neither recommendation path requires a neural network.
+
 ### Content and AI
 
 Treat learner input, authored content, and retrieved context as untrusted data. Delimit data from instructions, schema-validate model output, redact sensitive patterns, and retain only the minimum evaluation record.

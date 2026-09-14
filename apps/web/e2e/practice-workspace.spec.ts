@@ -2,7 +2,9 @@ import { expect, test, type Page } from '@playwright/test';
 
 async function openHydratedWorkspace(page: Page) {
   await page.goto('/practice');
-  await expect(page.getByRole('heading', { name: 'Think in complements' })).toBeVisible();
+  await expect(
+    page.getByRole('heading', { level: 1, name: 'Remember what you have seen' }),
+  ).toBeVisible();
   await expect(page.getByText('Ready', { exact: true })).toBeVisible();
 }
 
@@ -21,7 +23,9 @@ test('home practice button performs a document navigation into the workspace', a
 
   await expect(page).toHaveURL(/\/practice$/);
   await expect(page.locator('html')).not.toHaveAttribute('data-navigation-sentinel');
-  await expect(page.getByRole('heading', { name: 'Think in complements' })).toBeVisible();
+  await expect(
+    page.getByRole('heading', { level: 1, name: 'Remember what you have seen' }),
+  ).toBeVisible();
   await expect(page.getByText('Ready', { exact: true })).toBeVisible();
 });
 
@@ -87,7 +91,7 @@ test('guest can use the guided start and pass the reasoning check', async ({ pag
   await page.getByRole('button', { name: 'Evaluate reasoning' }).click();
 
   await expect(page.getByText('Implementation unlocked')).toBeVisible();
-  await expect(page.getByRole('button', { name: /Check translation/i })).toBeEnabled();
+  await expect(page.getByRole('button', { name: /Run verified tests/i })).toBeEnabled();
 
   await page.getByLabel('TypeScript implementation').fill(`function findPair(values: number[], target: number) {
   const map = new Map<number, number>();
@@ -101,9 +105,34 @@ test('guest can use the guided start and pass the reasoning check', async ({ pag
   return [];
 }`);
 
-  await page.getByRole('button', { name: /Check translation/i }).click();
+  await page.evaluate(() => {
+    window.localStorage.setItem('method:pair-with-target-v1:remote-session', 'session-1');
+    const originalFetch = window.fetch.bind(window);
+    window.fetch = async (input, init) => {
+      if (String(input).endsWith('/api/practice/sessions/session-1/verify')) {
+        return new Response(JSON.stringify({
+          status: 'completed',
+          grade: {
+            problemId: 'pair-with-target-v1',
+            version: 'code-tests-v2',
+            passed: true,
+            passedCount: 4,
+            totalCount: 4,
+            tests: [
+              { name: 'finds a normal pair', passed: true },
+              { name: 'uses distinct duplicate positions', passed: true },
+              { name: 'handles negative values', passed: true },
+              { name: 'finds a pair late in the list', passed: true },
+            ],
+          },
+        }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      }
+      return originalFetch(input, init);
+    };
+  });
+  await page.getByRole('button', { name: /Run verified tests/i }).click();
 
-  await expect(page.getByText('Saved to your local progress.')).toBeVisible();
+  await expect(page.getByText('Verified and saved to your local progress.')).toBeVisible();
 });
 
 test('guest draft resumes after reload', async ({ page }) => {
@@ -118,7 +147,7 @@ test('guest draft resumes after reload', async ({ page }) => {
   await expect(page.getByText('Restored locally')).toBeVisible();
 });
 
-test('guest can finish the translation check', async ({ page }) => {
+test('unavailable execution never records an unverified completion', async ({ page }) => {
   await openHydratedWorkspace(page);
 
   await page.getByRole('button', { name: 'Use guided start' }).click();
@@ -136,10 +165,16 @@ test('guest can finish the translation check', async ({ page }) => {
   return [];
 }`);
 
-  await page.getByRole('button', { name: /Check translation/i }).click();
+  await page.evaluate(() => {
+    window.localStorage.setItem('method:pair-with-target-v1:remote-session', 'session-1');
+    window.fetch = async (input) => String(input).endsWith('/verify')
+      ? new Response(JSON.stringify({ error: 'Verified execution is unavailable' }), { status: 503, headers: { 'Content-Type': 'application/json' } })
+      : new Response('', { status: 401 });
+  });
+  await page.getByRole('button', { name: /Run verified tests/i }).click();
 
-  await expect(page.getByText('Saved to your local progress.')).toBeVisible();
-  await expect(page.getByText('Completed')).toBeVisible();
+  await expect(page.getByText(/Verified execution is not enabled/)).toBeVisible();
+  await expect(page.getByText('Verified and saved to your local progress.')).toHaveCount(0);
 });
 
 test('sync helper reports offline draft without a signed-in session', async ({ page }) => {

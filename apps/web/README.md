@@ -27,8 +27,11 @@ platform's encrypted environment store, apply all database migrations, and set
 `EVALUATION_JOB_STORE=postgres`. A scheduler must call the protected evaluation
 worker route using `EVALUATION_WORKER_TOKEN`; monitor `/api/health` and
 `/api/health/evaluations`. Do not set `CODE_EXECUTION_ENABLED=true` until the
-Judge0 endpoint is deployed on isolated infrastructure and the execution worker
-is scheduled with `EXECUTION_WORKER_TOKEN`.
+Judge0 endpoint is deployed on isolated infrastructure. Verified practice runs
+call that sandbox directly with server-owned limits and activity-specific tests;
+raw exploratory runs still require the execution worker to be scheduled with
+`EXECUTION_WORKER_TOKEN`. A practice session is marked complete only after the
+verified run reports that every test passed.
 
 The request middleware returns an `x-request-id` response header. Include that
 value in support reports and operational logs; never log source code, prompts,

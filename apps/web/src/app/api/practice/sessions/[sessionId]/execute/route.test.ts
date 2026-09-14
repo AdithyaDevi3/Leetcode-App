@@ -4,14 +4,17 @@ vi.mock('@/lib/auth/session', () => ({ requireAuth }));
 vi.mock('@/lib/practice-api', () => ({ getPracticeSessionHistory }));
 vi.mock('@/lib/execution-jobs-postgres', () => ({ createExecutionJobStore: () => ({ enqueue }) }));
 
-const request = { language: 'typescript', source: 'console.log(1)', limits: { timeoutMs: 1000, memoryMb: 128, outputBytes: 10_000 } };
+const request = { language: 'typescript', source: 'console.log(1)' };
 describe('/api/practice/sessions/[sessionId]/execute', () => {
   beforeEach(() => { vi.resetAllMocks(); process.env.CODE_EXECUTION_ENABLED = 'true'; });
   it('queues an owned, bounded execution request', async () => {
     requireAuth.mockResolvedValue({ user: { id: 'user-1' } }); getPracticeSessionHistory.mockResolvedValue({}); enqueue.mockResolvedValue({ id: 'job-1', status: 'queued', queuedAt: '2026-08-29T00:00:00Z' });
     const { POST } = await import('./route');
     const response = await POST(new Request('http://localhost', { method: 'POST', body: JSON.stringify(request) }), { params: Promise.resolve({ sessionId: 'session-1' }) });
-    expect(response.status).toBe(202); expect(enqueue).toHaveBeenCalledWith({ userId: 'user-1', sessionId: 'session-1', request });
+    expect(response.status).toBe(202); expect(enqueue).toHaveBeenCalledWith({ userId: 'user-1', sessionId: 'session-1', request: {
+      ...request,
+      limits: { timeoutMs: 3000, memoryMb: 256, outputBytes: 50_000 },
+    } });
   });
   it('keeps execution disabled by default', async () => {
     process.env.CODE_EXECUTION_ENABLED = 'false';

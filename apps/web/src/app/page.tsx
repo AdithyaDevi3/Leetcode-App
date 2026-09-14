@@ -1,5 +1,6 @@
 import { LocalPracticeEntryLink } from '@/components/local-practice-entry-link';
 import { SiteNavigation } from '@/components/site-navigation';
+import { AccountCta } from '@/components/account-cta';
 
 export default function Home() {
   return <main className="min-h-screen px-6 py-8 text-[var(--ink)] sm:py-12">
@@ -12,7 +13,7 @@ export default function Home() {
         <div className="mt-9 flex flex-wrap gap-3">
           <LocalPracticeEntryLink className="rounded-md bg-[var(--moss)] px-5 py-3 font-semibold text-white transition hover:bg-[#193e2e]">Start a practice session</LocalPracticeEntryLink>
           <a className="rounded-md border border-[#b9c8bd] bg-[var(--surface)] px-5 py-3 font-semibold text-[var(--moss)]" href="/onboarding">Build my learning plan</a>
-          <a className="rounded-md border border-[var(--coral)] px-5 py-3 font-semibold text-[var(--coral)]" href="/auth">Sign in to save progress</a>
+          <AccountCta />
         </div>
         <div className="mt-8 flex flex-wrap gap-x-6 gap-y-3 text-sm text-[var(--muted)]">
           <a className="underline decoration-[#b9c8bd] underline-offset-4 hover:text-[var(--moss)]" href="/learn">My learning plan</a>

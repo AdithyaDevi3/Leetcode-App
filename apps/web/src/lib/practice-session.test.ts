@@ -45,11 +45,13 @@ describe("practice-session helpers", () => {
       codeChecked: true,
       completed: false,
       evaluation: {
+        rubricVersion: "reasoning-rubric-v2",
         approved: false,
         score: 50,
         summary: "Halfway there.",
         findings: [],
       },
+      codeGrade: null,
     });
 
     expect(deserializePracticeSession(serialized)).toMatchObject({

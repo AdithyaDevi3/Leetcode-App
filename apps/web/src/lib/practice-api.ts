@@ -1,6 +1,7 @@
 import { createDatabaseClient, databaseConfigFromEnv } from '@leetcode-app/database';
 import { evaluatePseudocode } from './evaluator';
 import { toPersistedContentId } from './content-id';
+import { fromPersistedContentId } from './content-id';
 
 type PracticeSessionRecord = {
   id: string;
@@ -397,7 +398,7 @@ export async function evaluatePracticeRevision(input: {
 
     const evaluation = evaluatePseudocode(
       revisionResult.rows[0].content,
-      sessionResult.rows[0].content_id,
+      fromPersistedContentId(sessionResult.rows[0].content_id),
     );
 
     return {
@@ -438,7 +439,7 @@ export async function completePracticeSession(input: {
 
     const session = sessionResult.rows[0];
     const nextStage = input.currentStage ?? session.current_stage;
-    const nextStatus = input.completed ? 'completed' : session.status === 'not_started' ? 'in_progress' : session.status;
+    const nextStatus = input.completed ? 'completed' : 'in_progress';
 
     await db.query(
       `UPDATE practice_sessions

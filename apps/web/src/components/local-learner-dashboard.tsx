@@ -7,6 +7,7 @@ import { SiteNavigation } from '@/components/site-navigation';
 import { buildLocalLearningPlan, readLocalLearnerProfile, type LocalLearnerProfile } from '@/lib/local-learner';
 import { readLocalPracticeHistory, type LocalPracticeHistoryEntry } from '@/lib/local-practice-history';
 import { summarizeLearningProgress, type LearningProgressSummary } from '@/lib/learning-progress';
+import { readLocalMastery, type LocalMasteryState } from '@/lib/local-mastery';
 
 const practiceHref = (practiceItemId: string) =>
   `/practice?problem=${encodeURIComponent(practiceItemId)}`;
@@ -15,6 +16,7 @@ export function LocalLearnerDashboard() {
   const [profile, setProfile] = useState<LocalLearnerProfile | null>(null);
   const [history, setHistory] = useState<LocalPracticeHistoryEntry[]>([]);
   const [progress, setProgress] = useState<LearningProgressSummary | null>(null);
+  const [mastery, setMastery] = useState<LocalMasteryState>({});
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -22,11 +24,12 @@ export function LocalLearnerDashboard() {
       setProfile(readLocalLearnerProfile());
       setHistory(localHistory);
       setProgress(summarizeLearningProgress(localHistory));
+      setMastery(readLocalMastery());
     }, 0);
     return () => window.clearTimeout(timer);
   }, []);
 
-  const plan = profile ? buildLocalLearningPlan(profile, history) : null;
+  const plan = profile ? buildLocalLearningPlan(profile, history, new Date(), mastery) : null;
   const nextPractice = plan?.recommendations[0];
 
   return <main className="min-h-screen bg-slate-50 px-6 py-8 text-slate-900 sm:py-12"><div className="mx-auto max-w-5xl"><SiteNavigation currentPath="/dashboard" /><section className="mx-auto mt-10 max-w-3xl rounded-xl bg-white p-6 shadow-sm sm:p-8">

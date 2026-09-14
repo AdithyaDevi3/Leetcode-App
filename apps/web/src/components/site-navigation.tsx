@@ -1,5 +1,9 @@
+"use client";
+
 /* Full document navigation avoids stale client-router assets after a deployment. */
 /* eslint-disable @next/next/no-html-link-for-pages */
+
+import { useViewer } from '@/lib/use-viewer';
 
 const navigationItems = [
   { href: "/practice", label: "Practice" },
@@ -11,7 +15,6 @@ const navigationItems = [
   { href: "/onboarding", label: "Setup" },
   { href: "/settings", label: "Settings" },
   { href: "/requests", label: "Feedback" },
-  { href: "/auth", label: "Sign in" },
 ] as const;
 
 type SiteNavigationProps = {
@@ -19,6 +22,8 @@ type SiteNavigationProps = {
 };
 
 export function SiteNavigation({ currentPath }: SiteNavigationProps) {
+  const viewer = useViewer();
+  const items = viewer ? navigationItems : [...navigationItems, { href: '/auth', label: 'Sign in' }];
   return (
     <nav
       aria-label="Primary navigation"
@@ -33,7 +38,7 @@ export function SiteNavigation({ currentPath }: SiteNavigationProps) {
         Method
       </a>
       <div className="flex min-w-0 flex-1 flex-wrap items-center justify-end gap-1 max-sm:basis-full max-sm:justify-start">
-        {navigationItems.map((item) => {
+        {items.map((item) => {
           const active = currentPath === item.href;
           return (
             <a
@@ -46,6 +51,9 @@ export function SiteNavigation({ currentPath }: SiteNavigationProps) {
             </a>
           );
         })}
+        {viewer ? <span className="px-2.5 py-2 text-sm font-semibold text-[var(--muted)]" aria-label="Signed-in learner">
+          {viewer.displayName?.trim() || viewer.email?.split('@')[0] || 'Signed in'}
+        </span> : null}
       </div>
     </nav>
   );

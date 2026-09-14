@@ -14,7 +14,7 @@ During the MVP development phase (Phase 0-9), only the latest version on `main` 
 
 ### Reporting Process
 
-1. **Email:** Send details to [security@leetcode-app.example.com](mailto:security@leetcode-app.example.com)
+1. **Private report:** Open a [GitHub private vulnerability report](https://github.com/AdithyaDevi3/Leetcode-App/security/advisories/new).
    - Or use GitHub Security Advisories (private disclosure)
 
 2. **Include in your report:**
@@ -131,9 +131,8 @@ Our threat model considers the following attack vectors:
 
 ## Security Contacts
 
-- **Security Team:** [security@leetcode-app.example.com](mailto:security@leetcode-app.example.com)
-- **Incident Response:** [incident-response@leetcode-app.example.com](mailto:incident-response@leetcode-app.example.com)
-- **Privacy Officer:** [privacy@leetcode-app.example.com](mailto:privacy@leetcode-app.example.com)
+- **Security and incident reports:** Use a [GitHub private vulnerability report](https://github.com/AdithyaDevi3/Leetcode-App/security/advisories/new).
+- **Privacy reports containing personal data:** Use the same private reporting channel rather than a public issue.
 
 ## Compliance
 
@@ -153,8 +152,8 @@ Subscribe to security advisories:
 ## Questions?
 
 For security-related questions that are not sensitive:
-- Open a [GitHub Discussion](https://github.com/your-org/leetcode-app/discussions)
+- Open a [GitHub Discussion](https://github.com/AdithyaDevi3/Leetcode-App/discussions)
 - Tag with `security` label
 
 For sensitive questions:
-- Email [security@leetcode-app.example.com](mailto:security@leetcode-app.example.com)
+- Open a [GitHub private vulnerability report](https://github.com/AdithyaDevi3/Leetcode-App/security/advisories/new)

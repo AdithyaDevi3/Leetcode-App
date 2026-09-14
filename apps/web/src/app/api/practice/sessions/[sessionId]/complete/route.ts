@@ -11,7 +11,10 @@ export async function POST(
     const { sessionId } = await params;
     const body = (await request.json().catch(() => null)) as { completed?: unknown; currentStage?: unknown } | null;
 
-    const completed = typeof body?.completed === 'boolean' ? body.completed : true;
+    const completed = typeof body?.completed === 'boolean' ? body.completed : false;
+    if (completed) {
+      return NextResponse.json({ error: 'Completion requires passing verified code tests' }, { status: 409 });
+    }
     const currentStage =
       body?.currentStage === 'understand' ||
       body?.currentStage === 'match' ||

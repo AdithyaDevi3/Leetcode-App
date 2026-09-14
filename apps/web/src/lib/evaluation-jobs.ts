@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { evaluationPolicy } from './evaluation-policy';
 
 export type EvaluationJobStatus = 'queued' | 'running' | 'completed' | 'failed' | 'canceled';
 
@@ -37,7 +38,7 @@ const isCanceled = (job: EvaluationJob) => job.status === 'canceled';
 const getJobStatus = (job: EvaluationJob): EvaluationJobStatus => job.status;
 
 const buildJobKey = (request: Pick<EvaluationJobRequest, 'userId' | 'sessionId' | 'revisionNumber' | 'evaluatorVersion' | 'rubricVersion'>) =>
-  [request.userId, request.sessionId, request.revisionNumber, request.evaluatorVersion ?? 'v1', request.rubricVersion ?? 'rubric-v1'].join(':');
+  [request.userId, request.sessionId, request.revisionNumber, request.evaluatorVersion ?? evaluationPolicy.evaluatorVersion, request.rubricVersion ?? evaluationPolicy.reasoningRubricVersion].join(':');
 
 async function completeJob(job: EvaluationJob, executor: () => Promise<unknown> | unknown) {
   job.status = 'running';
@@ -73,8 +74,8 @@ export function enqueueEvaluationJob(request: EvaluationJobRequest): EvaluationJ
     userId: request.userId,
     sessionId: request.sessionId,
     revisionNumber: request.revisionNumber,
-    evaluatorVersion: request.evaluatorVersion ?? 'v1',
-    rubricVersion: request.rubricVersion ?? 'rubric-v1',
+    evaluatorVersion: request.evaluatorVersion ?? evaluationPolicy.evaluatorVersion,
+    rubricVersion: request.rubricVersion ?? evaluationPolicy.reasoningRubricVersion,
     status: 'queued',
     queuePosition: jobs.size + 1,
     queuedAt: new Date().toISOString(),
@@ -83,7 +84,7 @@ export function enqueueEvaluationJob(request: EvaluationJobRequest): EvaluationJ
     result: null,
     error: null,
     attempts: 0,
-    maxAttempts: 3,
+    maxAttempts: evaluationPolicy.maxJobAttempts,
     deadLetteredAt: null,
   };
 

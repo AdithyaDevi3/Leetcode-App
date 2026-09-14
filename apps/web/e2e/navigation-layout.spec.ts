@@ -92,5 +92,7 @@ test('shared navigation performs a reliable document navigation', async ({ page 
 
   await expect(page).toHaveURL(/\/practice$/);
   await expect(page.locator('html')).not.toHaveAttribute('data-navigation-sentinel');
-  await expect(page.getByRole('heading', { name: 'Think in complements' })).toBeVisible();
+  await expect(
+    page.getByRole('heading', { level: 1, name: 'Remember what you have seen' }),
+  ).toBeVisible();
 });

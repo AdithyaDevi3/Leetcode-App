@@ -30,7 +30,7 @@ credentialed, monitored, and tested in staging.
 
 | Integration | Default | Enable only after |
 |---|---|---|
-| Code execution / Judge0 | `CODE_EXECUTION_ENABLED=false` | An isolated Judge0 deployment, server-only `JUDGE0_TOKEN`, worker runtime, execution limits, abuse controls, outage behavior, and sandbox security review are complete |
+| Code execution | `CODE_EXECUTION_ENABLED=false` | Vercel Sandbox OIDC or an isolated Judge0 deployment, execution limits, abuse controls, outage behavior, and sandbox security review are complete |
 | AI evaluation provider | Adapter/fallback only | Server-only provider key, cost budget, quotas, redaction policy, evaluator quality checks, and provider outage fallback are verified |
 | Email and push notifications | Not a launch dependency | Sender/domain verification, unsubscribe handling, consent records, delivery monitoring, frequency caps, and notification worker are live |
 | Object storage | Not a launch dependency | Private bucket/container, encryption, lifecycle rules, signed access policy, and deletion/retention behavior are tested |
@@ -51,8 +51,11 @@ Minimum beta configuration:
 - `EVALUATION_WORKER_TOKEN` and `EVALUATION_REVIEWER_TOKEN`
 - queue age, stale-job, and submission-limit values appropriate to the beta
 
-Keep `CODE_EXECUTION_ENABLED=false` unless the execution prerequisites above
-are complete. `JUDGE0_TOKEN`, AI provider keys, email keys, object-storage
+For this Vercel project, set `CODE_EXECUTION_PROVIDER=vercel-sandbox` and enable
+`CODE_EXECUTION_ENABLED=true` only after a preview verification succeeds. Vercel
+supplies short-lived OIDC credentials automatically. For self-hosted Judge0,
+configure the endpoint, token, and language IDs instead. `JUDGE0_TOKEN`, AI
+provider keys, email keys, object-storage
 credentials, database passwords, and worker tokens must never have a
 `NEXT_PUBLIC_` prefix.
 
@@ -69,8 +72,9 @@ credentials, database passwords, and worker tokens must never have a
    canceled, failed, retried, and stale-job recovery paths.
 5. Turn on logs, error tracking, health checks, database/queue alerts, and a
    rollback runbook before inviting users.
-6. Run browser smoke tests and a small invited beta. Only then consider
-   enabling execution, AI, email, push, or storage integrations.
+6. Verify passing, failing, timeout, and provider-outage execution behavior in
+   preview, then enable execution for the invited beta. AI, email, push, and
+   storage integrations remain separate launch decisions.
 
 ## Evidence required before public access
 

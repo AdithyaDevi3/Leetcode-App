@@ -12,6 +12,9 @@ import { createConfiguredSandbox } from '@/lib/sandbox/runtime';
 
 type VerificationBody = { language?: unknown; source?: unknown };
 
+export const runtime = 'nodejs';
+export const maxDuration = 30;
+
 export async function POST(request: Request, { params }: { params: Promise<{ sessionId: string }> }) {
   try {
     if (process.env.CODE_EXECUTION_ENABLED !== 'true') {

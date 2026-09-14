@@ -147,9 +147,11 @@ OTEL_EXPORTER_OTLP_ENDPOINT
 The current private-beta runtime variables are listed in
 `apps/web/.env.example`. Production uses `EVALUATION_JOB_STORE=postgres`, a
 protected evaluation worker token, and an external scheduler. Keep
-`CODE_EXECUTION_ENABLED=false` until the isolated Judge0 provider and execution
-worker are live. The `x-request-id` response header is the correlation value for
-safe support and operational logs.
+`CODE_EXECUTION_ENABLED=false` for ordinary local development. Production on
+Vercel uses `CODE_EXECUTION_PROVIDER=vercel-sandbox` with automatic OIDC; local
+live-sandbox testing first requires pulling the linked Vercel environment.
+Self-hosted environments may use the Judge0 provider. The `x-request-id`
+response header is the correlation value for safe support and operational logs.
 
 Secret values such as database passwords, identity client secrets, AI keys, sandbox keys, email keys, and object-storage credentials remain server-only and are never added to `.env.example` as realistic values.
 

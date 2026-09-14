@@ -51,6 +51,11 @@ Minimum beta configuration:
 - `EVALUATION_WORKER_TOKEN` and `EVALUATION_REVIEWER_TOKEN`
 - queue age, stale-job, and submission-limit values appropriate to the beta
 
+Set production `NEXT_PUBLIC_APP_URL` to the canonical browser origin exactly
+(currently `https://corsair-tech-leetbot.vercel.app`). Preview deployments fall
+back to Vercel's system-provided deployment URL when no branch-specific value
+is set. Supabase Auth must allow the canonical `/auth/confirm` redirect URL.
+
 For this Vercel project, set `CODE_EXECUTION_PROVIDER=vercel-sandbox` and enable
 `CODE_EXECUTION_ENABLED=true` only after a preview verification succeeds. Vercel
 supplies short-lived OIDC credentials automatically. For self-hosted Judge0,

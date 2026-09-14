@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { applicationUrl, safeAppDestination } from './app-url';
+import { applicationUrl, canonicalRedirectUrl, safeAppDestination } from './app-url';
 
 describe('application URL routing', () => {
   it('uses the explicitly configured canonical URL without a path or trailing slash', () => {
@@ -21,5 +21,22 @@ describe('application URL routing', () => {
     expect(safeAppDestination('/practice?problem=pair-with-target-v1')).toBe('/practice?problem=pair-with-target-v1');
     expect(safeAppDestination('https://attacker.example')).toBe('/practice');
     expect(safeAppDestination('//attacker.example')).toBe('/practice');
+  });
+
+  it('redirects production aliases to the canonical domain while preserving path and query', () => {
+    const environment = {
+      VERCEL_TARGET_ENV: 'production',
+      NEXT_PUBLIC_APP_URL: 'https://corsair-tech-leetbot.vercel.app',
+    };
+    expect(canonicalRedirectUrl('https://web-corsair-tech.vercel.app/practice?problem=pair', environment)?.href)
+      .toBe('https://corsair-tech-leetbot.vercel.app/practice?problem=pair');
+    expect(canonicalRedirectUrl('https://corsair-tech-leetbot.vercel.app/practice', environment)).toBeNull();
+  });
+
+  it('never canonicalizes preview deployments', () => {
+    expect(canonicalRedirectUrl('https://preview.vercel.app/practice', {
+      VERCEL_TARGET_ENV: 'preview',
+      NEXT_PUBLIC_APP_URL: 'https://corsair-tech-leetbot.vercel.app',
+    })).toBeNull();
   });
 });

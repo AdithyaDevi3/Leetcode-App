@@ -1,6 +1,7 @@
 import type { ExecutionRequest } from '@leetcode-app/domain';
 
 export const executionPolicy = { maxSourceBytes: 100_000, maxOutputBytes: 50_000, maxRunsPerWindow: 10, windowMs: 10 * 60_000 } as const;
+export const executionLimits = { timeoutMs: 3_000, memoryMb: 256, outputBytes: executionPolicy.maxOutputBytes } as const;
 
 export function validateExecutionPolicy(request: ExecutionRequest): string[] {
   const errors: string[] = [];

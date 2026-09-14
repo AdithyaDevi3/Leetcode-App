@@ -219,6 +219,6 @@ Review these policies:
 ## Questions?
 
 For questions about these policies:
-- Open a [GitHub Discussion](https://github.com/your-org/leetcode-app/discussions)
+- Open a [GitHub Discussion](https://github.com/AdithyaDevi3/Leetcode-App/discussions)
 - Tag with `repository-policy` label
 - Contact DevOps team for urgent access issues

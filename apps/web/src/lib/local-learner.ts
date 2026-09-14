@@ -1,5 +1,6 @@
 import { practiceItems, type PracticeDifficulty, type PracticeItem, type PracticeTopic } from './content';
 import type { LocalPracticeHistoryEntry } from './local-practice-history';
+import { itemMastery, type LocalMasteryState } from './local-mastery';
 import { readBrowserStorage, writeBrowserStorage } from './safe-browser-storage';
 
 export type LocalLearnerProfile = {
@@ -31,6 +32,35 @@ export type LocalLearningPlan = {
 
 export const localLearnerProfileKey = 'leetcode-app.local-learner-profile.v1';
 
+export const personalizationPolicy = {
+  version: 'local-personalization-v2',
+  pace: { lightBelowMinutes: 90, intensiveAboveMinutes: 300, sessionMinutes: { light: 20, standard: 30, intensive: 45 } },
+  scoring: {
+    curriculumStep: 2,
+    incomplete: 38,
+    lowScoreThreshold: 80,
+    lowScoreBase: 34,
+    lowScoreGapCap: 20,
+    completed: -24,
+    reviewAfterDays: 7,
+    reviewDue: 26,
+    recentWithinDays: 1,
+    recentlySeen: -28,
+    goalStart: 48,
+    goalStep: 6,
+    goalFloor: 8,
+    sessionFit: 12,
+    sessionOverrunCap: 20,
+    diagnosticChallenge: 8,
+    masteryGapMax: 36,
+  },
+  difficultyFit: {
+    new: { foundation: 32, intermediate: 8, advanced: -18 },
+    some: { foundation: 14, intermediate: 32, advanced: 10 },
+    experienced: { foundation: 2, intermediate: 24, advanced: 36 },
+  },
+} as const;
+
 export const defaultLocalLearnerProfile: LocalLearnerProfile = {
   goal: 'interview',
   experience: 'new',
@@ -48,20 +78,18 @@ const goalTopics: Record<LocalLearnerProfile['goal'], PracticeTopic[]> = {
   exploration: ['graphs', 'dynamic-programming', 'trees', 'sliding-window', 'hashing', 'queues', 'stacks', 'two-pointers'],
 };
 
-const difficultyFit: Record<LocalLearnerProfile['experience'], Record<PracticeDifficulty, number>> = {
-  new: { foundation: 32, intermediate: 8, advanced: -18 },
-  some: { foundation: 14, intermediate: 32, advanced: 10 },
-  experienced: { foundation: 2, intermediate: 24, advanced: 36 },
-};
-
 const isOneOf = <Value extends string>(value: unknown, options: readonly Value[]): value is Value =>
   typeof value === 'string' && options.includes(value as Value);
 
 const paceFor = (weeklyMinutes: number): LocalLearningPlan['pace'] =>
-  weeklyMinutes < 90 ? 'light' : weeklyMinutes > 300 ? 'intensive' : 'standard';
+  weeklyMinutes < personalizationPolicy.pace.lightBelowMinutes
+    ? 'light'
+    : weeklyMinutes > personalizationPolicy.pace.intensiveAboveMinutes
+      ? 'intensive'
+      : 'standard';
 
 const sessionMinutesFor = (pace: LocalLearningPlan['pace']) =>
-  pace === 'light' ? 20 : pace === 'intensive' ? 45 : 30;
+  personalizationPolicy.pace.sessionMinutes[pace];
 
 const ageInDays = (completedAt: string, asOf: Date) => {
   const completedTime = new Date(completedAt).getTime();
@@ -74,6 +102,7 @@ export function recommendLocalPractice(
   history: LocalPracticeHistoryEntry[] = [],
   items: PracticeItem[] = practiceItems,
   asOf = new Date(),
+  mastery: LocalMasteryState = {},
 ): LocalPracticeRecommendation[] {
   const historyByPracticeId = new Map(history.map((entry) => [entry.practiceItemId, entry]));
   const pace = paceFor(profile.weeklyMinutes);
@@ -84,24 +113,27 @@ export function recommendLocalPractice(
     .map((item, curriculumIndex) => {
       const completion = historyByPracticeId.get(item.id);
       const reasons: string[] = [];
-      let score = (items.length - curriculumIndex) * 2;
+      let score = (items.length - curriculumIndex) * personalizationPolicy.scoring.curriculumStep;
 
       if (!completion) {
-        score += 38;
+        score += personalizationPolicy.scoring.incomplete;
         reasons.push('Not completed on this device');
       } else {
         const daysOld = ageInDays(completion.completedAt, asOf);
-        if (completion.evaluationScore !== null && completion.evaluationScore < 80) {
-          score += 34 + Math.min(20, 80 - completion.evaluationScore);
+        if (completion.evaluationScore !== null && completion.evaluationScore < personalizationPolicy.scoring.lowScoreThreshold) {
+          score += personalizationPolicy.scoring.lowScoreBase + Math.min(
+            personalizationPolicy.scoring.lowScoreGapCap,
+            personalizationPolicy.scoring.lowScoreThreshold - completion.evaluationScore,
+          );
           reasons.push('Reinforces a lower-scoring skill');
         } else {
-          score -= 24;
+          score += personalizationPolicy.scoring.completed;
         }
-        if (daysOld >= 7) {
-          score += 26;
+        if (daysOld >= personalizationPolicy.scoring.reviewAfterDays) {
+          score += personalizationPolicy.scoring.reviewDue;
           reasons.push('Ready for review');
-        } else if (daysOld <= 1) {
-          score -= 28;
+        } else if (daysOld <= personalizationPolicy.scoring.recentWithinDays) {
+          score += personalizationPolicy.scoring.recentlySeen;
         }
       }
 
@@ -110,24 +142,33 @@ export function recommendLocalPractice(
       } else {
         const topicIndex = topicOrder.indexOf(item.topic);
         if (topicIndex >= 0) {
-          score += Math.max(8, 48 - topicIndex * 6);
+          score += Math.max(
+            personalizationPolicy.scoring.goalFloor,
+            personalizationPolicy.scoring.goalStart - topicIndex * personalizationPolicy.scoring.goalStep,
+          );
           if (topicIndex < 3) reasons.push(`Matches your ${profile.goal.replace('_', ' ')} focus`);
         }
 
-        const experienceScore = difficultyFit[profile.experience][item.difficulty];
+        const experienceScore = personalizationPolicy.difficultyFit[profile.experience][item.difficulty];
         score += experienceScore;
         if (experienceScore >= 24) reasons.push(`Fits your ${profile.experience} experience level`);
 
         if (item.estimatedMinutes <= sessionMinutes) {
-          score += 12;
+          score += personalizationPolicy.scoring.sessionFit;
           reasons.push(`Fits a ${sessionMinutes}-minute session`);
         } else {
-          score -= Math.min(20, item.estimatedMinutes - sessionMinutes);
+          score -= Math.min(personalizationPolicy.scoring.sessionOverrunCap, item.estimatedMinutes - sessionMinutes);
         }
 
         if (profile.diagnosticOptIn && item.difficulty !== 'foundation') {
-          score += 8;
+          score += personalizationPolicy.scoring.diagnosticChallenge;
           reasons.push('Adds diagnostic challenge');
+        }
+
+        const currentMastery = itemMastery(item, mastery);
+        if (currentMastery !== null) {
+          score += Math.round((1 - currentMastery) * personalizationPolicy.scoring.masteryGapMax);
+          if (currentMastery < 0.7) reasons.push('Targets concepts that still need evidence');
         }
       }
 
@@ -158,9 +199,10 @@ export function buildLocalLearningPlan(
   profile: LocalLearnerProfile,
   history: LocalPracticeHistoryEntry[] = [],
   asOf = new Date(),
+  mastery: LocalMasteryState = {},
 ): LocalLearningPlan {
   const pace = paceFor(profile.weeklyMinutes);
-  const recommendations = recommendLocalPractice(profile, history, practiceItems, asOf).slice(0, 3);
+  const recommendations = recommendLocalPractice(profile, history, practiceItems, asOf, mastery).slice(0, 3);
   const suggestedTopics = [...new Set(recommendations.map((recommendation) => recommendation.topic))];
   const goal = profile.goal === 'interview' ? 'interview practice' : profile.goal.replace('_', ' ');
   const explanation = profile.personalizationOptOut

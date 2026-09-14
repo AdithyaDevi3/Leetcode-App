@@ -12,3 +12,9 @@ const persistedContentIds: Record<string, string> = {
 };
 
 export const toPersistedContentId = (contentId: string): string => persistedContentIds[contentId] ?? contentId;
+
+const localContentIds = Object.fromEntries(
+  Object.entries(persistedContentIds).map(([localId, persistedId]) => [persistedId, localId]),
+);
+
+export const fromPersistedContentId = (contentId: string): string => localContentIds[contentId] ?? contentId;

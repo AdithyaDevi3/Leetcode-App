@@ -1,4 +1,5 @@
 import type { Evaluation } from "./evaluator";
+import type { CodeGrade } from './code-grading';
 import { astProgramToBlocks, blockModelToDraft, draftToBlockModel } from "./ast-block-adapter";
 
 export type EditorMode = "text" | "blocks";
@@ -12,6 +13,7 @@ export type PracticeSessionState = {
   codeChecked: boolean;
   completed: boolean;
   evaluation: Evaluation | null;
+  codeGrade: CodeGrade | null;
 };
 
 export const sessionStorageKey = (problemId: string) => `method:${problemId}:session`;
@@ -100,6 +102,17 @@ const isEvaluation = (value: unknown): value is Evaluation => {
   );
 };
 
+const isCodeGrade = (value: unknown): value is CodeGrade => {
+  if (typeof value !== 'object' || value === null) return false;
+  const candidate = value as Partial<CodeGrade>;
+  return typeof candidate.problemId === 'string'
+    && typeof candidate.version === 'string'
+    && typeof candidate.passed === 'boolean'
+    && typeof candidate.passedCount === 'number'
+    && typeof candidate.totalCount === 'number'
+    && Array.isArray(candidate.tests);
+};
+
 export const serializePracticeSession = (state: PracticeSessionState) => JSON.stringify(state);
 
 export const deserializePracticeSession = (value: string): PracticeSessionState | null => {
@@ -121,8 +134,9 @@ export const deserializePracticeSession = (value: string): PracticeSessionState 
       language: parsed.language === "python" ? "python" : "typescript",
       code: parsed.code,
       codeChecked: parsed.codeChecked,
-      completed: parsed.completed,
+      completed: parsed.completed && isCodeGrade(parsed.codeGrade) && parsed.codeGrade.passed,
       evaluation: parsed.evaluation && isEvaluation(parsed.evaluation) ? parsed.evaluation : null,
+      codeGrade: isCodeGrade(parsed.codeGrade) ? parsed.codeGrade : null,
     };
   } catch {
     return null;

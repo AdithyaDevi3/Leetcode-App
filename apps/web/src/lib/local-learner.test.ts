@@ -4,6 +4,7 @@ import {
   defaultLocalLearnerProfile,
   recommendLocalPractice,
 } from './local-learner';
+import { practiceItems } from './content';
 
 const now = new Date('2026-09-13T12:00:00.000Z');
 
@@ -69,5 +70,20 @@ describe('local learner plan', () => {
 
     expect(plan.recommendations[0].practiceItemId).toBe('pair-with-target-v1');
     expect(plan.recommendations[0].reasons).toContain('Next in the standard curriculum');
+  });
+
+  it('uses concept mastery evidence to prioritize a weaker applicable item', () => {
+    const items = [practiceItems.find((item) => item.id === 'pair-with-target-v1')!, practiceItems.find((item) => item.id === 'island-count-v1')!];
+    const recommendations = recommendLocalPractice(
+      { ...defaultLocalLearnerProfile, goal: 'exploration', experience: 'new' },
+      [],
+      items,
+      now,
+      {
+        'hash-maps': { conceptId: 'hash-maps', mastery: 0.1, confidence: 1, evidenceCount: 5, lastPracticedAt: now.toISOString() },
+        'graph-traversal': { conceptId: 'graph-traversal', mastery: 1, confidence: 1, evidenceCount: 5, lastPracticedAt: now.toISOString() },
+      },
+    );
+    expect(recommendations[0].practiceItemId).toBe('pair-with-target-v1');
   });
 });

@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 import { SiteNavigation } from '@/components/site-navigation';
 import { buildLocalLearningPlan, readLocalLearnerProfile, type LocalLearningPlan } from '@/lib/local-learner';
 import { readLocalPracticeHistory } from '@/lib/local-practice-history';
+import { readLocalMastery } from '@/lib/local-mastery';
 
 export default function LearnPage() {
   const [plan, setPlan] = useState<LocalLearningPlan | null>(null);
@@ -15,7 +16,7 @@ export default function LearnPage() {
     const timer = window.setTimeout(() => {
       const profile = readLocalLearnerProfile();
       if (profile) {
-        setPlan(buildLocalLearningPlan(profile, readLocalPracticeHistory()));
+        setPlan(buildLocalLearningPlan(profile, readLocalPracticeHistory(), new Date(), readLocalMastery()));
         setMessage('');
         return;
       }

@@ -22,6 +22,8 @@ The first deployable product slice lives in [apps/web](apps/web). It includes:
 - Structured-English and semantic-block pseudocode modes.
 - Local profiles, history-aware practice recommendations, and draft autosave for guest learners.
 - Deterministic, activity-specific reasoning evaluation for every algorithm activity.
+- Server-side TypeScript and Python verification against activity-specific test suites before a solution can be marked complete.
+- Local concept-mastery evidence that adjusts practice recommendations as the learner improves.
 - TypeScript and Python coding starters that follow the learner's local language preference.
 - Responsive desktop and mobile layouts.
 - Unit tests, CI, a health endpoint, and a non-root production container.

@@ -3,6 +3,7 @@ import { validateExecutionRequest, type ExecutionRequest } from '@leetcode-app/d
 import { requireAuth } from '@/lib/auth/session';
 import { createExecutionJobStore } from '@/lib/execution-jobs-postgres';
 import { validateExecutionPolicy } from '@/lib/sandbox/execution-policy';
+import { executionLimits } from '@/lib/sandbox/execution-policy';
 import { getPracticeSessionHistory } from '@/lib/practice-api';
 import { takeRateLimit } from '@/lib/rate-limit';
 
@@ -11,9 +12,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ ses
     if (process.env.CODE_EXECUTION_ENABLED !== 'true') return NextResponse.json({ error: 'Code execution is unavailable' }, { status: 503 });
     const session = await requireAuth();
     const { sessionId } = await params;
-    const body = await request.json().catch(() => null) as ExecutionRequest | null;
-    if (!body) return NextResponse.json({ error: 'Execution request is required' }, { status: 400 });
-    const errors = [...validateExecutionRequest(body), ...validateExecutionPolicy(body)];
+    const body = await request.json().catch(() => null) as Partial<ExecutionRequest> | null;
+    if (!body || (body.language !== 'typescript' && body.language !== 'python') || typeof body.source !== 'string') {
+      return NextResponse.json({ error: 'A supported language and source are required' }, { status: 400 });
+    }
+    const executionRequest: ExecutionRequest = { language: body.language, source: body.source, stdin: body.stdin, limits: executionLimits };
+    const errors = [...validateExecutionRequest(executionRequest), ...validateExecutionPolicy(executionRequest)];
     if (errors.length) return NextResponse.json({ error: 'Invalid execution request', details: errors }, { status: 400 });
     const rateLimit = takeRateLimit(`execution:${session.user.id}`, {
       limit: Number(process.env.EXECUTION_SUBMISSIONS_PER_TEN_MINUTES ?? 10),
@@ -24,7 +28,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ ses
       headers: { 'retry-after': String(rateLimit.retryAfterSeconds) },
     });
     await getPracticeSessionHistory({ owner: { kind: 'user', id: session.user.id }, sessionId });
-    const job = await createExecutionJobStore().enqueue({ userId: session.user.id, sessionId, request: body });
+    const job = await createExecutionJobStore().enqueue({ userId: session.user.id, sessionId, request: executionRequest });
     return NextResponse.json({ jobId: job.id, status: job.status, queuedAt: job.queuedAt }, { status: 202 });
   } catch (error) {
     if (error instanceof Error && error.message === 'Unauthorized: Authentication required') return NextResponse.json({ error: 'Authentication required' }, { status: 401 });

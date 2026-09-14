@@ -8,11 +8,14 @@ export type EvaluationFinding = {
 };
 
 export type Evaluation = {
+  rubricVersion: string;
   approved: boolean;
   score: number;
   summary: string;
   findings: EvaluationFinding[];
 };
+
+export const REASONING_RUBRIC_VERSION = evaluationPolicy.reasoningRubricVersion;
 
 type Rule = {
   id: EvaluationFinding["id"];
@@ -108,6 +111,7 @@ const pairWithTargetEvaluation = (draft: string): Evaluation => {
   const approved = findings.every((finding) => finding.status === "pass");
 
   return {
+    rubricVersion: REASONING_RUBRIC_VERSION,
     approved,
     score,
     findings,
@@ -183,6 +187,7 @@ const firstUniqueIndexEvaluation = (draft: string): Evaluation => {
   const approved = findings.every((finding) => finding.status === "pass");
 
   return {
+    rubricVersion: REASONING_RUBRIC_VERSION,
     approved,
     score,
     findings,
@@ -265,6 +270,7 @@ const configuredEvaluation = (draft: string, checks: ConfiguredCheck[]): Evaluat
   const approved = findings.every((finding) => finding.status === "pass");
 
   return {
+    rubricVersion: REASONING_RUBRIC_VERSION,
     approved,
     score: Math.round((passedCount / findings.length) * 100),
     findings,
@@ -286,3 +292,4 @@ export function evaluatePseudocode(draft: string, problemId = "pair-with-target-
 
   return pairWithTargetEvaluation(draft);
 }
+import { evaluationPolicy } from './evaluation-policy';

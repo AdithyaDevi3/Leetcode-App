@@ -33,7 +33,7 @@ Thank you for your interest in contributing to the Leetcode-App project! This do
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-org/leetcode-app.git
+git clone https://github.com/AdithyaDevi3/Leetcode-App.git
 cd leetcode-app
 
 # Install dependencies
@@ -235,7 +235,7 @@ Check the project README or roadmap document for the current active phase.
 
 ## Questions?
 
-- Open a [GitHub Discussion](https://github.com/your-org/leetcode-app/discussions) for questions
+- Open a [GitHub Discussion](https://github.com/AdithyaDevi3/Leetcode-App/discussions) for questions
 - Check existing issues and PRs for similar work
 - Read the [documentation](docs/) for architecture and design decisions
 

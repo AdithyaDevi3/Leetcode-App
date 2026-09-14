@@ -2,7 +2,9 @@
 
 ## Status
 
-Accepted
+Superseded by [ADR-011](011-current-platform-and-admin-console.md). The current
+web application deploys to Vercel and uses Supabase-managed data services; the
+AWS-first target below is retained as historical context, not current setup.
 
 ## Context
 

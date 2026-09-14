@@ -2,7 +2,9 @@
 
 ## Status
 
-Accepted
+Superseded by [ADR-011](011-current-platform-and-admin-console.md). The deployed
+identity provider is Supabase Auth; the Auth0/Firebase choice below is retained
+only as historical context.
 
 ## Context
 

@@ -1,6 +1,35 @@
-# Target Architecture
+# Current and Target Architecture
 
-This document turns the product architecture in [PRODUCT_PLAN.md](PRODUCT_PLAN.md) into implementable boundaries. It describes the target state; the current repository is still a guest-only web walking skeleton.
+This document describes both the deployed system and its longer-term boundaries.
+For a code-oriented handoff, start with [the maintainer quick start](USAGE.md).
+The repository is no longer a guest-only skeleton; sections labeled as target
+state remain intentionally aspirational.
+
+## Current deployed system
+
+```mermaid
+flowchart LR
+  Browser[Browser / PWA] --> Vercel[Vercel Next.js application]
+  Vercel --> Auth[Supabase Auth]
+  Vercel --> DB[(Supabase Postgres)]
+  Vercel --> Sandbox[Vercel Sandbox]
+  Sandbox -. no network .-> Blocked[External network denied]
+```
+
+| Boundary | Current implementation |
+|---|---|
+| Web and API | One Next.js modular monolith in `apps/web`, deployed from `main` to Vercel |
+| Identity | Supabase email/password Auth with server-side cookie refresh and guest-to-account merge code |
+| Data | Supabase Postgres accessed through server-only repository code; `node-pg-migrate` migrations live in `packages/database/migrations` |
+| Evaluation | Deterministic evaluator and database-backed job foundations; optional AI path remains disabled by default |
+| Code execution | Ephemeral Vercel Sandbox microVMs for TypeScript and Python, with network denied and bounded runtime/output |
+| Personalization | Explainable deterministic ranking using profile, practice history, review age, and local mastery evidence |
+| Offline behavior | Network-first navigation with a self-contained cached fallback; application drafts also use guarded browser storage |
+| Administration | Domain authorization vocabulary and one token-protected appeal endpoint exist; no admin console or session-based admin gate exists yet |
+
+[ADR-011](adr/011-current-platform-and-admin-console.md) records the current
+provider choices and the administration boundary. It supersedes older provider
+choices where they conflict with this deployed topology.
 
 ## Architectural principles
 

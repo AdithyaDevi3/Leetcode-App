@@ -14,6 +14,7 @@ This directory contains Architecture Decision Records for the Leetcode-App proje
 - [ADR-008: Telemetry and Observability](008-telemetry-and-observability.md)
 - [ADR-009: Notifications](009-notifications.md)
 - [ADR-010: Parallel Roadmap Delivery and Integration](010-parallel-roadmap-delivery.md)
+- [ADR-011: Current Platform and Administration Console Boundary](011-current-platform-and-admin-console.md)
 
 ## ADR Template
 

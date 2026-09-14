@@ -2,13 +2,18 @@
 
 This directory is the source of truth for what the product should do, how it should be built, and how completion is proven.
 
+Use the maintainer quick start for deployed reality. Product plans and roadmap
+documents include future scope and must not be read as proof that a feature is
+live.
+
 ## Start here
 
 | Document | Use it for |
 |---|---|
+| [Maintainer quick start](USAGE.md) | Current production behavior, local setup, code map, common changes, launch gaps, and takeover checklist |
 | [Product plan](PRODUCT_PLAN.md) | Vision, learning model, complete scope, security posture, release gates, and success metrics |
 | [Implementation roadmap](IMPLEMENTATION_ROADMAP.md) | Dependency-ordered phases, issue-sized work packages, acceptance checks, and the next 12 issues |
-| [Target architecture](ARCHITECTURE.md) | Repository/runtime boundaries, domains, data model, AST, APIs, security boundaries, and ADRs |
+| [Current and target architecture](ARCHITECTURE.md) | Deployed providers plus repository/runtime boundaries, domains, data, APIs, security boundaries, and ADRs |
 | [Development guide](DEVELOPMENT.md) | Local setup, validation, issue/PR workflow, coding boundaries, tests, migrations, security, and deployment |
 | [External deployment setup](DEPLOYMENT_SETUP.md) | Provider provisioning, secrets, workers, observability, launch order, and integrations that remain disabled until safely configured |
 | [Preflight checks](PREFLIGHT.md) | Running the same checks CI runs, locally, before opening a pull request |
@@ -24,11 +29,13 @@ This directory is the source of truth for what the product should do, how it sho
 
 ### Engineering work
 
-1. Development guide.
-2. Target architecture.
-3. Relevant implementation-roadmap work package.
-4. Requirements matrix IDs named by the issue.
-5. Product-plan section for deeper context and release constraints.
+1. Maintainer quick start.
+2. Development guide.
+3. Current and target architecture.
+4. Relevant ADR, including
+   [ADR-011 for administration](adr/011-current-platform-and-admin-console.md).
+5. Requirements matrix IDs named by the issue.
+6. Product-plan section for deeper context and release constraints.
 
 ### Release or operations work
 

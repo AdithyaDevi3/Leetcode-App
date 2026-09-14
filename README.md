@@ -1,6 +1,9 @@
-# Algorithm Learning App
+# Method Algorithm Learning App
 
-A product and engineering plan for a pseudocode-first learning platform focused on algorithms, data structures, and system design.
+A working pseudocode-first learning application for algorithms, data structures,
+and system-design practice. The deployed learner experience supports guest
+practice, deterministic feedback, TypeScript and Python verification, and
+rules-based personalization.
 
 The app is designed to teach problem-solving before syntax. Learners can practice concepts, express solutions in structured English or visual blocks, receive evaluation and targeted feedback, and only then move into executable code when they choose the pseudocode-to-code workflow.
 
@@ -8,13 +11,19 @@ The app is designed to teach problem-solving before syntax. Learners can practic
 
 Start with [docs/README.md](docs/README.md) for the complete documentation map. The core documents are:
 
+- [Maintainer quick start](docs/USAGE.md) for what works today, local setup,
+  common change locations, known launch gaps, and the takeover checklist.
 - [Product plan](docs/PRODUCT_PLAN.md) for vision, learning model, complete scope, security controls, and release gates.
 - [Implementation roadmap](docs/IMPLEMENTATION_ROADMAP.md) for dependency-ordered phases, issue-sized work packages, and the next 12 issues.
-- [Target architecture](docs/ARCHITECTURE.md) for domains, data, runtime boundaries, APIs, AI evaluation, sandboxing, and environments.
-- [Development guide](docs/DEVELOPMENT.md) for setup, validation, workflow, testing, migrations, security, and deployment.
+- [Current and target architecture](docs/ARCHITECTURE.md) for deployed providers,
+  domains, data, runtime boundaries, APIs, sandboxing, and future boundaries.
+- [Development and contribution conventions](docs/DEVELOPMENT.md) for setup,
+  validation, workflow, testing, migrations, security, and deployment.
+- [Administration-console decision](docs/adr/011-current-platform-and-admin-console.md)
+  for the secure delivery sequence and non-goals.
 - [Requirements matrix](docs/REQUIREMENTS_MATRIX.md) for stable requirement IDs, current status, target phase, and acceptance evidence.
 
-## Walking skeleton
+## Current learner application
 
 The first deployable product slice lives in [apps/web](apps/web). It includes:
 
@@ -28,12 +37,12 @@ The first deployable product slice lives in [apps/web](apps/web). It includes:
 - Responsive desktop and mobile layouts.
 - Unit tests, CI, a health endpoint, and a non-root production container.
 
-Run it locally:
+Run it locally from the repository root:
 
 ```bash
-cd apps/web
-npm install
-npm run dev
+pnpm install --frozen-lockfile
+cp apps/web/.env.example apps/web/.env.local
+pnpm dev
 ```
 
 Then open `http://localhost:3000`.
@@ -41,10 +50,7 @@ Then open `http://localhost:3000`.
 Validation commands:
 
 ```bash
-cd apps/web
-npm run lint
-npm test
-npm run build
+pnpm preflight
 ```
 
 Build and run the production container:

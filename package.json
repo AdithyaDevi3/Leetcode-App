@@ -17,6 +17,7 @@
     "db:status": "docker compose ps postgres",
     "db:logs": "docker compose logs --tail=100 postgres",
     "db:bootstrap": "node scripts/local-db-bootstrap.mjs",
+    "admin:bootstrap": "pnpm --filter @leetcode-app/domain build && pnpm --filter @leetcode-app/database build && node --env-file=apps/web/.env.local scripts/bootstrap-admin.mjs",
     "preflight": "node scripts/preflight.mjs"
   },
   "devDependencies": {

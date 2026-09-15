@@ -2,7 +2,8 @@
 
 ## Status
 
-Accepted for the current platform; administration delivery is incremental.
+Accepted for the current platform. Authorization foundation, read-only views,
+and audited role management are implemented; reviewed queue actions are next.
 
 This ADR supersedes ADR-002, ADR-003, and ADR-007 wherever their earlier
 Auth0/Firebase, generic managed PostgreSQL, or AWS-first choices conflict with
@@ -61,6 +62,10 @@ database authorization remains authoritative for sensitive mutations because
 JWT claims are not immediately refreshed after role changes.
 
 ### First delivery sequence
+
+Current status: stages 1 and 2 are implemented in the application and database.
+The narrowly scoped role editor from stage 1 is also available to
+administrators; all other operational actions remain read-only.
 
 #### 1. Authorization foundation
 

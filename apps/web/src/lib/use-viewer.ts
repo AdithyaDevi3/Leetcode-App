@@ -6,6 +6,7 @@ export type Viewer = {
   id: string;
   email: string | null;
   displayName: string | null;
+  canAccessAdministration: boolean;
 };
 
 export function useViewer(): Viewer | null {

@@ -35,6 +35,8 @@ The first deployable product slice lives in [apps/web](apps/web). It includes:
 - Local concept-mastery evidence that adjusts practice recommendations as the learner improves.
 - TypeScript and Python coding starters that follow the learner's local language preference.
 - Responsive desktop and mobile layouts.
+- A role-scoped administration portal with live operational summaries, safe
+  queue views, audited operator-role changes, and deny-by-default Supabase RLS.
 - Unit tests, CI, a health endpoint, and a non-root production container.
 
 Run it locally from the repository root:

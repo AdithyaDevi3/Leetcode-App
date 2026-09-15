@@ -23,7 +23,9 @@ type SiteNavigationProps = {
 
 export function SiteNavigation({ currentPath }: SiteNavigationProps) {
   const viewer = useViewer();
-  const items = viewer ? navigationItems : [...navigationItems, { href: '/auth', label: 'Sign in' }];
+  const items = viewer
+    ? [...navigationItems, ...(viewer.canAccessAdministration ? [{ href: '/admin', label: 'Admin' }] : [])]
+    : [...navigationItems, { href: '/auth', label: 'Sign in' }];
   return (
     <nav
       aria-label="Primary navigation"

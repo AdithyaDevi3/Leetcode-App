@@ -26,3 +26,21 @@ export type { PracticeSessionRepository } from './repositories/practice-session.
 // Evaluation repository
 export { PostgresEvaluationRepository } from './repositories/evaluation.repository.js';
 export type { EvaluationRepository } from './repositories/evaluation.repository.js';
+
+// Administration repository
+export {
+  AdministrationUserNotFoundError,
+  AdministratorAlreadyExistsError,
+  LastAdministratorError,
+  PostgresAdministrationRepository,
+} from './repositories/administration.repository.js';
+export type {
+  AdministrationAppeal,
+  AdministrationAuditEvent,
+  AdministrationContentItem,
+  AdministrationFeedback,
+  AdministrationOperations,
+  AdministrationOverview,
+  AdministrationPrivacyRequest,
+  AdministrationUser,
+} from './repositories/administration.repository.js';

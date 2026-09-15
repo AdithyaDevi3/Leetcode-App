@@ -2,6 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 
 const pageRoutes = [
   '/',
+  '/admin',
   '/auth',
   '/dashboard',
   '/history',
@@ -14,6 +15,12 @@ const pageRoutes = [
   '/settings',
   '/system-design',
 ] as const;
+
+test('signed-out visitors are redirected away from administration', async ({ page }) => {
+  await page.goto('/admin');
+  await expect(page).toHaveURL(/\/auth\?next=%2Fadmin$/);
+  await expect(page.getByRole('heading', { name: 'Save your progress' })).toBeVisible();
+});
 
 async function expectCleanLayout(page: Page) {
   const report = await page.evaluate(() => {

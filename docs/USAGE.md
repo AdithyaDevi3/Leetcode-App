@@ -31,6 +31,7 @@ network or a permitted VPN. Changing application redirects cannot repair DNS.
 | Isolation | Production code runs in ephemeral, network-denied Vercel Sandbox microVMs with runtime and output limits; Judge0 remains an optional self-hosted fallback | `apps/web/src/lib/sandbox` |
 | Persistence | Supabase Postgres stores guest identities, sessions, revisions, evaluations, history, profiles, requests, notes, bookmarks, and queue records | `packages/database/migrations`, `apps/web/src/lib/practice-api.ts` |
 | Authentication | Supabase email/password signup, confirmation, sign-in, sign-out, server session refresh, and guest-progress merge are implemented | `apps/web/src/app/auth`, `apps/web/src/lib/auth/session.ts`, `apps/web/src/middleware.ts` |
+| Administration | A server-authorized portal exposes role-scoped overview, people, content, operations, feedback, privacy, and audit views; role changes require a reason and append an audit event | `apps/web/src/app/admin`, `apps/web/src/lib/admin`, `packages/database/src/repositories/administration.repository.ts` |
 | Personalization | A deterministic policy ranks activities using goals, experience, weekly time, preferred language, history, review age, and concept mastery; no neural network is required | `apps/web/src/lib/local-learner.ts`, `apps/web/src/lib/local-mastery.ts` |
 | Resilience | Health endpoints, request IDs, queue recovery foundations, CI/security scans, browser tests, and a build-independent offline fallback exist | `apps/web/src/app/api/health`, `apps/web/public/sw.js`, `.github/workflows` |
 
@@ -41,10 +42,10 @@ this table does not mean every launch control is complete.
 
 Address these in this order:
 
-1. Build the administration authorization boundary and read-only shell from
-   [ADR-011](adr/011-current-platform-and-admin-console.md).
-2. Verify the complete Supabase signup, email-confirmation, sign-in, and
+1. Verify the complete Supabase signup, email-confirmation, sign-in, and
    guest-to-account merge journey against production redirect allowlists.
+2. Replace the shared appeal reviewer token with authenticated, reason-required
+   administration actions from [ADR-011](adr/011-current-platform-and-admin-console.md).
 3. Replace the in-memory limiter in `apps/web/src/lib/rate-limit.ts` with a
    distributed limiter shared by all Vercel instances.
 4. Configure production error reporting, uptime checks, alerts, database
@@ -143,6 +144,20 @@ The active user-facing authentication path is Supabase Auth. Do not revive the
 legacy NextAuth files. Read roles from server-controlled data—not editable user
 metadata—and never expose a Supabase secret/service-role key to browser code.
 Every admin mutation requires both server authorization and an audit event.
+
+The administration portal lives at `/admin`. The first administrator is a
+one-time operational bootstrap, and the target must already have a confirmed
+Supabase Auth account:
+
+```bash
+pnpm admin:bootstrap -- owner@example.com "Initial project administrator"
+```
+
+The command refuses to run after an administrator exists. Subsequent role
+changes belong in `/admin/users`, where the portal prevents removal of the final
+administrator and records the actor, target, reason, request ID, and before/after
+roles. Do not assign roles through signup, email-domain rules, `user_metadata`,
+or browser storage.
 
 ### Change production behavior
 

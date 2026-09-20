@@ -17,6 +17,9 @@ Start with [docs/README.md](docs/README.md) for the complete documentation map. 
 - [Implementation roadmap](docs/IMPLEMENTATION_ROADMAP.md) for dependency-ordered phases, issue-sized work packages, and the next 12 issues.
 - [Current and target architecture](docs/ARCHITECTURE.md) for deployed providers,
   domains, data, runtime boundaries, APIs, sandboxing, and future boundaries.
+- [Administration and learner architecture](docs/ADMIN_ARCHITECTURE.md) and
+  [use cases](docs/ADMIN_USE_CASES.md) for the current operator workflows,
+  permissions, learner interactions, and remaining capabilities.
 - [Development and contribution conventions](docs/DEVELOPMENT.md) for setup,
   validation, workflow, testing, migrations, security, and deployment.
 - [Administration-console decision](docs/adr/011-current-platform-and-admin-console.md)

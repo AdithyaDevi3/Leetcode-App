@@ -14,6 +14,8 @@ live.
 | [Product plan](PRODUCT_PLAN.md) | Vision, learning model, complete scope, security posture, release gates, and success metrics |
 | [Implementation roadmap](IMPLEMENTATION_ROADMAP.md) | Dependency-ordered phases, issue-sized work packages, acceptance checks, and the next 12 issues |
 | [Current and target architecture](ARCHITECTURE.md) | Deployed providers plus repository/runtime boundaries, domains, data, APIs, security boundaries, and ADRs |
+| [Administration and learner architecture](ADMIN_ARCHITECTURE.md) | Current admin-to-learner data flow, roles, trust boundaries, and live versus planned capabilities |
+| [Administration and learner use cases](ADMIN_USE_CASES.md) | Actor journeys, expected results, failure states, and remaining workflows |
 | [Development guide](DEVELOPMENT.md) | Local setup, validation, issue/PR workflow, coding boundaries, tests, migrations, security, and deployment |
 | [External deployment setup](DEPLOYMENT_SETUP.md) | Provider provisioning, secrets, workers, observability, launch order, and integrations that remain disabled until safely configured |
 | [Preflight checks](PREFLIGHT.md) | Running the same checks CI runs, locally, before opening a pull request |

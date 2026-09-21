@@ -29,6 +29,7 @@ This matrix tracks the functional and operational requirements defined in [PRODU
 | LEARN-014 | Diagnostic assessment | Planned | 4 | Optional assessment produces editable explained plan |
 | LEARN-015 | Review mode and spaced repetition | Planned | 4 | Deterministic scheduling tests and due-review UI |
 | LEARN-016 | Explain-aloud practice | Decision required | Expansion | Consent, retention, accessibility, and provider review complete |
+| LEARN-017 | Topic roadmap with graduated analysis questions | Prototype | 2, 4, 8 | Algorithm and system-design topics have three levels; analysis checks approach, failure/edge case, and cost/tradeoff; signed-in cross-device progress and a database-authored catalog remain planned |
 
 ## Pseudocode and evaluation
 

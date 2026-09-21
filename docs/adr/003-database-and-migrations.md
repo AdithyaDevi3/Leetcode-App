@@ -2,7 +2,9 @@
 
 ## Status
 
-Accepted
+Superseded by [ADR-011](011-current-platform-and-admin-console.md). The deployed
+database is Supabase Postgres and the repository uses `node-pg-migrate`; the
+generic provider and Flyway/Prisma choices below are historical context.
 
 ## Context
 

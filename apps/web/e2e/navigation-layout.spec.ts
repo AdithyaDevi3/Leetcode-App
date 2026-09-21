@@ -2,6 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 
 const pageRoutes = [
   '/',
+  '/admin',
   '/auth',
   '/dashboard',
   '/history',
@@ -11,9 +12,16 @@ const pageRoutes = [
   '/onboarding',
   '/practice',
   '/requests',
+  '/roadmap',
   '/settings',
   '/system-design',
 ] as const;
+
+test('signed-out visitors are redirected away from administration', async ({ page }) => {
+  await page.goto('/admin');
+  await expect(page).toHaveURL(/\/auth\?next=%2Fadmin$/);
+  await expect(page.getByRole('heading', { name: 'Save your progress' })).toBeVisible();
+});
 
 async function expectCleanLayout(page: Page) {
   const report = await page.evaluate(() => {
@@ -95,4 +103,23 @@ test('shared navigation performs a reliable document navigation', async ({ page 
   await expect(
     page.getByRole('heading', { level: 1, name: 'Remember what you have seen' }),
   ).toBeVisible();
+});
+
+test('guest can browse both question tracks and save a system-design analysis', async ({ page }) => {
+  await page.goto('/roadmap');
+  await expect(page.getByRole('heading', { name: 'Question roadmap' })).toBeVisible();
+  await expect(page.getByRole('button', { name: /Pair with target/ })).toBeVisible();
+
+  await page.getByRole('button', { name: 'System design' }).click();
+  await expect(page.getByRole('button', { name: /Scope a short-link service/ })).toBeVisible();
+  await page.getByRole('button', { name: /Scope a short-link service/ }).click();
+  await page.getByLabel('1. Describe your architecture').fill('Create and shorten links through an API, then redirect each read through a durable mapping store. Set explicit latency and availability goals.');
+  await page.getByLabel('2. Handle a failure or abuse case').fill('Reject an invalid or expired link and prevent abuse or key collisions.');
+  await page.getByLabel('3. Quantify scale and a tradeoff').fill('Plan for 10 million links with a 100 to 1 read to write ratio.');
+  await page.getByRole('button', { name: 'Check my analysis' }).click();
+  await expect(page.getByRole('heading', { name: 'Analysis complete' })).toBeVisible();
+
+  await page.reload();
+  await page.getByRole('button', { name: 'System design' }).click();
+  await expect(page.getByRole('button', { name: /Scope a short-link service[\s\S]*Analysis complete/ })).toBeVisible();
 });

@@ -26,3 +26,39 @@ export type { PracticeSessionRepository } from './repositories/practice-session.
 // Evaluation repository
 export { PostgresEvaluationRepository } from './repositories/evaluation.repository.js';
 export type { EvaluationRepository } from './repositories/evaluation.repository.js';
+
+// Administration repository
+export {
+  AdministrationUserNotFoundError,
+  AdministratorAlreadyExistsError,
+  LastAdministratorError,
+  PostgresAdministrationRepository,
+} from './repositories/administration.repository.js';
+export type {
+  AdministrationAppeal,
+  AdministrationAuditEvent,
+  AdministrationContentItem,
+  AdministrationFeedback,
+  AdministrationOperations,
+  AdministrationOverview,
+  AdministrationPrivacyRequest,
+  AdministrationUser,
+} from './repositories/administration.repository.js';
+
+// Classroom repository
+export {
+  ClassCodeNotFoundError,
+  ClassroomNotFoundError,
+  DuplicateClassAssignmentError,
+  InvalidClassActivityError,
+  PostgresClassroomRepository,
+  generateClassCode,
+} from './repositories/classroom.repository.js';
+export type {
+  ClassAssignment,
+  ClassLearner,
+  ClassroomDetail,
+  ClassroomSummary,
+  StudentAssignment,
+  StudentClassroom,
+} from './repositories/classroom.repository.js';

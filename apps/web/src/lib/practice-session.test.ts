@@ -45,7 +45,7 @@ describe("practice-session helpers", () => {
       codeChecked: true,
       completed: false,
       evaluation: {
-        rubricVersion: "reasoning-rubric-v2",
+        rubricVersion: "reasoning-rubric-v3",
         approved: false,
         score: 50,
         summary: "Halfway there.",

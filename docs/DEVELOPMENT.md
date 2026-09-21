@@ -170,14 +170,11 @@ Do not commit directly to protected `main` once branch protection is enabled.
 
 ### Current integration policy
 
-While the consolidated `phase-3-evaluation-platform` pull request to `main` is
-open, create one branch and one focused pull request for each remaining roadmap
-work package. Target those focused pull requests at
-`phase-3-evaluation-platform`, not `main`; merging an approved focused PR into
-the integration branch updates the consolidated PR automatically. Do not open
-duplicate PRs for historical branches whose commits are already reachable from
-the integration branch. Each focused PR must remain independently testable and
-must not include unrelated roadmap work.
+`main` is the deployable integration branch and Vercel production source. Start
+each change from an updated `main`, use one short-lived branch and one focused
+pull request, and target that pull request directly at `main` unless a currently
+open ADR explicitly defines a temporary stacked dependency. Do not revive old
+phase integration branches or duplicate work already reachable from `main`.
 
 ## Issue template
 

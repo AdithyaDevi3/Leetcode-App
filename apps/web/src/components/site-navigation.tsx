@@ -7,6 +7,8 @@ import { useViewer } from '@/lib/use-viewer';
 
 const navigationItems = [
   { href: "/practice", label: "Practice" },
+  { href: "/roadmap", label: "Roadmap" },
+  { href: "/classes", label: "Classes" },
   { href: "/learn", label: "Plan" },
   { href: "/system-design", label: "System design" },
   { href: "/dashboard", label: "Dashboard" },
@@ -23,7 +25,9 @@ type SiteNavigationProps = {
 
 export function SiteNavigation({ currentPath }: SiteNavigationProps) {
   const viewer = useViewer();
-  const items = viewer ? navigationItems : [...navigationItems, { href: '/auth', label: 'Sign in' }];
+  const items = viewer
+    ? [...navigationItems, ...(viewer.canAccessAdministration ? [{ href: '/admin', label: 'Admin' }] : [])]
+    : [...navigationItems, { href: '/auth', label: 'Sign in' }];
   return (
     <nav
       aria-label="Primary navigation"

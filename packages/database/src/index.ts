@@ -44,3 +44,21 @@ export type {
   AdministrationPrivacyRequest,
   AdministrationUser,
 } from './repositories/administration.repository.js';
+
+// Classroom repository
+export {
+  ClassCodeNotFoundError,
+  ClassroomNotFoundError,
+  DuplicateClassAssignmentError,
+  InvalidClassActivityError,
+  PostgresClassroomRepository,
+  generateClassCode,
+} from './repositories/classroom.repository.js';
+export type {
+  ClassAssignment,
+  ClassLearner,
+  ClassroomDetail,
+  ClassroomSummary,
+  StudentAssignment,
+  StudentClassroom,
+} from './repositories/classroom.repository.js';

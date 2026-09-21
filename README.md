@@ -40,6 +40,8 @@ The first deployable product slice lives in [apps/web](apps/web). It includes:
 - Responsive desktop and mobile layouts.
 - A role-scoped administration portal with live operational summaries, safe
   queue views, audited operator-role changes, and deny-by-default Supabase RLS.
+- Administrator-created classes with join codes, learner enrollment, assigned
+  practice activities, due dates, and completion progress.
 - Unit tests, CI, a health endpoint, and a non-root production container.
 
 Run it locally from the repository root:

@@ -439,17 +439,18 @@ export async function completePracticeSession(input: {
 
     const session = sessionResult.rows[0];
     const nextStage = input.currentStage ?? session.current_stage;
-    const nextStatus = input.completed ? 'completed' : 'in_progress';
+    const nextStatus = input.completed || session.status === 'completed' ? 'completed' : 'in_progress';
 
     await db.query(
       `UPDATE practice_sessions
        SET current_stage = $2,
            status = $3,
            session_metadata = jsonb_set(session_metadata, '{completed}', to_jsonb($4::boolean), true),
+           completed_at = CASE WHEN $4::boolean THEN COALESCE(completed_at, NOW()) ELSE completed_at END,
            revision = revision + 1,
            updated_at = NOW()
        WHERE id = $1 AND ${ownerColumn(input.owner)} = $5`,
-      [input.sessionId, nextStage, nextStatus, input.completed, input.owner.id],
+      [input.sessionId, nextStage, nextStatus, nextStatus === 'completed', input.owner.id],
     );
 
     const refreshed = await db.query<PracticeSessionRecord>(

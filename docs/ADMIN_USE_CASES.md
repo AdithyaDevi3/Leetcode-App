@@ -1,6 +1,6 @@
 # Administration and Learner Use Cases
 
-These use cases describe behavior implemented on `main` as of 2026-09-20.
+These use cases describe behavior implemented on this branch as of 2026-09-20.
 “Planned” entries are the next workflow boundaries, not available controls.
 Read [Administration and Learner Architecture](ADMIN_ARCHITECTURE.md) for the
 components, role matrix, data model, and authorization sequence.
@@ -9,7 +9,7 @@ components, role matrix, data model, and authorization sequence.
 
 | Actor | Identity | Scope |
 |---|---|---|
-| Guest learner | Validated guest session cookie | Practice and own feedback requests; no admin access. |
+| Guest learner | Validated guest session cookie | Practice and own feedback requests; no admin or class enrollment. |
 | Signed-in learner | Supabase Auth account and application user row | Own practice, feedback, appeals, and account lifecycle requests. |
 | Operator | Signed-in learner with one or more active database administration roles | Role-scoped admin views; still uses the learner app. |
 | Administrator | Operator with `administrator` role | All admin views and audited role changes. |
@@ -68,7 +68,7 @@ change action. Invalid submissions return `400`; data failures return `500`.
 **Outcome:** The operator can identify pending or reviewed appeals without
 seeing the learner's full context in the portal. The admin portal cannot approve
 or reject appeals. The existing internal token route can resolve them outside
-this flow; see UC-11. Unauthenticated requests return `401`; an unowned job
+this flow; see UC-15. Unauthenticated requests return `401`; an unowned job
 returns `404`.
 
 ### UC-04: Request account export or deletion
@@ -121,9 +121,70 @@ or worker credentials. There are no queue retry, cancel, or kill-switch actions.
 **Outcome:** Authorized users receive bounded metadata lists. Direct requests
 to a page without its action permission show the area-denied view.
 
+## Implemented classroom journeys
+
+### UC-07: Create a class and share its code
+
+**Actor:** Administrator.
+
+1. Open `/admin/classes`, give the class a name and optional description, and
+   provide an audit reason.
+2. The server checks `classes.manage`, generates a unique 12-character code,
+   creates the class, and records the audit event in one transaction.
+3. Open the class page and share the displayed code with intended learners.
+
+**Outcome:** The class appears in the admin list. The code is not exposed by a
+public class directory. An invalid form or unauthorized account cannot create
+a class. A signed-in learner can still use regular practice without a code.
+
+### UC-08: Join a class
+
+**Actor:** Signed-in learner.
+
+1. Open `/classes` and enter the code, with or without its displayed hyphen.
+2. The server verifies the learner's session, finds the active class, and adds
+   an enrollment. Entering the same code again leaves one enrollment.
+3. The learner sees the class and its tasks. The administrator sees the learner
+   in the class roster.
+
+**Outcome:** Class membership links the learner and administrator views without
+granting any administration role. Guests must sign in. An invalid code returns
+a generic error without revealing other classes.
+
+### UC-09: Assign practice to a class
+
+**Actor:** Administrator.
+
+1. Open a class, enter a task title, select one existing published practice
+   activity, optionally add instructions and a due date, and give an audit
+   reason.
+2. The server checks `classes.manage`, validates the activity, and creates the
+   assignment and audit event together.
+3. Every enrolled learner sees the task at `/classes` and can open its activity
+   in the existing practice workspace.
+
+**Outcome:** One class can have multiple tasks, but the same activity can be
+assigned only once to that class. A duplicate assignment is rejected without a
+second audit event. Individual learner assignments and custom written tasks are
+not part of this slice.
+
+### UC-10: Track task completion
+
+**Actors:** Signed-in learner and administrator.
+
+1. The learner completes the assigned activity through the existing verified
+   code test flow.
+2. `/classes` reads the learner's owned practice session status and shows the
+   task as complete. The admin class page shows completion counts per task and
+   learner.
+
+**Outcome:** Passing verification marks the practice session complete; no
+manual class submission or grading step is required. Prior verified completion
+of the same activity also counts. Drafts and unverified pseudocode do not count.
+
 ## Implemented access-management journeys
 
-### UC-07: Provision the first administrator
+### UC-11: Provision the first administrator
 
 **Actor:** Authorized maintainer using the operational command.
 **Preconditions:** The target email belongs to a confirmed Supabase Auth user;
@@ -141,7 +202,7 @@ command refuses a second bootstrap and refuses an unknown or unconfirmed
 account. Migration backfill of legacy `users.role = 'admin'` accounts can mean an
 administrator already exists before this command runs.
 
-### UC-08: Change operator roles
+### UC-12: Change operator roles
 
 **Actor:** Administrator. **Precondition:** An active `administrator` assignment
 and an account in the People list.
@@ -161,7 +222,7 @@ insufficient permission fails without applying a change. Database failure
 rolls back role and audit writes together. The page has no account search, so
 the editor currently covers only the latest 50 accounts.
 
-### UC-09: Prevent removal of the final administrator
+### UC-13: Prevent removal of the final administrator
 
 **Actor:** Administrator attempting to remove an administrator role.
 
@@ -172,7 +233,7 @@ the editor currently covers only the latest 50 accounts.
 **Outcome:** If none remains, the change is rejected and the page displays the
 error. Other roles and audit data are not partially written.
 
-### UC-10: Handle signed-out, unauthorized, and unavailable states
+### UC-14: Handle signed-out, unauthorized, and unavailable states
 
 **Actors:** Visitor, learner, operator.
 
@@ -186,7 +247,7 @@ error. Other roles and audit data are not partially written.
 
 ## Existing workflow outside the portal
 
-### UC-11: Resolve an appeal through the legacy internal endpoint
+### UC-15: Resolve an appeal through the legacy internal endpoint
 
 **Actor:** Caller holding `EVALUATION_REVIEWER_TOKEN`.
 

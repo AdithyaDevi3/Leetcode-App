@@ -8,6 +8,7 @@ import type { AdministrationPrincipal } from '@/lib/admin/authorization';
 
 const adminLinks: Array<{ href: string; label: string; action: AdministrationAction }> = [
   { href: '/admin', label: 'Overview', action: 'administration.access' },
+  { href: '/admin/classes', label: 'Classes', action: 'classes.read' },
   { href: '/admin/users', label: 'People & roles', action: 'users.read' },
   { href: '/admin/content', label: 'Content', action: 'content.read' },
   { href: '/admin/operations', label: 'Operations', action: 'operations.read' },

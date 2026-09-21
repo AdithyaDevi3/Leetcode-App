@@ -12,6 +12,7 @@ export default async function AdminOverviewPage() {
   const { data, principal } = access;
   const can = (action: Parameters<typeof canPerformAdministrationAction>[1]) => canPerformAdministrationAction(principal.roles, action);
   const areas = [
+    can('classes.read') && { href: '/admin/classes', label: 'Classes', description: 'Create join codes and assign practice to enrolled learners.' },
     can('users.read') && { href: '/admin/users', label: 'People & roles', description: 'Review accounts and operator assignments.' },
     can('content.read') && { href: '/admin/content', label: 'Content', description: 'Inspect the versioned curriculum inventory.' },
     can('operations.read') && { href: '/admin/operations', label: 'Operations', description: 'Watch evaluation and execution queues.' },

@@ -7,6 +7,7 @@ import { useViewer } from '@/lib/use-viewer';
 
 const navigationItems = [
   { href: "/practice", label: "Practice" },
+  { href: "/classes", label: "Classes" },
   { href: "/learn", label: "Plan" },
   { href: "/system-design", label: "System design" },
   { href: "/dashboard", label: "Dashboard" },

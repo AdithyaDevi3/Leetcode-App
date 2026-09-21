@@ -18,6 +18,8 @@ describe('learner profile model', () => {
 
   it('recognizes a complete profile response', () => {
     expect(isLearnerProfile(profile)).toBe(true);
+    expect(isLearnerProfile({ ...profile, preferredLanguage: 'cpp' })).toBe(true);
+    expect(isLearnerProfile({ ...profile, preferredLanguage: 'ruby' })).toBe(false);
     expect(isLearnerProfile({ goal: 'interview' })).toBe(false);
   });
 });

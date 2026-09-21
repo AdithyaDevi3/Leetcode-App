@@ -27,7 +27,7 @@ The repository currently contains these working product areas:
 |---|---|
 | Algorithm curriculum and algorithm/system-design roadmap | `apps/web/src/lib/content.ts`, `apps/web/src/lib/roadmap.ts`, `/practice`, `/roadmap` |
 | Pseudocode analysis and feedback | `apps/web/src/lib/evaluator.ts`, evaluation quality fixtures, practice evaluation APIs |
-| TypeScript and Python verification | `apps/web/src/lib/sandbox`, execution APIs, activity test suites |
+| Python 3, C++20, and TypeScript verification | `apps/web/src/lib/sandbox`, execution APIs, activity test suites |
 | Learner profiles and recommendations | onboarding, `/learn`, dashboard, mastery and local learner modules |
 | Classes and assigned practice | `/admin/classes`, `/classes`, classroom repository and migration |
 | Authentication and persistence | Supabase Auth, PostgreSQL repositories and migrations |
@@ -42,7 +42,7 @@ does not create a verified coding activity by itself.
 Good next contributions are coherent slices with clear evidence:
 
 - Add original practice activities so each roadmap level can continue from
-  written analysis into verified TypeScript and Python code.
+  written analysis into verified Python 3, C++20, and TypeScript code.
 - Move the reviewed question catalog into versioned database content with an
   authored import/publish workflow, pagination, and server-side search so the
   catalog can grow beyond the initial 48 questions.

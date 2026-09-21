@@ -1,6 +1,6 @@
 export type LearnerGoal = 'interview' | 'coursework' | 'career_change' | 'exploration';
 export type LearnerExperience = 'new' | 'some' | 'experienced';
-export type LearnerLanguage = 'typescript' | 'python';
+export type LearnerLanguage = 'python' | 'cpp' | 'typescript';
 
 export type LearnerProfile = {
   goal: LearnerGoal;
@@ -57,7 +57,7 @@ export function isLearnerProfile(value: unknown): value is LearnerProfile {
   const profile = value as Partial<LearnerProfile>;
   return typeof profile.goal === 'string'
     && typeof profile.experience === 'string'
-    && typeof profile.preferredLanguage === 'string'
+    && (profile.preferredLanguage === 'python' || profile.preferredLanguage === 'cpp' || profile.preferredLanguage === 'typescript')
     && typeof profile.weeklyMinutes === 'number'
     && typeof profile.timezone === 'string'
     && typeof profile.diagnosticOptIn === 'boolean';

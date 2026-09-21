@@ -22,7 +22,7 @@ flowchart LR
 | Identity | Supabase email/password Auth with server-side cookie refresh and guest-to-account merge code |
 | Data | Supabase Postgres accessed through server-only repository code; `node-pg-migrate` migrations live in `packages/database/migrations` |
 | Evaluation | Deterministic evaluator and database-backed job foundations; optional AI path remains disabled by default |
-| Code execution | Ephemeral Vercel Sandbox microVMs for TypeScript and Python, with network denied and bounded runtime/output |
+| Code execution | Ephemeral Vercel Sandbox microVMs for Python 3, C++20, and TypeScript, with network denied and bounded runtime/output |
 | Personalization | Explainable deterministic ranking using profile, practice history, review age, and local mastery evidence |
 | Offline behavior | Network-first navigation with a self-contained cached fallback; application drafts also use guarded browser storage |
 | Administration | `/admin` uses Supabase sessions plus database role assignments for least-privilege server authorization; read-only operational views, audited role management, and administrator-managed classes are available, while appeal resolution still uses the legacy reviewer token |

@@ -399,7 +399,7 @@ Score candidates using review due, prerequisites, weakness match, goal relevance
 
 ### 5.1 Select and threat-model sandbox provider
 
-Validate language support, isolation, network policy, regional processing, retention, quotas, pricing, incident history, and deletion behavior. Start with TypeScript and Python unless user research changes the decision.
+Validate language support, isolation, network policy, regional processing, retention, quotas, pricing, incident history, and deletion behavior. Python 3 and C++20 are the primary learner languages; TypeScript remains supported.
 
 ### 5.2 Define execution contracts
 

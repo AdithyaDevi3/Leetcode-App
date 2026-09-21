@@ -24,7 +24,7 @@ Primary Options Evaluated:
 
 Rationale:
 - Firecracker microVM isolation keeps untrusted code outside the web function
-- TypeScript and Python are available in the managed universal image
+- Python 3, C++20, and TypeScript are available in the managed universal image
 - Network policy can deny all sandbox egress
 - Production uses short-lived Vercel OIDC instead of a stored sandbox token
 - Judge0 remains available where self-hosting or broader language support is required
@@ -95,10 +95,11 @@ Alert on:
 
 **Phase 1:**
 - Python 3.14 (managed universal image)
+- C++20 compiled with `g++` inside the isolated microVM
 - TypeScript transpiled server-side and executed on Node.js 24
 
 **Future:**
-- Java, C++, Go through Judge0 or reviewed custom images after security review
+- Java and Go through Judge0 or reviewed custom images after security review
 
 ### Failure Modes
 

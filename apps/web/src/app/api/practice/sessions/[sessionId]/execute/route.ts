@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { validateExecutionRequest, type ExecutionRequest } from '@leetcode-app/domain';
+import { isExecutionLanguage, validateExecutionRequest, type ExecutionRequest } from '@leetcode-app/domain';
 import { requireAuth } from '@/lib/auth/session';
 import { createExecutionJobStore } from '@/lib/execution-jobs-postgres';
 import { validateExecutionPolicy } from '@/lib/sandbox/execution-policy';
@@ -13,7 +13,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ ses
     const session = await requireAuth();
     const { sessionId } = await params;
     const body = await request.json().catch(() => null) as Partial<ExecutionRequest> | null;
-    if (!body || (body.language !== 'typescript' && body.language !== 'python') || typeof body.source !== 'string') {
+    if (!body || !isExecutionLanguage(body.language) || typeof body.source !== 'string') {
       return NextResponse.json({ error: 'A supported language and source are required' }, { status: 400 });
     }
     const executionRequest: ExecutionRequest = { language: body.language, source: body.source, stdin: body.stdin, limits: executionLimits };

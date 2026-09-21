@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { validateExecutionRequest, type ExecutionLanguage } from '@leetcode-app/domain';
+import { isExecutionLanguage, validateExecutionRequest } from '@leetcode-app/domain';
 
 import { getPracticeOwner } from '@/lib/auth/session';
 import { buildGradedExecutionRequest, parseCodeGrade } from '@/lib/code-grading';
@@ -24,11 +24,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ ses
     const owner = await getPracticeOwner();
     const { sessionId } = await params;
     const body = await request.json().catch(() => null) as VerificationBody | null;
-    if (!body || (body.language !== 'typescript' && body.language !== 'python') || typeof body.source !== 'string') {
+    if (!body || !isExecutionLanguage(body.language) || typeof body.source !== 'string') {
       return NextResponse.json({ error: 'A supported language and source are required' }, { status: 400 });
     }
 
-    const language = body.language as ExecutionLanguage;
+    const language = body.language;
     const ungradedRequest = { language, source: body.source, limits: executionLimits };
     const errors = [...validateExecutionRequest(ungradedRequest), ...validateExecutionPolicy(ungradedRequest)];
     if (errors.length) return NextResponse.json({ error: 'Invalid execution request', details: errors }, { status: 400 });

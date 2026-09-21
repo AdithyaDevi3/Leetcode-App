@@ -1,7 +1,7 @@
 # Maintainer Quick Start
 
 This is the practical starting point for taking over Method. It describes the
-deployed application as of 2026-09-14, where common changes belong, and the
+deployed application as of 2026-09-21, where common changes belong, and the
 shortest safe path to the first administration console.
 
 ## Ten-minute orientation
@@ -28,7 +28,7 @@ network or a permitted VPN. Changing application redirects cannot repair DNS.
 | Navigation | Home, roadmap, onboarding, dashboard, learn, library, practice, history, requests, settings, system design, and auth routes render with shared responsive navigation | `apps/web/src/app`, `apps/web/src/components/site-navigation.tsx` |
 | Practice | Ten original activities support structured-English and block-style pseudocode, drafts, staged progress, history, and deterministic feedback | `apps/web/src/lib/content.ts`, `apps/web/src/components/practice-workspace.tsx` |
 | Topic roadmap | Eight algorithm and eight system-design topics each provide foundation, intermediate, and advanced analysis questions; search, filters, and browser-local progress support browsing the 48-question catalog | `apps/web/src/app/roadmap`, `apps/web/src/lib/roadmap.ts`, `apps/web/src/lib/roadmap-evaluation.ts` |
-| Code grading | TypeScript and Python solutions run against server-owned tests; only an all-tests-passing report completes verified practice | `apps/web/src/lib/code-grading.ts`, `apps/web/src/app/api/practice/sessions/[sessionId]/verify/route.ts` |
+| Code grading | Python 3, C++20, and TypeScript solutions run against server-owned tests; only an all-tests-passing report completes verified practice | `apps/web/src/lib/code-grading.ts`, `apps/web/src/app/api/practice/sessions/[sessionId]/verify/route.ts` |
 | Isolation | Production code runs in ephemeral, network-denied Vercel Sandbox microVMs with runtime and output limits; Judge0 remains an optional self-hosted fallback | `apps/web/src/lib/sandbox` |
 | Persistence | Supabase Postgres stores guest identities, sessions, revisions, evaluations, history, profiles, requests, notes, bookmarks, and queue records | `packages/database/migrations`, `apps/web/src/lib/practice-api.ts` |
 | Authentication | Supabase email/password signup, confirmation, sign-in, sign-out, server session refresh, and guest-progress merge are implemented | `apps/web/src/app/auth`, `apps/web/src/lib/auth/session.ts`, `apps/web/src/middleware.ts` |
@@ -155,7 +155,8 @@ Supabase Auth account:
 pnpm admin:bootstrap -- owner@example.com "Initial project administrator"
 ```
 
-The command refuses to run after an administrator exists. Subsequent role
+The command refuses to run after an administrator exists. Its role assignment
+and audit event use one database transaction. Subsequent role
 changes belong in `/admin/users`, where the portal prevents removal of the final
 administrator and records the actor, target, reason, request ID, and before/after
 roles. Do not assign roles through signup, email-domain rules, `user_metadata`,
@@ -176,6 +177,16 @@ Before enabling this release in staging or production, apply migration
 verify the class pages with a non-production administrator and learner. The web
 deployment must follow the migration so the new server queries have their tables
 and indexes available.
+
+### Change solution-language support
+
+The learner workspace offers Python 3 first, C++20 second, and TypeScript as an
+additional option. A language is complete only when the domain execution type,
+API validation, starter generation, server-owned grading harness, Vercel
+Sandbox command, Judge0 mapping, preferences, documentation, and tests agree.
+Do not add a selector option before the corresponding isolated runtime and
+hidden-test harness are available. Judge0 language IDs remain environment
+overrides because self-hosted instances may expose different compiler sets.
 
 ### Change production behavior
 

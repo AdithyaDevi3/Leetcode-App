@@ -65,6 +65,24 @@ describe('Vercel Sandbox adapter', () => {
     expect(sandbox.stop).toHaveBeenCalledOnce();
   });
 
+  it('compiles and runs C++20 in the isolated microVM', async () => {
+    const sandbox = fakeSandbox({
+      '/vercel/sandbox/stdout.txt': '2\n',
+      '/vercel/sandbox/exit-code.txt': '0',
+    });
+    const createSandbox = vi.fn().mockResolvedValue(sandbox);
+
+    await expect(createVercelSandbox({ createSandbox }).execute({
+      ...request,
+      language: 'cpp',
+      source: '#include <iostream>\nint main() { std::cout << 2 << "\\n"; }',
+    })).resolves.toMatchObject({ status: 'completed', stdout: '2\n' });
+
+    expect(sandbox.writeFiles.mock.calls[0][0][0].path).toBe('/vercel/sandbox/submission.cpp');
+    expect(sandbox.runCommand.mock.calls[0][1][1]).toContain('g++ -std=c++20 -O2 -pipe');
+    expect(sandbox.runCommand.mock.calls[0][1][1]).toContain('/vercel/sandbox/submission-bin');
+  });
+
   it('always stops the sandbox after infrastructure errors', async () => {
     const sandbox = fakeSandbox({});
     sandbox.runCommand.mockRejectedValue(new Error('provider unavailable'));

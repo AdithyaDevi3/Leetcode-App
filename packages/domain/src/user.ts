@@ -206,7 +206,7 @@ export const DEFAULT_USER_PREFERENCES: Omit<
 > = {
   theme: 'system',
   contentLanguage: 'en',
-  preferredCodeLanguage: 'typescript',
+  preferredCodeLanguage: 'python',
   difficultyPreference: 'mixed',
   enableAiHints: false,
   enableAiExplanations: false,

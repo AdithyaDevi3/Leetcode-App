@@ -29,6 +29,7 @@ const paths = {
   stdout: '/vercel/sandbox/stdout.txt',
   stderr: '/vercel/sandbox/stderr.txt',
   exitCode: '/vercel/sandbox/exit-code.txt',
+  executable: '/vercel/sandbox/submission-bin',
 } as const;
 
 function transpile(source: string): { source: string; error?: string } {
@@ -85,7 +86,7 @@ export function createVercelSandbox(config: VercelSandboxConfig = {}) {
         });
       }
 
-      const extension = request.language === 'typescript' ? '.js' : '.py';
+      const extension = request.language === 'typescript' ? '.js' : request.language === 'python' ? '.py' : '.cpp';
       const sourcePath = `${paths.source}${extension}`;
       const sandbox = await createSandbox({
         persistent: false,
@@ -106,7 +107,9 @@ export function createVercelSandbox(config: VercelSandboxConfig = {}) {
         const memoryKb = request.limits.memoryMb * 1024;
         const runtimeCommand = request.language === 'typescript'
           ? `node --max-old-space-size=${Math.max(32, request.limits.memoryMb - 96)} ${sourcePath}`
-          : `ulimit -v ${memoryKb}; python3 ${sourcePath}`;
+          : request.language === 'python'
+            ? `ulimit -v ${memoryKb}; python3 ${sourcePath}`
+            : `if g++ -std=c++20 -O2 -pipe ${sourcePath} -o ${paths.executable}; then ulimit -v ${memoryKb}; ${paths.executable}; else exit $?; fi`;
         const shellScript = [
           'set +e',
           `ulimit -f ${outputBlocks}`,

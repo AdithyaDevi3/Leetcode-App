@@ -6,7 +6,7 @@ import { readBrowserStorage, writeBrowserStorage } from './safe-browser-storage'
 export type LocalLearnerProfile = {
   goal: 'interview' | 'coursework' | 'career_change' | 'exploration';
   experience: 'new' | 'some' | 'experienced';
-  preferredLanguage: 'typescript' | 'python';
+  preferredLanguage: 'python' | 'cpp' | 'typescript';
   weeklyMinutes: number;
   timezone: string;
   diagnosticOptIn: boolean;
@@ -64,7 +64,7 @@ export const personalizationPolicy = {
 export const defaultLocalLearnerProfile: LocalLearnerProfile = {
   goal: 'interview',
   experience: 'new',
-  preferredLanguage: 'typescript',
+  preferredLanguage: 'python',
   weeklyMinutes: 120,
   timezone: 'UTC',
   diagnosticOptIn: false,
@@ -221,7 +221,7 @@ export function readLocalLearnerProfile(): LocalLearnerProfile | null {
       !value ||
       !isOneOf(value.goal, ['interview', 'coursework', 'career_change', 'exploration']) ||
       !isOneOf(value.experience, ['new', 'some', 'experienced']) ||
-      !isOneOf(value.preferredLanguage, ['typescript', 'python']) ||
+      !isOneOf(value.preferredLanguage, ['python', 'cpp', 'typescript']) ||
       typeof value.weeklyMinutes !== 'number' ||
       !Number.isInteger(value.weeklyMinutes) ||
       value.weeklyMinutes < 30 ||

@@ -3,7 +3,16 @@ import type { CodeGrade } from './code-grading';
 import { astProgramToBlocks, blockModelToDraft, draftToBlockModel } from "./ast-block-adapter";
 
 export type EditorMode = "text" | "blocks";
-export type CodingLanguage = "typescript" | "python";
+export type CodingLanguage = "python" | "cpp" | "typescript";
+
+export const codingLanguages: Array<{ value: CodingLanguage; label: string; runtime: string }> = [
+  { value: "python", label: "Python 3", runtime: "python3" },
+  { value: "cpp", label: "C++", runtime: "C++20" },
+  { value: "typescript", label: "TypeScript", runtime: "Node.js" },
+];
+
+export const codingLanguageLabel = (language: CodingLanguage) =>
+  codingLanguages.find((option) => option.value === language)?.label ?? "Python 3";
 
 export type PracticeSessionState = {
   draft: string;
@@ -32,6 +41,35 @@ const pythonSignature = (signature: string) => signature
   .replace(/number/g, "int")
   .replace(/string/g, "str");
 
+const cppSignature = (signature: string) => signature
+  .split(", ")
+  .map((parameter) => {
+    const [name, type] = parameter.split(": ");
+    const cppType = type
+      ?.replace(/number\[\]\[\]/g, "vector<vector<int>>")
+      .replace(/number\[\]/g, "vector<int>")
+      .replace(/string\[\]\[\]/g, "vector<vector<string>>")
+      .replace(/string\[\]/g, "vector<string>")
+      .replace(/TreeNode \| null/g, "TreeNode*")
+      .replace(/number/g, "int")
+      .replace(/string/g, "string");
+    return `${cppType} ${name}`;
+  })
+  .join(", ");
+
+const cppReturnType: Record<string, string> = {
+  findPair: "vector<int>",
+  maxWindowSum: "int",
+  maxDepth: "int",
+  isBalanced: "bool",
+  climbStairs: "int",
+  countIslands: "int",
+  taskOrder: "vector<string>",
+  twoSumWindow: "vector<int>",
+  coinChangeLite: "int",
+  findFirstUniqueIndex: "int",
+};
+
 export const defaultCode = (
   functionName: string,
   signature = defaultSignatureFor(functionName),
@@ -40,6 +78,11 @@ export const defaultCode = (
   ? `def ${snakeCase(functionName)}(${pythonSignature(signature)}):
     # Translate your approved plan here.
     pass`
+  : language === "cpp"
+    ? `${cppReturnType[functionName] ?? "int"} ${functionName}(${cppSignature(signature)}) {
+  // Translate your approved plan here.
+  throw runtime_error("Not implemented");
+}`
   : `function ${functionName}(${signature}) {
   // Translate your approved plan here.
 }`;
@@ -76,6 +119,16 @@ export const buildCodeFromPlanForLanguage = (
   language: CodingLanguage,
 ) => {
   if (language === "typescript") return buildCodeFromPlan(functionName, signature, plan);
+
+  if (language === "cpp") {
+    const planComments = splitDraftIntoBlocks(plan)
+      .map((line) => `  // ${line}`)
+      .join("\n");
+    return `${cppReturnType[functionName] ?? "int"} ${functionName}(${cppSignature(signature)}) {
+${planComments || "  // Translate your approved plan here."}
+  throw runtime_error("Not implemented");
+}`;
+  }
 
   const planComments = splitDraftIntoBlocks(plan)
     .map((line) => `    # ${line}`)
@@ -131,7 +184,7 @@ export const deserializePracticeSession = (value: string): PracticeSessionState 
     return {
       draft: parsed.draft,
       mode: parsed.mode,
-      language: parsed.language === "python" ? "python" : "typescript",
+      language: parsed.language === "python" || parsed.language === "cpp" ? parsed.language : "typescript",
       code: parsed.code,
       codeChecked: parsed.codeChecked,
       completed: parsed.completed && isCodeGrade(parsed.codeGrade) && parsed.codeGrade.passed,

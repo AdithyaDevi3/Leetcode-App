@@ -1,10 +1,17 @@
 # Implementation status notes
 
-Snapshot: `main` after the Supabase/Vercel integration. This is an implementation ledger, not a declaration that any phase has passed its exit criteria. Code still requires tests, operational evidence, and the acceptance criteria named in [IMPLEMENTATION_ROADMAP.md](IMPLEMENTATION_ROADMAP.md).
+Snapshot: `main` as of 2026-09-21 after the administration, classrooms,
+roadmap, and dependency releases. This is an implementation ledger, not a
+declaration that any phase has passed its exit criteria. Code still requires
+tests, operational evidence, and the acceptance criteria named in
+[IMPLEMENTATION_ROADMAP.md](IMPLEMENTATION_ROADMAP.md).
 
 ## Current priority: private-beta path
 
-The intended beta path is one hash-map practice activity: start as a guest or sign in, write pseudocode, save and resume it, submit an evaluation, review deterministic feedback, and optionally unlock the TypeScript workspace.
+The intended beta path is one algorithm practice activity: start as a guest or
+sign in, write pseudocode, save and resume it, submit an evaluation, review
+deterministic feedback, and optionally unlock the Python 3, C++20, or TypeScript
+workspace.
 
 Implemented foundations:
 
@@ -14,6 +21,12 @@ Implemented foundations:
 - Evaluation safety boundaries: AI kill switch, redaction, schema validation, timeout, and conservative evidence merge.
 - Request correlation, bounded in-process submission rate limits, evaluation/execution queue health, and stale-worker lease recovery.
 - Supabase email/password Auth, server-side session refresh, durable Supabase Postgres persistence, curriculum seeds, guest continuity, notes/bookmarks, learner requests, and the study library are merged into `main`.
+- A 48-question algorithm and system-design roadmap provides three analysis
+  levels across 16 topics with search, filters, deterministic feedback, and
+  browser-local progress.
+- The role-scoped administration portal, audited role management, class codes,
+  learner enrollment, assigned practice, due dates, and derived completion
+  progress are merged. The classrooms migration is applied in production.
 
 Still required before a private beta can be claimed:
 
@@ -51,19 +64,21 @@ Remaining: staging/production worker operations, trace execution limits with see
 
 ### Phase 4 — learning, mastery, and personalization
 
-Present: concept graph, mastery-update foundation, recommendations, spaced-review scheduling, onboarding-plan/personalization storage, learner-profile API, onboarding UI, and a profile-derived learner-plan API/page awaiting merge.
+Present: concept graph, mastery-update foundation, recommendations, spaced-review scheduling, onboarding-plan/personalization storage, learner-profile API, onboarding UI, and a profile-derived learner-plan API/page.
 
 Remaining: complete onboarding and diagnostic flow, daily home/history/notes/concept-map learner surfaces, stored recommendation outcomes, and pilot evidence for the phase exit criteria.
 
 ### Phase 5 — safe coding workspace
 
-Present: execution contracts, job storage/store, worker, submission/status/cancellation APIs, cancellation/editor UI, result mapping, Vercel Sandbox and Judge0 adapters, provider selection, and execution policy. The Vercel adapter uses ephemeral network-denied microVMs and process runtime/output limits.
+Present: execution contracts, job storage/store, worker, submission/status/cancellation APIs, cancellation/editor UI, result mapping, Vercel Sandbox and Judge0 adapters, provider selection, and execution policy. Python 3, C++20, and TypeScript use server-owned activity suites. The Vercel adapter uses ephemeral network-denied microVMs and process runtime/output limits.
 
 Remaining: validate the Vercel Sandbox integration and limits in preview/production; operate the durable exploratory-execution worker; add distributed quotas and alerts; run abuse/outage drills; complete plan-versus-code feedback.
 
 ### Phase 6 — content operations, administration, and support
 
-Present: content validation/lifecycle workflow and administration authorization foundations.
+Present: content validation/lifecycle workflow, database-backed administration
+authorization, audited role changes, operational views, and administrator
+managed classes and assignments.
 
 Remaining: production author/review/publish workflow, operations queues, privileged-action audit controls, support/privacy/legal workflows, and rollback exercises.
 

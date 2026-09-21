@@ -10,4 +10,8 @@ describe('learner onboarding', () => {
   it('rejects unsafe availability or missing timezone', () => {
     expect(validateLearnerProfile({ ...profile, weeklyMinutes: 0, timezone: '' })).toHaveLength(2);
   });
+  it('accepts C++ and rejects an unsupported language at runtime', () => {
+    expect(validateLearnerProfile({ ...profile, preferredLanguage: 'cpp' })).toEqual([]);
+    expect(validateLearnerProfile({ ...profile, preferredLanguage: 'ruby' as 'cpp' })).toContain('Unsupported preferredLanguage');
+  });
 });

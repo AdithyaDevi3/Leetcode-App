@@ -2,7 +2,7 @@
 
 A working pseudocode-first learning application for algorithms, data structures,
 and system-design practice. The deployed learner experience supports guest
-practice, deterministic feedback, TypeScript and Python verification, and
+practice, deterministic feedback, Python 3, C++20, and TypeScript verification, and
 rules-based personalization.
 
 The app is designed to teach problem-solving before syntax. Learners can practice concepts, express solutions in structured English or visual blocks, receive evaluation and targeted feedback, and only then move into executable code when they choose the pseudocode-to-code workflow.
@@ -40,9 +40,9 @@ The first deployable product slice lives in [apps/web](apps/web). It includes:
 - Local profiles, history-aware practice recommendations, and draft autosave for guest learners.
 - Deterministic, activity-specific reasoning evaluation for every algorithm
   activity, including explicit contradiction checks and fail-closed rubric selection.
-- Server-side TypeScript and Python verification against activity-specific test suites before a solution can be marked complete.
+- Server-side Python 3, C++20, and TypeScript verification against activity-specific test suites before a solution can be marked complete.
 - Local concept-mastery evidence that adjusts practice recommendations as the learner improves.
-- TypeScript and Python coding starters that follow the learner's local language preference.
+- Python 3, C++20, and TypeScript coding starters that follow the learner's local language preference.
 - Responsive desktop and mobile layouts.
 - A role-scoped administration portal with live operational summaries, safe
   queue views, audited operator-role changes, and deny-by-default Supabase RLS.
@@ -78,7 +78,7 @@ The service health check is available at `GET /api/health`.
 
 ### Current security note
 
-The project pins Next.js `16.3.2`. The vulnerable transitive Sharp release is overridden to patched version `0.35.3`. Do not use npm's suggested forced downgrade to Next.js 9.
+The project pins Next.js `16.3.5`. The vulnerable transitive Sharp release is overridden to patched version `0.35.3`. Do not use npm's suggested forced downgrade to Next.js 9.
 
 ## Content and trademark note
 

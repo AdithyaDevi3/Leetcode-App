@@ -54,13 +54,14 @@ This matrix tracks the functional and operational requirements defined in [PRODU
 | ID | Requirement | Status | Phase | Acceptance evidence |
 |---|---|---|---|---|
 | CODE-001 | Approved plan visible beside implementation | Prototype | 5 | Responsive/accessible side-by-side editor |
-| CODE-002 | TypeScript execution | Planned | 5 | Isolated sandbox passes functional and malicious-code suites |
-| CODE-003 | Python execution | Planned | 5 | Isolated sandbox passes functional and malicious-code suites |
+| CODE-002 | TypeScript execution | Prototype | 5 | Server-owned functional suites run in an isolated sandbox; production abuse evidence remains required |
+| CODE-003 | Python 3 execution | Prototype | 5 | Server-owned functional suites run in an isolated sandbox; production abuse evidence remains required |
 | CODE-004 | Formatting, console, and public tests | Prototype | 5 | Provider-backed E2E with accessible status output |
 | CODE-005 | Hidden tests without answer leakage | Planned | 5 | Contract tests verify redacted failure classes |
 | CODE-006 | Plan-to-code mapping and divergence | Planned | 5 | AST/code mapping produces evidence-linked guidance |
 | CODE-007 | Strict compute/network/filesystem limits | Planned | 5 | Independent isolation review and resource-limit tests |
 | CODE-008 | Run quotas, abuse controls, and kill switch | Planned | 5 | Per-user/IP limits and emergency-disable drill |
+| CODE-009 | C++20 execution | Prototype | 5 | Server-owned functional suites compile and run in an isolated sandbox; production abuse evidence remains required |
 
 ## Curriculum and personalization
 

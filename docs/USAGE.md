@@ -31,7 +31,8 @@ network or a permitted VPN. Changing application redirects cannot repair DNS.
 | Isolation | Production code runs in ephemeral, network-denied Vercel Sandbox microVMs with runtime and output limits; Judge0 remains an optional self-hosted fallback | `apps/web/src/lib/sandbox` |
 | Persistence | Supabase Postgres stores guest identities, sessions, revisions, evaluations, history, profiles, requests, notes, bookmarks, and queue records | `packages/database/migrations`, `apps/web/src/lib/practice-api.ts` |
 | Authentication | Supabase email/password signup, confirmation, sign-in, sign-out, server session refresh, and guest-progress merge are implemented | `apps/web/src/app/auth`, `apps/web/src/lib/auth/session.ts`, `apps/web/src/middleware.ts` |
-| Administration | A server-authorized portal exposes role-scoped overview, people, content, operations, feedback, privacy, and audit views; role changes require a reason and append an audit event | `apps/web/src/app/admin`, `apps/web/src/lib/admin`, `packages/database/src/repositories/administration.repository.ts` |
+| Administration | A server-authorized portal exposes role-scoped overview, people, classes, content, operations, feedback, privacy, and audit views; role and class changes are audited | `apps/web/src/app/admin`, `apps/web/src/lib/admin`, `packages/database/src/repositories/administration.repository.ts` |
+| Classes and tasks | Administrators create class codes and assign existing practice activities; signed-in learners join classes and see task progress from verified practice completion | `apps/web/src/app/classes`, `apps/web/src/app/admin/classes`, `packages/database/src/repositories/classroom.repository.ts` |
 | Personalization | A deterministic policy ranks activities using goals, experience, weekly time, preferred language, history, review age, and concept mastery; no neural network is required | `apps/web/src/lib/local-learner.ts`, `apps/web/src/lib/local-mastery.ts` |
 | Resilience | Health endpoints, request IDs, queue recovery foundations, CI/security scans, browser tests, and a build-independent offline fallback exist | `apps/web/src/app/api/health`, `apps/web/public/sw.js`, `.github/workflows` |
 
@@ -158,6 +159,22 @@ changes belong in `/admin/users`, where the portal prevents removal of the final
 administrator and records the actor, target, reason, request ID, and before/after
 roles. Do not assign roles through signup, email-domain rules, `user_metadata`,
 or browser storage.
+
+Administrators create classes at `/admin/classes`. Each class has a server-generated
+join code; share it with learners, who sign in and enter it at `/classes`. A code
+enrolls the learner and reveals that class's assignments. Regular practice stays
+available without a code. Administrators assign one existing practice activity
+per class task, with an optional due date. A task is complete when the learner
+has passed the activity's verified code tests, including completion achieved
+before joining the class. Class creation and task assignment require an audit
+reason. Class editing, code rotation, individual assignment, and manual grading
+are not part of this release.
+
+Before enabling this release in staging or production, apply migration
+`1789932382585_classrooms-and-assignments.ts` to that environment's database and
+verify the class pages with a non-production administrator and learner. The web
+deployment must follow the migration so the new server queries have their tables
+and indexes available.
 
 ### Change production behavior
 

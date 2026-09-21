@@ -3,7 +3,8 @@
 ## Status
 
 Accepted for the current platform. Authorization foundation, read-only views,
-and audited role management are implemented; reviewed queue actions are next.
+audited role management, and classroom assignments are implemented; reviewed
+queue actions are next.
 
 This ADR supersedes ADR-002, ADR-003, and ADR-007 wherever their earlier
 Auth0/Firebase, generic managed PostgreSQL, or AWS-first choices conflict with
@@ -16,10 +17,10 @@ persistence, and Vercel-hosted code execution. The original ADRs predate those
 choices. A new maintainer also needs to build administration without exposing
 privileged credentials or treating a hidden URL as authorization.
 
-The domain package already defines granular administration roles and actions,
-and an internal appeal-resolution endpoint exists behind a shared reviewer
-token. There is no admin UI, no production admin-session authorization gate,
-and no complete privileged audit log.
+The domain package defines granular administration roles and actions. An
+internal appeal-resolution endpoint still sits behind a shared reviewer token;
+the portal and its audit log cover role and classroom changes, not that legacy
+appeal action.
 
 ## Decision
 
@@ -65,7 +66,24 @@ JWT claims are not immediately refreshed after role changes.
 
 Current status: stages 1 and 2 are implemented in the application and database.
 The narrowly scoped role editor from stage 1 is also available to
-administrators; all other operational actions remain read-only.
+administrators. Queue, content, feedback, and privacy actions remain read-only.
+
+### Classroom extension
+
+The administrator may create a class and share a server-generated join code.
+Signed-in learners use the code to enroll; joining does not grant an operator
+role and is not required for ordinary practice. An administrator can assign an
+existing published practice activity to the class with an optional due date.
+Task progress derives from the learner's verified practice-session completion,
+including earlier completion of that activity. There is no separate class
+submission or manual grade in this slice.
+
+Classroom tables are server-only PostgreSQL resources with RLS enabled and
+`anon`/`authenticated` privileges revoked. Class and task creation are checked
+with `classes.manage` and each writes an administration audit event in the same
+transaction. Enrollment resolves the signed-in user server-side. This keeps
+class membership distinct from administration authority while reusing the
+existing practice workflow.
 
 #### 1. Authorization foundation
 

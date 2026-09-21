@@ -1,6 +1,6 @@
 # Administration and Learner Architecture
 
-This document describes the administration implementation on `main` as of
+This document describes the administration implementation on this branch as of
 2026-09-20. It explains how an operator sees learner activity and how access is
 enforced. [Administration use cases](ADMIN_USE_CASES.md) describes the journeys
 and expected outcomes. [ADR-011](adr/011-current-platform-and-admin-console.md)
@@ -44,6 +44,7 @@ path and does not use the new operator session yet.
 | Permission policy | Map administration actions to roles. Permission names for future actions do not mean those workflows are implemented. | `packages/domain/src/administration.ts` |
 | Server authorization | Call `getSession()`, load active role assignments, check the requested action, then invoke a repository read or mutation. | `apps/web/src/lib/admin/authorization.ts` |
 | Administration repository | Query bounded summaries and lists; change roles and append audit events in one PostgreSQL transaction. | `packages/database/src/repositories/administration.repository.ts` |
+| Classroom repository | Generate class codes, enroll signed-in learners, assign published practice activities, and derive task completion from practice sessions. | `packages/database/src/repositories/classroom.repository.ts` |
 | Database schema | Store role assignments and audit events; keep learner, content, job, feedback, appeal, and privacy records in their existing tables. | `packages/database/migrations/1789430157595_admin-portal-foundation.ts` |
 | First-admin command | Grant the first administrator role to an already confirmed Supabase Auth account, once. | `scripts/bootstrap-admin.mjs` |
 
@@ -99,6 +100,9 @@ access; browser metadata and client-side state cannot grant a role.
 | `privacy_operator` | Overview, People, Privacy | `privacy.export` |
 | `administrator` | All admin pages and role editor | `content.write`, `content.publish`, `evaluation.review`, `privacy.export`, `feature.manage` |
 
+`administrator` also grants `classes.read` and `classes.manage`. Other operator
+roles cannot create or inspect classes through the administration portal.
+
 The policy also defines `evaluation.read` for evaluator reviewers and
 administrators. It controls the appeal count on the overview; the Operations
 page is guarded by `operations.read`. A person may have multiple roles, and any
@@ -110,12 +114,14 @@ role granting an action is sufficient. Only `administrator` grants
 | Route | Source and visible data | Current change capability |
 |---|---|---|
 | `/admin` | Counts of accounts, recent signups, active practice, open feedback, pending appeals, queued evaluation/execution jobs, and pending privacy requests. Metrics and area links are filtered by role. | None |
+| `/admin/classes` and `/admin/classes/[classId]` | Active classes, join codes, enrolled learners, assigned practice, due dates, and completion counts. | Administrators create classes and assign tasks with an audit reason. |
 | `/admin/users` | Latest 50 application users, email, join date, and active operator roles. | Administrators can replace a user's complete role set with a reason. |
 | `/admin/content` | Latest 50 content items and latest version metadata. | None; no editor or publisher. |
 | `/admin/operations` | Evaluation and execution queue counts/oldest queued times; latest 50 appeal metadata rows. | None; no appeal decision in this portal. |
 | `/admin/feedback` | Latest 50 learner request titles, types, submitter labels, dates, and statuses. | None; no response or status change. |
 | `/admin/privacy` | Latest 50 account export/deletion request metadata rows. | None; no export or deletion execution. |
 | `/admin/audit` | Latest 100 privileged audit events, including actor display name, action, target, reason, and request ID. | None. |
+| `/classes` | Only the signed-in learner's enrollments, assignments, due dates, and completion status. | Learner joins a class by code. |
 
 Lists are bounded, ordered by recent date, and currently have no pagination or
 search. The admin views do not show learner source code, full feedback
@@ -138,6 +144,10 @@ erDiagram
   GUEST_IDENTITY ||--o{ LEARNER_REQUEST : submits
   USER ||--o{ PRACTICE_SESSION : owns
   CONTENT_ITEM ||--o{ CONTENT_VERSION : has
+  USER ||--o{ CLASS_ENROLLMENT : joins
+  CLASSROOM ||--o{ CLASS_ENROLLMENT : includes
+  CLASSROOM ||--o{ CLASS_ASSIGNMENT : assigns
+  CONTENT_ITEM ||--o{ CLASS_ASSIGNMENT : targets
 ```
 
 - `administration_role_assignments` has a user ID, role, assigner, assignment
@@ -158,6 +168,34 @@ erDiagram
   server permission check. Its database connection is privileged relative to
   browser access, so every new repository operation must retain that check and
   minimize selected fields.
+- Class codes are generated from 60 random bits on the server. New classroom
+  tables have RLS enabled and direct `anon`/`authenticated` table privileges
+  revoked. The server resolves a signed-in user before accepting a join code;
+  learner queries filter enrollments by that user ID. The code is visible only
+  to an authorized administrator and whoever they share it with.
+
+## Classroom and task lifecycle
+
+1. An administrator creates a class. The server generates a unique 12-character
+   join code and writes the class plus an administration audit event in one
+   transaction.
+2. A signed-in learner enters the code at `/classes`. The server normalizes its
+   case and optional separator, finds an active class, and inserts one enrollment
+   per learner and class. Reusing the code is idempotent. Guest sessions cannot
+   enroll.
+3. An administrator selects an existing published practice activity, supplies a
+   task title, optional instructions and due date, and an audit reason. The task
+   and audit event commit together. The same activity can be assigned once per
+   class in this first release.
+4. The learner opens the assigned activity in the normal practice workspace.
+   The task shows as complete when any owned practice session for that activity
+   has `status = 'completed'`, which currently requires passing verified code
+   tests. Earlier verified completion counts too. The class roster and task
+   counts derive from the same session status; they do not copy learner code.
+
+The first slice does not include manual grading, submissions as separate class
+objects, individual learner assignments, code rotation, class archiving controls,
+or a requirement to join a class before using regular practice.
 
 ## Role assignment and audit transaction
 

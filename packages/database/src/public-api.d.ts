@@ -22,6 +22,83 @@ export function databaseConfigFromEnv(env?: NodeJS.ProcessEnv): DatabaseConfig;
 export class LastAdministratorError extends Error {}
 export class AdministratorAlreadyExistsError extends Error {}
 export class AdministrationUserNotFoundError extends Error {}
+export class ClassCodeNotFoundError extends Error {}
+export class ClassroomNotFoundError extends Error {}
+export class DuplicateClassAssignmentError extends Error {}
+export class InvalidClassActivityError extends Error {}
+
+export function generateClassCode(): string;
+
+export interface ClassroomSummary {
+  id: string;
+  name: string;
+  description: string;
+  joinCode: string;
+  createdAt: string;
+  learnerCount: number;
+  assignmentCount: number;
+}
+
+export interface ClassAssignment {
+  id: string;
+  classId: string;
+  title: string;
+  instructions: string;
+  activitySlug: string;
+  dueOn: string | null;
+  createdAt: string;
+  completedCount: number;
+}
+
+export interface ClassLearner {
+  id: string;
+  displayName: string;
+  email: string | null;
+  joinedAt: string;
+  completedCount: number;
+}
+
+export interface ClassroomDetail {
+  classroom: ClassroomSummary;
+  assignments: ClassAssignment[];
+  learners: ClassLearner[];
+}
+
+export interface StudentClassroom {
+  id: string;
+  name: string;
+  description: string;
+  joinedAt: string;
+  assignmentCount: number;
+  completedCount: number;
+}
+
+export interface StudentAssignment {
+  id: string;
+  classId: string;
+  className: string;
+  title: string;
+  instructions: string;
+  activitySlug: string;
+  dueOn: string | null;
+  completed: boolean;
+}
+
+export class PostgresClassroomRepository {
+  constructor(db: DatabaseClient);
+  createClass(input: {
+    name: string; description: string; actorId: string; reason: string; requestId?: string | null;
+  }): Promise<ClassroomSummary>;
+  listClasses(): Promise<ClassroomSummary[]>;
+  getClassDetail(classId: string): Promise<ClassroomDetail>;
+  createAssignment(input: {
+    classId: string; contentId: string; title: string; instructions: string;
+    dueOn: string | null; actorId: string; reason: string; requestId?: string | null;
+  }): Promise<string>;
+  joinClassByCode(input: { userId: string; code: string }): Promise<{ id: string; name: string; alreadyJoined: boolean }>;
+  listStudentClasses(userId: string): Promise<StudentClassroom[]>;
+  listStudentAssignments(userId: string): Promise<StudentAssignment[]>;
+}
 
 export interface AdministrationOverview {
   users: number;

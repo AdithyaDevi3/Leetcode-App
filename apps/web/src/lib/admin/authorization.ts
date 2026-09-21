@@ -2,6 +2,7 @@ import 'server-only';
 
 import {
   PostgresAdministrationRepository,
+  type DatabaseClient,
   createDatabaseClient,
   databaseConfigFromEnv,
 } from '@leetcode-app/database';
@@ -31,7 +32,7 @@ export type AdministrationAccess<T> =
  */
 export async function readAdministrationData<T>(
   action: AdministrationAction,
-  read: (repository: PostgresAdministrationRepository, principal: AdministrationPrincipal) => Promise<T>,
+  read: (repository: PostgresAdministrationRepository, principal: AdministrationPrincipal, db: DatabaseClient) => Promise<T>,
 ): Promise<AdministrationAccess<T>> {
   if (!isSupabaseConfigured()) return { status: 'unauthenticated' };
   const session = await getSession();
@@ -49,7 +50,7 @@ export async function readAdministrationData<T>(
       displayName: session.user.displayName,
       roles,
     };
-    return { status: 'authorized', principal, data: await read(repository, principal) };
+    return { status: 'authorized', principal, data: await read(repository, principal, db) };
   } finally {
     await db.close();
   }

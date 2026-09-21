@@ -14,6 +14,8 @@ describe('administration authorization', () => {
     expect(canPerformAdministrationAction(['administrator'], 'privacy.export')).toBe(true);
     expect(canPerformAdministrationAction(['administrator'], 'administration.manage')).toBe(true);
     expect(canPerformAdministrationAction(['administrator'], 'audit.read')).toBe(true);
+    expect(canPerformAdministrationAction(['administrator'], 'classes.read')).toBe(true);
+    expect(canPerformAdministrationAction(['administrator'], 'classes.manage')).toBe(true);
   });
   it('allows every operator role to enter the administration portal', () => {
     for (const role of administrationRoles) {
@@ -25,6 +27,8 @@ describe('administration authorization', () => {
     expect(canPerformAdministrationAction(['support'], 'operations.read')).toBe(false);
     expect(canPerformAdministrationAction(['evaluator_reviewer'], 'evaluation.read')).toBe(true);
     expect(canPerformAdministrationAction(['content_author'], 'content.publish')).toBe(false);
+    expect(canPerformAdministrationAction(['support'], 'classes.read')).toBe(false);
+    expect(canPerformAdministrationAction(['evaluator_reviewer'], 'classes.manage')).toBe(false);
   });
   it('validates role input at runtime', () => {
     expect(isAdministrationRole('administrator')).toBe(true);

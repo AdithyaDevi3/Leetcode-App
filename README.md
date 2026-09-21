@@ -22,6 +22,8 @@ Start with [docs/README.md](docs/README.md) for the complete documentation map. 
   permissions, learner interactions, and remaining capabilities.
 - [Development and contribution conventions](docs/DEVELOPMENT.md) for setup,
   validation, workflow, testing, migrations, security, and deployment.
+- [Contribution guide](CONTRIBUTING.md) for current product areas, remaining
+  work, work-map maintenance, validation, and pull request expectations.
 - [Administration-console decision](docs/adr/011-current-platform-and-admin-console.md)
   for the secure delivery sequence and non-goals.
 - [Requirements matrix](docs/REQUIREMENTS_MATRIX.md) for stable requirement IDs, current status, target phase, and acceptance evidence.
@@ -31,9 +33,13 @@ Start with [docs/README.md](docs/README.md) for the complete documentation map. 
 The first deployable product slice lives in [apps/web](apps/web). It includes:
 
 - Ten original algorithm activities spanning hashing, windows, trees, stacks, graphs, queues, two pointers, and dynamic programming.
+- A browseable roadmap with 48 foundation, intermediate, and advanced analysis
+  questions across eight algorithm and eight system-design topics, with search,
+  filters, and device-local progress.
 - Structured-English and semantic-block pseudocode modes.
 - Local profiles, history-aware practice recommendations, and draft autosave for guest learners.
-- Deterministic, activity-specific reasoning evaluation for every algorithm activity.
+- Deterministic, activity-specific reasoning evaluation for every algorithm
+  activity, including explicit contradiction checks and fail-closed rubric selection.
 - Server-side TypeScript and Python verification against activity-specific test suites before a solution can be marked complete.
 - Local concept-mastery evidence that adjusts practice recommendations as the learner improves.
 - TypeScript and Python coding starters that follow the learner's local language preference.

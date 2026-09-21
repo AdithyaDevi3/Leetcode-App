@@ -42,6 +42,17 @@ Which implementation phase does this PR support? (See IMPLEMENTATION_ROADMAP.md)
 - [ ] New and existing unit tests pass locally with my changes
 - [ ] Any dependent changes have been merged and published
 
+## Current and remaining work
+
+<!-- Review CONTRIBUTING.md: “What exists” and “Work that needs contribution.”
+Move completed work, add concrete follow-up work, and remove stale entries. -->
+
+- [ ] I updated the work map to reflect this contribution and any new follow-up work
+- [ ] Work map reviewed; no change required
+
+Reason or changed entries:
+
+
 ## Testing
 
 <!-- Describe the tests you ran and how to reproduce them -->

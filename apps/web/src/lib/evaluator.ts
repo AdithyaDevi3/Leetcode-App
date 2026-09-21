@@ -260,12 +260,39 @@ const configuredChecks: Record<string, ConfiguredCheck[]> = {
   ],
 };
 
-const configuredEvaluation = (draft: string, checks: ConfiguredCheck[]): Evaluation => {
+// These are explicit algorithm contradictions. Keyword coverage alone must not
+// approve an explanation that also proposes a wrong or slower method.
+const criticalMistakes: Record<string, RegExp[]> = {
+  'pair-with-target-v1': [/store[\s\S]{0,100}before[\s\S]{0,80}(?:check|look up)/i, /(?:use|with|choose) (?:a )?nested loops?|sort the list/i],
+  'first-unique-index-v1': [/nested loops?|compare each value with every other|sort the list/i],
+  'max-window-sum-v1': [/recompute[\s\S]{0,60}every window|sum each window from scratch/i],
+  'tree-max-depth-v1': [/only (?:the )?left|ignore (?:the )?right/i],
+  'balanced-brackets-v1': [/any (?:earlier )?opener|ignore (?:the )?(?:order|type)/i],
+  'climb-stairs-v1': [/exponential|recurse without (?:memo|cache)/i],
+  'island-count-v1': [/diagonal(?:ly)? (?:connected|neighbor)|without (?:marking|tracking) visited/i],
+  'task-order-v1': [/ignore (?:the )?cycle|return (?:the )?partial order/i],
+  'two-sum-window-v1': [/too small[\s\S]{0,50}right pointer|too large[\s\S]{0,50}left pointer/i],
+  'coin-change-lite-v1': [/greedy|first combination|largest coin first/i],
+};
+
+const instructionAttack = /ignore (?:the|all|previous|above|these)?\s*(?:evaluator|instructions|rubric|checks)|mark (?:this|it|me) (?:as )?(?:approved|correct)|always (?:pass|approve)/i;
+
+const contradictionFinding = (source: string, problemId: string): EvaluationFinding | null => {
+  if (!instructionAttack.test(source) && !(criticalMistakes[problemId] ?? []).some((pattern) => pattern.test(source))) return null;
+  return {
+    id: 'contradiction', label: 'Algorithm consistency', status: 'revise',
+    detail: 'The explanation contains a conflicting instruction or a strategy that does not meet this problem’s requirements. Remove it and describe one consistent algorithm.',
+  };
+};
+
+const configuredEvaluation = (draft: string, checks: ConfiguredCheck[], problemId: string): Evaluation => {
   const source = draft.trim();
   const findings = checks.map<EvaluationFinding>((check) => {
     const passed = source.length > 0 && check.pass(source);
     return { id: check.id, label: check.label, status: passed ? "pass" : "revise", detail: passed ? check.passDetail : check.reviseDetail };
   });
+  const contradiction = contradictionFinding(source, problemId);
+  if (contradiction) findings.push(contradiction);
   const passedCount = findings.filter((finding) => finding.status === "pass").length;
   const approved = findings.every((finding) => finding.status === "pass");
 
@@ -284,12 +311,24 @@ const configuredEvaluation = (draft: string, checks: ConfiguredCheck[]): Evaluat
 
 export function evaluatePseudocode(draft: string, problemId = "pair-with-target-v1"): Evaluation {
   if (problemId === "first-unique-index-v1") {
-    return firstUniqueIndexEvaluation(draft);
+    const result = firstUniqueIndexEvaluation(draft);
+    const contradiction = contradictionFinding(draft, problemId);
+    if (contradiction) return { ...result, approved: false, score: Math.min(result.score, 80), summary: 'Revise the conflicting algorithm step before coding.', findings: [...result.findings, contradiction] };
+    return result;
   }
 
   const checks = configuredChecks[problemId];
-  if (checks) return configuredEvaluation(draft, checks);
+  if (checks) return configuredEvaluation(draft, checks, problemId);
 
-  return pairWithTargetEvaluation(draft);
+  if (problemId !== 'pair-with-target-v1') return {
+    rubricVersion: REASONING_RUBRIC_VERSION, approved: false, score: 0,
+    summary: 'This activity has no matching reasoning rubric. Choose a supported practice activity.',
+    findings: [{ id: 'unsupported', label: 'Activity rubric', status: 'revise', detail: 'No reasoning rubric exists for this activity.' }],
+  };
+
+  const result = pairWithTargetEvaluation(draft);
+  const contradiction = contradictionFinding(draft, problemId);
+  if (contradiction) return { ...result, approved: false, score: Math.min(result.score, 80), summary: 'Revise the conflicting algorithm step before coding.', findings: [...result.findings, contradiction] };
+  return result;
 }
 import { evaluationPolicy } from './evaluation-policy';

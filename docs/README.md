@@ -17,6 +17,7 @@ live.
 | [Administration and learner architecture](ADMIN_ARCHITECTURE.md) | Current admin-to-learner data flow, roles, trust boundaries, and live versus planned capabilities |
 | [Administration and learner use cases](ADMIN_USE_CASES.md) | Actor journeys, expected results, failure states, and remaining workflows |
 | [Development guide](DEVELOPMENT.md) | Local setup, validation, issue/PR workflow, coding boundaries, tests, migrations, security, and deployment |
+| [Contribution guide](../CONTRIBUTING.md) | What exists, remaining work, work-map maintenance, validation, and pull request requirements |
 | [External deployment setup](DEPLOYMENT_SETUP.md) | Provider provisioning, secrets, workers, observability, launch order, and integrations that remain disabled until safely configured |
 | [Preflight checks](PREFLIGHT.md) | Running the same checks CI runs, locally, before opening a pull request |
 | [Requirements matrix](REQUIREMENTS_MATRIX.md) | Stable requirement IDs, current status, target phase, and acceptance evidence |

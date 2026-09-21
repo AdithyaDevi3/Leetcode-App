@@ -1,8 +1,10 @@
 "use client";
 
+/* Primary navigation deliberately reloads the document after a deployment. */
+/* eslint-disable @next/next/no-html-link-for-pages */
+
 import Link from "next/link";
 import {
-  Bell,
   Bookmark,
   BookOpen,
   Braces,
@@ -26,18 +28,22 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 
-import { defaultPracticeItem, getPracticeItem, practiceItems, starterDraft } from "@/lib/content";
-import { evaluatePseudocode, type Evaluation } from "@/lib/evaluator";
+import { defaultPracticeItem, getPracticeItem, practiceItems } from "@/lib/content";
+import type { CodeGrade } from '@/lib/code-grading';
+import { evaluatePseudocode, REASONING_RUBRIC_VERSION, type Evaluation } from "@/lib/evaluator";
+import { evaluationPolicy } from '@/lib/evaluation-policy';
+import { readLocalLearnerProfile } from "@/lib/local-learner";
+import { recordLocalPracticeEvidence } from '@/lib/local-mastery';
 import { recordLocalPracticeCompletion } from "@/lib/local-practice-history";
 import { readBrowserStorage, removeBrowserStorage, writeBrowserStorage } from "@/lib/safe-browser-storage";
 import {
-  buildCodeFromPlan,
+  buildCodeFromPlanForLanguage,
   deserializePracticeSession,
   joinBlocksIntoDraft,
   projectDraftBlocks,
   sessionStorageKey,
   splitDraftIntoBlocks,
-  stripCodeComments,
+  type CodingLanguage,
   type EditorMode,
   type PracticeSessionState,
   serializePracticeSession,
@@ -51,12 +57,26 @@ import {
   type PracticeSyncStatus,
   writeCachedPracticeSessionId,
 } from "@/lib/practice-sync";
+import { useViewer } from '@/lib/use-viewer';
+
+const formatElapsed = (seconds: number) => {
+  const minutes = Math.floor(seconds / 60);
+  const remainder = seconds % 60;
+  return `${minutes}:${String(remainder).padStart(2, '0')}`;
+};
+
+const initialsFor = (name: string | null | undefined) => {
+  const words = name?.trim().split(/\s+/).filter(Boolean) ?? [];
+  return words.length ? words.slice(0, 2).map((word) => word[0]?.toUpperCase()).join('') : 'GL';
+};
 
 export function PracticeWorkspace() {
   const [activePracticeId, setActivePracticeId] = useState(defaultPracticeItem.id);
   const [draft, setDraft] = useState("");
   const [mode, setMode] = useState<EditorMode>("text");
+  const [codingLanguage, setCodingLanguage] = useState<CodingLanguage>("typescript");
   const [evaluation, setEvaluation] = useState<Evaluation | null>(null);
+  const [codeGrade, setCodeGrade] = useState<CodeGrade | null>(null);
   const [savedAt, setSavedAt] = useState("Not saved");
   const [syncStatus, setSyncStatus] = useState<PracticeSyncStatus>("ready");
   const [code, setCode] = useState(defaultCode(defaultPracticeItem.codeFunction, defaultPracticeItem.codeSignature));
@@ -66,11 +86,12 @@ export function PracticeWorkspace() {
   const [evaluationJobId, setEvaluationJobId] = useState<string | null>(null);
   const [evaluationMessage, setEvaluationMessage] = useState<string | null>(null);
   const [remoteRevision, setRemoteRevision] = useState(1);
-  const [executionStatus, setExecutionStatus] = useState<'idle' | 'queued' | 'running' | 'completed' | 'failed' | 'timed_out' | 'canceled' | 'unavailable'>('idle');
-  const [executionJobId, setExecutionJobId] = useState<string | null>(null);
+  const [executionStatus, setExecutionStatus] = useState<'idle' | 'running' | 'completed' | 'failed' | 'timed_out' | 'unavailable'>('idle');
   const [executionOutput, setExecutionOutput] = useState('');
   const [noteDraft, setNoteDraft] = useState('');
   const [libraryStatus, setLibraryStatus] = useState<string | null>(null);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const viewer = useViewer();
   const activePracticeItem = getPracticeItem(activePracticeId);
   const storageKey = sessionStorageKey(activePracticeItem.id);
   const blockOptions = activePracticeItem.blockOptions;
@@ -78,48 +99,67 @@ export function PracticeWorkspace() {
   const trace = activePracticeItem.trace;
 
   useEffect(() => {
-    const timer = window.setTimeout(() => {
-      const savedPracticeId = readBrowserStorage(selectedPracticeItemKey);
-      const restoredPracticeItem = savedPracticeId ? getPracticeItem(savedPracticeId) : activePracticeItem;
+    const timer = window.setInterval(() => setElapsedSeconds((seconds) => seconds + 1), 1000);
+    return () => window.clearInterval(timer);
+  }, []);
 
-      if (restoredPracticeItem.id !== activePracticeItem.id) {
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      const requestedPracticeId = new URLSearchParams(window.location.search).get("problem");
+      const savedPracticeId = requestedPracticeId ? null : readBrowserStorage(selectedPracticeItemKey);
+      const restoredPracticeItem = requestedPracticeId
+        ? getPracticeItem(requestedPracticeId)
+        : savedPracticeId
+          ? getPracticeItem(savedPracticeId)
+          : defaultPracticeItem;
+      const preferredLanguage = readLocalLearnerProfile()?.preferredLanguage ?? "typescript";
+
+      if (restoredPracticeItem.id !== defaultPracticeItem.id) {
         setActivePracticeId(restoredPracticeItem.id);
       }
 
       const savedSession = readBrowserStorage(sessionStorageKey(restoredPracticeItem.id));
       if (!savedSession) {
+        setCodingLanguage(preferredLanguage);
+        setCode(defaultCode(restoredPracticeItem.codeFunction, restoredPracticeItem.codeSignature, preferredLanguage));
         setSavedAt("Ready");
         return;
       }
 
       const restoredSession = deserializePracticeSession(savedSession);
       if (!restoredSession) {
+        setCodingLanguage(preferredLanguage);
+        setCode(defaultCode(restoredPracticeItem.codeFunction, restoredPracticeItem.codeSignature, preferredLanguage));
         setSavedAt("Ready");
         return;
       }
 
       setDraft(restoredSession.draft);
       setMode(restoredSession.mode);
+      setCodingLanguage(restoredSession.language);
       setCode(restoredSession.code);
       setCodeChecked(restoredSession.codeChecked);
       setCompleted(restoredSession.completed);
       setEvaluation(restoredSession.evaluation);
+      setCodeGrade(restoredSession.codeGrade);
       setSavedAt("Restored locally");
       setSyncStatus("offline");
     }, 0);
 
     return () => window.clearTimeout(timer);
-  }, [activePracticeItem]);
+  }, []);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
       const session: PracticeSessionState = {
         draft,
         mode,
+        language: codingLanguage,
         code,
         codeChecked,
         completed,
         evaluation,
+        codeGrade,
       };
 
       const locallySaved = writeBrowserStorage(storageKey, serializePracticeSession(session));
@@ -127,10 +167,11 @@ export function PracticeWorkspace() {
       const hasChanges =
         draft ||
         mode !== "text" ||
-        code !== defaultCode(activePracticeItem.codeFunction, activePracticeItem.codeSignature) ||
+        code !== defaultCode(activePracticeItem.codeFunction, activePracticeItem.codeSignature, codingLanguage) ||
         codeChecked ||
         completed ||
-        evaluation;
+        evaluation ||
+        codeGrade;
 
       setSavedAt(hasChanges ? (locallySaved ? "Saving" : "Session active") : "Ready");
       setSyncStatus(hasChanges ? "saving" : "ready");
@@ -166,7 +207,7 @@ export function PracticeWorkspace() {
     }, 450);
 
     return () => window.clearTimeout(timer);
-  }, [draft, mode, code, codeChecked, completed, evaluation, storageKey, activePracticeItem]);
+  }, [draft, mode, codingLanguage, code, codeChecked, completed, evaluation, codeGrade, storageKey, activePracticeItem]);
 
   const blocks = mode === "blocks"
     ? projectDraftBlocks(draft, activePracticeItem.codeFunction)
@@ -178,8 +219,11 @@ export function PracticeWorkspace() {
     setEvaluationJobId(null);
     setEvaluationMessage(null);
     setEvaluation(null);
+    setCodeGrade(null);
     setCodeChecked(false);
     setCompleted(false);
+    setExecutionStatus('idle');
+    setExecutionOutput('');
   };
 
   const addBlock = (block: string) => {
@@ -204,6 +248,10 @@ export function PracticeWorkspace() {
 
   const evaluationFindings = evaluation?.findings ?? evaluatePseudocode("", activePracticeItem.id).findings;
   const approved = evaluation?.approved ?? false;
+  const passedReasoningChecks = evaluation?.findings.filter((finding) => finding.status === 'pass').length ?? 0;
+  const secureCheckCount = passedReasoningChecks + (codeGrade?.passed ? 1 : 0);
+  const totalCheckCount = evaluationFindings.length + 1;
+  const progressPercent = Math.round((secureCheckCount / totalCheckCount) * 100);
 
   useEffect(() => {
     if (!evaluationJobId || (evaluationStatus !== 'queued' && evaluationStatus !== 'running')) return;
@@ -211,20 +259,33 @@ export function PracticeWorkspace() {
       void fetch(`/api/practice/sessions/${readCachedPracticeSessionId(activePracticeItem.id)}/evaluate/${evaluationJobId}`)
         .then((response) => response.ok ? response.json() : Promise.reject(new Error('Evaluation status unavailable')))
         .then((body: { status: 'queued' | 'running' | 'completed' | 'failed' | 'canceled'; result?: { evaluation?: Evaluation }; error?: string }) => {
-          if (body.status === 'completed') { setEvaluation(body.result?.evaluation ?? null); setEvaluationStatus('completed'); setEvaluationMessage(null); }
+          if (body.status === 'completed') {
+            const nextEvaluation = body.result?.evaluation ?? null;
+            setEvaluation(nextEvaluation);
+            setEvaluationStatus('completed');
+            setEvaluationMessage(null);
+            if (nextEvaluation) recordLocalPracticeEvidence({ item: activePracticeItem, reasoningScore: nextEvaluation.score });
+          }
           else if (body.status === 'failed') { setEvaluationStatus('failed'); setEvaluationMessage(body.error ?? 'Evaluation failed. You can retry safely.'); }
           else if (body.status === 'canceled') { setEvaluationStatus('canceled'); setEvaluationMessage('Evaluation canceled. Your draft is still saved.'); }
           else setEvaluationStatus(body.status);
         })
         .catch(() => { setEvaluationStatus('failed'); setEvaluationMessage('Unable to check evaluation progress. Retry when you are online.'); });
-    }, 1000);
+    }, evaluationPolicy.pollingIntervalMs);
     return () => window.clearInterval(timer);
-  }, [activePracticeItem.id, evaluationJobId, evaluationStatus]);
+  }, [activePracticeItem, evaluationJobId, evaluationStatus]);
 
   const submitEvaluation = async () => {
     if (!draft.trim() || evaluationStatus === 'queued' || evaluationStatus === 'running') return;
     const sessionId = readCachedPracticeSessionId(activePracticeItem.id);
-    if (!sessionId) { setEvaluation(evaluatePseudocode(draft, activePracticeItem.id)); setEvaluationStatus('completed'); setEvaluationMessage('Evaluated locally. Sign in to save server-side feedback.'); return; }
+    if (!sessionId) {
+      const localEvaluation = evaluatePseudocode(draft, activePracticeItem.id);
+      setEvaluation(localEvaluation);
+      recordLocalPracticeEvidence({ item: activePracticeItem, reasoningScore: localEvaluation.score });
+      setEvaluationStatus('completed');
+      setEvaluationMessage('Evaluated locally. Verified code tests require an active saved session.');
+      return;
+    }
     setEvaluationStatus('queued');
     setEvaluationMessage('Evaluation queued. This can take a few seconds.');
     try {
@@ -238,7 +299,9 @@ export function PracticeWorkspace() {
       setEvaluationJobId(body.jobId); setEvaluationStatus(body.status);
     } catch (error) {
       setEvaluationStatus('failed');
-      setEvaluation(evaluatePseudocode(draft, activePracticeItem.id));
+      const localEvaluation = evaluatePseudocode(draft, activePracticeItem.id);
+      setEvaluation(localEvaluation);
+      recordLocalPracticeEvidence({ item: activePracticeItem, reasoningScore: localEvaluation.score });
       setEvaluationMessage(error instanceof Error ? `${error.message} Showing a local evaluation instead.` : 'Unable to queue evaluation. Showing a local evaluation instead.');
     }
   };
@@ -256,49 +319,53 @@ export function PracticeWorkspace() {
     }
   };
 
-  useEffect(() => {
-    if (!executionJobId || (executionStatus !== 'queued' && executionStatus !== 'running')) return;
-    const sessionId = readCachedPracticeSessionId(activePracticeItem.id);
-    if (!sessionId) return;
-    const timer = window.setInterval(() => {
-      void fetch(`/api/practice/sessions/${sessionId}/execute/${executionJobId}`)
-        .then((response) => response.ok ? response.json() : Promise.reject(new Error('Execution status unavailable')))
-        .then((body: { status: typeof executionStatus; result?: { stdout?: string; stderr?: string }; error?: string }) => {
-          setExecutionStatus(body.status);
-          if (body.result) setExecutionOutput([body.result.stdout, body.result.stderr].filter(Boolean).join('\n'));
-          else if (body.error) setExecutionOutput(body.error);
-        })
-        .catch(() => setExecutionStatus('unavailable'));
-    }, 1000);
-    return () => window.clearInterval(timer);
-  }, [activePracticeItem.id, executionJobId, executionStatus]);
-
   const runInSandbox = async () => {
     const sessionId = readCachedPracticeSessionId(activePracticeItem.id);
     if (!sessionId) { setExecutionStatus('unavailable'); setExecutionOutput('Save your practice session before running code.'); return; }
-    setExecutionStatus('queued'); setExecutionOutput('');
+    setExecutionStatus('running');
+    setExecutionOutput('Running isolated correctness and edge-case tests…');
+    setCodeGrade(null);
+    setCodeChecked(false);
+    setCompleted(false);
     try {
-      const response = await fetch(`/api/practice/sessions/${sessionId}/execute`, {
+      const response = await fetch(`/api/practice/sessions/${sessionId}/verify`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ language: 'typescript', source: code, limits: { timeoutMs: 3000, memoryMb: 256, outputBytes: 50_000 } }),
+        body: JSON.stringify({ language: codingLanguage, source: code }),
       });
-      if (response.status === 503) { setExecutionStatus('unavailable'); setExecutionOutput('Sandbox execution is not enabled for this environment.'); return; }
-      if (!response.ok) throw new Error('Execution request failed');
-      const body = await response.json() as { jobId: string; status: 'queued' | 'running' };
-      setExecutionJobId(body.jobId); setExecutionStatus(body.status);
-    } catch { setExecutionStatus('unavailable'); setExecutionOutput('Unable to queue this execution.'); }
-  };
+      const body = await response.json().catch(() => null) as { status?: 'completed' | 'failed' | 'timed_out'; grade?: CodeGrade; error?: string } | null;
+      if (response.status === 503) {
+        setExecutionStatus('unavailable');
+        setExecutionOutput('Verified execution is not enabled in this environment. Your reasoning result is still available.');
+        return;
+      }
+      if (!response.ok || !body) throw new Error(body?.error ?? 'Verified execution failed');
+      if (body.status !== 'completed' || !body.grade) {
+        setExecutionStatus(body.status === 'timed_out' ? 'timed_out' : 'failed');
+        setExecutionOutput(body.error ?? 'The submitted code did not complete successfully.');
+        return;
+      }
 
-  const cancelSandboxExecution = async () => {
-    const sessionId = readCachedPracticeSessionId(activePracticeItem.id);
-    if (!sessionId || !executionJobId) return;
-    try {
-      const response = await fetch(`/api/practice/sessions/${sessionId}/execute/${executionJobId}`, { method: 'DELETE' });
-      if (!response.ok) throw new Error('Execution cancellation failed');
-      setExecutionStatus('canceled');
-      setExecutionOutput('Execution canceled.');
-    } catch {
-      setExecutionOutput('Unable to cancel this execution.');
+      const nextGrade = body.grade;
+      const codeScore = Math.round((nextGrade.passedCount / Math.max(1, nextGrade.totalCount)) * 100);
+      setCodeGrade(nextGrade);
+      setCodeChecked(true);
+      setExecutionStatus('completed');
+      setCompleted(nextGrade.passed);
+      setExecutionOutput(nextGrade.passed
+        ? `Verified: all ${nextGrade.totalCount} hidden tests passed.`
+        : `${nextGrade.passedCount} of ${nextGrade.totalCount} hidden tests passed.`);
+      recordLocalPracticeEvidence({ item: activePracticeItem, reasoningScore: evaluation?.score ?? 0, codeScore });
+
+      if (nextGrade.passed) {
+        recordLocalPracticeCompletion({
+          practiceItemId: activePracticeItem.id,
+          label: activePracticeItem.label,
+          evaluationScore: evaluation?.score ?? null,
+        });
+      }
+    } catch (error) {
+      setExecutionStatus('unavailable');
+      setExecutionOutput(error instanceof Error ? error.message : 'Unable to run verified execution.');
     }
   };
 
@@ -351,91 +418,21 @@ export function PracticeWorkspace() {
       setLibraryStatus('Note could not be saved. Check your connection and try again.');
     }
   };
-  const secureConceptCount = completed ? 4 : 3;
-  const progressPercent = Math.round((secureConceptCount / 7) * 100);
-  const implementationSource = stripCodeComments(code);
-  const loopCount = implementationSource.match(/\bfor\s*\(|\.forEach\s*\(/g)?.length ?? 0;
-  const translationChecks =
-    activePracticeItem.id === "first-unique-index-v1"
-      ? [
-          {
-            label: "Counts values in a map",
-            passed: /\bnew\s+Map\b|\bMap\s*</.test(implementationSource) && /count|frequency/i.test(implementationSource),
-          },
-          {
-            label: "Separates counting from selection",
-            passed: loopCount >= 2 || /second pass|again|then/i.test(implementationSource),
-          },
-          {
-            label: "Checks for unique count",
-            passed: /count.*1|equals\s*1|is\s*1/i.test(implementationSource),
-          },
-          {
-            label: "Returns the first index",
-            passed: /return\s+\w*index|return\s+\w*position/i.test(implementationSource),
-          },
-          {
-            label: "Returns -1 when no unique value exists",
-            passed: /-1|no unique|none/i.test(implementationSource),
-          },
-        ]
-      : [
-          {
-            label: "Map state mirrors the plan",
-            passed: /\bnew\s+Map\b|\bMap\s*</.test(implementationSource),
-          },
-          {
-            label: "One traversal over values",
-            passed: loopCount === 1,
-          },
-          {
-            label: "Complement lookup before storing",
-            passed:
-              /target\s*-/.test(implementationSource) &&
-              /\.has\s*\(|\.get\s*\(/.test(implementationSource) &&
-              /\.set\s*\(/.test(implementationSource),
-          },
-          {
-            label: "Returns two positions",
-            passed: /return\s*\[[^\]]+,[^\]]+\]/.test(implementationSource),
-          },
-        ];
-  const translationPassed = translationChecks.every((check) => check.passed);
-
-  const checkTranslation = () => {
-    setCodeChecked(true);
-    setCompleted(translationPassed);
-    if (translationPassed) {
-      recordLocalPracticeCompletion({
-        practiceItemId: activePracticeItem.id,
-        label: activePracticeItem.label,
-        evaluationScore: evaluation?.score ?? null,
-      });
-      writeBrowserStorage(
-        storageKey,
-        serializePracticeSession({
-          draft,
-          mode,
-          code,
-          codeChecked: true,
-          completed: true,
-          evaluation,
-        }),
-      );
-    }
-  };
-
   const resetSession = () => {
     setDraft("");
     setMode("text");
     setEvaluation(null);
-    setCode(defaultCode(activePracticeItem.codeFunction, activePracticeItem.codeSignature));
+    setCodeGrade(null);
+    setCode(defaultCode(activePracticeItem.codeFunction, activePracticeItem.codeSignature, codingLanguage));
     setCodeChecked(false);
     setCompleted(false);
+    setExecutionStatus('idle');
+    setExecutionOutput('');
     removeBrowserStorage(storageKey);
     clearCachedPracticeSessionId(activePracticeItem.id);
     setSavedAt("Ready");
     setSyncStatus("ready");
+    setElapsedSeconds(0);
   };
 
   const switchPracticeItem = (practiceId: string) => {
@@ -447,57 +444,69 @@ export function PracticeWorkspace() {
     writeBrowserStorage(storageKey, serializePracticeSession({
       draft,
       mode,
+      language: codingLanguage,
       code,
       codeChecked,
       completed,
       evaluation,
+      codeGrade,
     }));
     writeBrowserStorage(selectedPracticeItemKey, nextPracticeItem.id);
     setActivePracticeId(nextPracticeItem.id);
     setDraft("");
     setMode("text");
     setEvaluation(null);
-    setCode(defaultCode(nextPracticeItem.codeFunction, nextPracticeItem.codeSignature));
+    setCodeGrade(null);
+    setCode(defaultCode(nextPracticeItem.codeFunction, nextPracticeItem.codeSignature, codingLanguage));
     setCodeChecked(false);
     setCompleted(false);
+    setExecutionStatus('idle');
+    setExecutionOutput('');
     setSavedAt("Ready");
     setSyncStatus("ready");
+    setElapsedSeconds(0);
   };
 
   return (
     <div className="app-shell">
-      <aside className="sidebar" aria-label="Primary navigation">
+      <aside className="sidebar">
         <div className="brand">
           <span className="brand-mark">M/</span>
           Method
         </div>
-        <nav className="nav-group">
-          <Link className="nav-item" href="/">
+        <nav className="nav-group" aria-label="Primary navigation">
+          <a className="nav-item" href="/">
             <LayoutDashboard size={17} /> Today
-          </Link>
-          <Link className="nav-item active" href="/practice" aria-current="page">
+          </a>
+          <a className="nav-item active" href="/practice" aria-current="page">
             <Braces size={17} /> Algorithms
-          </Link>
-          <Link className="nav-item" href="/system-design">
+          </a>
+          <a className="nav-item" href="/system-design">
             <GitBranch size={17} /> System design
-          </Link>
-          <Link className="nav-item" href="/learn">
+          </a>
+          <a className="nav-item" href="/learn">
             <Compass size={17} /> Learning plan
-          </Link>
+          </a>
+          <a className="nav-item" href="/dashboard">
+            <LayoutDashboard size={17} /> Dashboard
+          </a>
           <p className="nav-label">Your work</p>
-          <Link className="nav-item" href="/history">
+          <a className="nav-item" href="/history">
             <ListChecks size={17} /> Practice history
-          </Link>
-          <Link className="nav-item" href="/library">
+          </a>
+          <a className="nav-item" href="/library">
             <Bookmark size={17} /> Study library
-          </Link>
-          <Link className="nav-item" href="/onboarding">
+          </a>
+          <a className="nav-item" href="/settings">
             <BookOpen size={17} /> Preferences
-          </Link>
+          </a>
+          <a className="nav-item" href="/requests">
+            <CircleHelp size={17} /> Feedback
+          </a>
         </nav>
         <div className="sidebar-progress">
           <strong>{activePracticeItem.label}</strong>
-          <span>{secureConceptCount} of 7 concepts secure</span>
+          <span>{secureCheckCount} of {totalCheckCount} checks verified</span>
           <div className="progress-track" aria-label={`${progressPercent}% complete`}>
             <div style={{ width: `${progressPercent}%` }} />
           </div>
@@ -516,11 +525,8 @@ export function PracticeWorkspace() {
             <span className="status-pill" aria-live="polite">
               <Save size={14} /> {savedAt}{syncStatus === "conflict" ? " · Resolve conflict" : ""}
             </span>
-            <button className="icon-button" type="button" aria-label="Notifications">
-              <Bell size={17} />
-            </button>
-            <div className="avatar" aria-label="Guest learner">
-              GL
+            <div className="avatar" aria-label={viewer ? `${viewer.displayName || viewer.email || 'Learner'} account` : 'Guest learner'}>
+              {initialsFor(viewer?.displayName || viewer?.email)}
             </div>
           </div>
         </header>
@@ -528,15 +534,15 @@ export function PracticeWorkspace() {
         <div className="content">
           <div className="session-heading">
             <div>
-              <p className="eyebrow">Recommended · 18 min</p>
-              <h1>Think in complements</h1>
-              <p>Build the reasoning first. Syntax can wait.</p>
+              <p className="eyebrow"><span className="capitalize">{activePracticeItem.difficulty}</span> · {activePracticeItem.estimatedMinutes} min</p>
+              <h1>{activePracticeItem.lesson.title}</h1>
+              <p>{activePracticeItem.lesson.summary}</p>
             </div>
             <div className="metric">
               <Clock3 size={19} />
               <div>
-                <strong>12:40</strong>
-                <div>focus time</div>
+                <strong>{formatElapsed(elapsedSeconds)}</strong>
+                <div>time this visit</div>
               </div>
             </div>
           </div>
@@ -696,7 +702,7 @@ export function PracticeWorkspace() {
                 )}
                 <div className="editor-footer">
                   <div className="editor-tools">
-                    <button className="text-button" onClick={() => updateDraft(starterDraft)} type="button">
+                    <button className="text-button" onClick={() => updateDraft(activePracticeItem.starterDraft)} type="button">
                       Use guided start
                     </button>
                     <button
@@ -735,9 +741,9 @@ export function PracticeWorkspace() {
               <div className="pane-header">
                 <div>
                   <h2 id="feedback-title">Reasoning checks</h2>
-                  <span className="pane-kicker">Deterministic rubric · v1</span>
+                  <span className="pane-kicker">Deterministic rubric · {evaluation?.rubricVersion ?? REASONING_RUBRIC_VERSION}</span>
                 </div>
-                <div className="score-ring">{evaluation?.score ?? 0}</div>
+                <div className="score-ring" aria-label={evaluation ? `Reasoning score ${evaluation.score}` : 'Not evaluated'}>{evaluation?.score ?? '—'}</div>
               </div>
               <p className="feedback-summary" aria-live="polite">
                 {evaluation?.summary ??
@@ -765,7 +771,7 @@ export function PracticeWorkspace() {
                 <div className="approved-panel">
                   <Code2 size={19} />
                   <strong>Implementation unlocked</strong>
-                  <p>Your approved reasoning stays visible while you translate it into TypeScript.</p>
+                  <p>Your approved reasoning stays visible while you translate it into {codingLanguage === "python" ? "Python" : "TypeScript"}.</p>
                 </div>
               ) : (
                 <div className="locked-panel">
@@ -807,43 +813,46 @@ export function PracticeWorkspace() {
                 <p className="eyebrow">Optional next step</p>
                 <h2 id="coding-title">Translate the approved plan</h2>
                 <span className="pane-kicker">
-                  TypeScript · structure check only in this local milestone
+                  {codingLanguage === "python" ? "Python" : "TypeScript"} · isolated verification
                 </span>
               </div>
               {approved ? <Check color="var(--moss)" /> : <LockKeyhole color="var(--muted)" />}
             </div>
             <div className="coding-grid">
               <textarea
-                aria-label="TypeScript implementation"
+                aria-label={`${codingLanguage === "python" ? "Python" : "TypeScript"} implementation`}
                 className="editor code-editor"
                 disabled={!approved}
                 onChange={(event) => {
                   setCode(event.target.value);
                   setCodeChecked(false);
                   setCompleted(false);
+                  setCodeGrade(null);
                   setExecutionStatus('idle');
-                  setExecutionJobId(null);
                   setExecutionOutput('');
                 }}
                 value={code}
               />
               <div className="test-panel">
-                <strong>Translation checks</strong>
-                {translationChecks.map((check) => (
-                  <div className={`test-row ${codeChecked ? (check.passed ? "pass" : "revise") : ""}`} key={check.label}>
+                <strong>Verified code tests</strong>
+                {(codeGrade?.tests ?? [{ name: 'Correct outputs and return contract', passed: false }, { name: 'Problem-specific edge cases', passed: false }, { name: 'Isolated time and memory limits', passed: false }]).map((check) => (
+                  <div className={`test-row ${codeChecked ? (check.passed ? "pass" : "revise") : ""}`} key={check.name}>
                     <span className="test-icon">
                       {codeChecked ? check.passed ? <Check size={12} /> : <X size={12} /> : null}
                     </span>
-                    {check.label}
+                    {check.name}
                   </div>
                 ))}
                 <button
                   className="button secondary full-button"
                   disabled={!approved}
                   onClick={() => {
-                    setCode(buildCodeFromPlan(activePracticeItem.codeFunction, activePracticeItem.codeSignature, draft));
+                    setCode(buildCodeFromPlanForLanguage(activePracticeItem.codeFunction, activePracticeItem.codeSignature, draft, codingLanguage));
                     setCodeChecked(false);
                     setCompleted(false);
+                    setCodeGrade(null);
+                    setExecutionStatus('idle');
+                    setExecutionOutput('');
                   }}
                   type="button"
                 >
@@ -851,35 +860,24 @@ export function PracticeWorkspace() {
                 </button>
                 <button
                   className="button full-button"
-                  disabled={!approved}
-                  onClick={checkTranslation}
-                  type="button"
-                >
-                  <Play size={15} /> {completed ? "Completed" : codeChecked ? "Structure recorded" : "Check translation"}
-                </button>
-                <button
-                  className="button secondary full-button"
-                  disabled={!approved || executionStatus === 'queued' || executionStatus === 'running'}
+                  disabled={!approved || executionStatus === 'running'}
                   onClick={() => void runInSandbox()}
                   type="button"
                 >
-                  <Play size={15} /> {executionStatus === 'queued' || executionStatus === 'running' ? 'Running sandbox…' : 'Run in sandbox'}
+                  <Play size={15} /> {executionStatus === 'running' ? 'Running verified tests…' : completed ? 'Run verified tests again' : 'Run verified tests'}
                 </button>
-                {executionStatus === 'queued' || executionStatus === 'running' ? (
-                  <button className="text-button muted" onClick={() => void cancelSandboxExecution()} type="button">Cancel sandbox run</button>
-                ) : null}
                 {executionStatus !== 'idle' ? (
-                  <div className={`completion-panel ${executionStatus === 'failed' || executionStatus === 'timed_out' || executionStatus === 'canceled' || executionStatus === 'unavailable' ? 'revise' : ''}`} aria-live="polite">
-                    {executionStatus === 'completed' ? <Check size={16} /> : <Clock3 size={16} />} {executionOutput || `Execution ${executionStatus}.`}
+                  <div className={`completion-panel ${executionStatus === 'failed' || executionStatus === 'timed_out' || executionStatus === 'unavailable' || (codeGrade && !codeGrade.passed) ? 'revise' : ''}`} aria-live="polite">
+                    {executionStatus === 'completed' && codeGrade?.passed ? <Check size={16} /> : <Clock3 size={16} />} {executionOutput || `Execution ${executionStatus}.`}
                   </div>
                 ) : null}
                 {completed ? (
                   <div className="completion-panel" aria-live="polite">
-                    <Check size={16} /> Saved to your local progress.
+                    <Check size={16} /> Verified and saved to your local progress.
                   </div>
                 ) : codeChecked ? (
                   <div className="completion-panel revise" aria-live="polite">
-                    <X size={16} /> Finish the checks above to save progress.
+                    <X size={16} /> Fix the failing cases and run verification again.
                   </div>
                 ) : null}
               </div>
@@ -889,18 +887,18 @@ export function PracticeWorkspace() {
       </main>
 
       <nav className="mobile-nav" aria-label="Mobile navigation">
-        <Link href="/">
+        <a href="/">
           <LayoutDashboard size={18} />Today
-        </Link>
-        <Link className="active" href="/practice" aria-current="page">
+        </a>
+        <a className="active" href="/practice" aria-current="page">
           <Braces size={18} />Practice
-        </Link>
-        <Link href="/history">
+        </a>
+        <a href="/history">
           <CircleHelp size={18} />History
-        </Link>
-        <Link href="/onboarding">
+        </a>
+        <a href="/onboarding">
           <BookOpen size={18} />Plan
-        </Link>
+        </a>
       </nav>
     </div>
   );

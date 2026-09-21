@@ -56,4 +56,28 @@ For each value and position:
     expect(result.approved).toBe(true);
     expect(result.score).toBe(100);
   });
+
+  it.each(practiceItems)("approves the guided strategy for $label", (practiceItem) => {
+    const result = evaluatePseudocode(practiceItem.starterDraft, practiceItem.id);
+
+    expect(result.approved).toBe(true);
+    expect(result.score).toBe(100);
+  });
+
+  it.each(practiceItems)("keeps the flawed strategy for $label locked", (practiceItem) => {
+    expect(evaluatePseudocode(practiceItem.flawedDraft, practiceItem.id).approved).toBe(false);
+  });
+
+  it('rejects an explanation that includes both the expected words and a critical contradiction', () => {
+    const result = evaluatePseudocode(`Create a map and iterate once.
+For each value, calculate the complement as target minus value.
+Store the value before checking whether the complement exists in the map.
+Return both positions. This takes O(n) time and O(n) space.`);
+    expect(result.approved).toBe(false);
+    expect(result.findings.find((finding) => finding.id === 'contradiction')?.status).toBe('revise');
+  });
+
+  it('fails closed when an activity has no matching rubric', () => {
+    expect(evaluatePseudocode('Return the answer.', 'unknown-activity').approved).toBe(false);
+  });
 });

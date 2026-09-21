@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#0f172a" />
+    <title>Method is offline</title>
+    <style>
+      :root {
+        color-scheme: light;
+        font-family:
+          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+          "Segoe UI", sans-serif;
+        background: #f8fafc;
+        color: #0f172a;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        min-height: 100vh;
+        margin: 0;
+        display: grid;
+        place-items: center;
+        padding: 1.5rem;
+      }
+
+      main {
+        width: min(100%, 34rem);
+        padding: 2rem;
+        border: 1px solid #e2e8f0;
+        border-radius: 0.75rem;
+        background: #ffffff;
+        box-shadow: 0 1px 2px rgb(15 23 42 / 0.06);
+      }
+
+      .eyebrow {
+        margin: 0;
+        color: #64748b;
+        font-size: 0.75rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      h1 {
+        margin: 0.75rem 0 0;
+        font-size: clamp(1.5rem, 5vw, 2rem);
+        line-height: 1.2;
+      }
+
+      .description {
+        margin: 0.75rem 0 0;
+        color: #475569;
+        line-height: 1.6;
+      }
+
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+        margin-top: 1.5rem;
+      }
+
+      a {
+        display: inline-flex;
+        min-height: 2.75rem;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid #cbd5e1;
+        border-radius: 0.4rem;
+        padding: 0.65rem 1rem;
+        color: #0f172a;
+        font-weight: 700;
+        text-decoration: none;
+      }
+
+      a:first-child {
+        border-color: #0f172a;
+        background: #0f172a;
+        color: #ffffff;
+      }
+
+      a:focus-visible {
+        outline: 3px solid #94a3b8;
+        outline-offset: 3px;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <p class="eyebrow">Method is offline</p>
+      <h1>Reconnect to continue learning.</h1>
+      <p class="description">
+        This fallback does not depend on application code, so it remains
+        readable during a network or DNS interruption. Once your connection is
+        restored, try the site again.
+      </p>
+      <nav class="actions" aria-label="Offline actions">
+        <a href="/">Try again</a>
+        <a href="/practice">Open practice</a>
+      </nav>
+    </main>
+  </body>
+</html>

@@ -1,6 +1,22 @@
+export type PracticeTopic =
+  | "dynamic-programming"
+  | "graphs"
+  | "hashing"
+  | "queues"
+  | "sliding-window"
+  | "stacks"
+  | "trees"
+  | "two-pointers";
+
+export type PracticeDifficulty = "foundation" | "intermediate" | "advanced";
+
 export type PracticeItem = {
   id: string;
   label: string;
+  topic: PracticeTopic;
+  difficulty: PracticeDifficulty;
+  estimatedMinutes: number;
+  conceptIds: string[];
   lesson: {
     eyebrow: string;
     title: string;
@@ -34,6 +50,10 @@ export const practiceItems: PracticeItem[] = [
   {
     id: "pair-with-target-v1",
     label: "Pair With Target",
+    topic: "hashing",
+    difficulty: "foundation",
+    estimatedMinutes: 18,
+    conceptIds: ["hash-maps", "complement-reasoning", "complexity-analysis"],
     lesson: {
       eyebrow: "Hash maps · Foundation",
       title: "Remember what you have seen",
@@ -90,6 +110,10 @@ Return no pair.`,
   {
     id: "max-window-sum-v1",
     label: "Max Window Sum",
+    topic: "sliding-window",
+    difficulty: "intermediate",
+    estimatedMinutes: 22,
+    conceptIds: ["sliding-window", "incremental-state", "complexity-analysis"],
     lesson: {
       eyebrow: "Windows · Sliding window",
       title: "Hold a moving slice",
@@ -143,6 +167,10 @@ Return the largest sum.`,
   {
     id: "tree-max-depth-v1",
     label: "Tree Max Depth",
+    topic: "trees",
+    difficulty: "intermediate",
+    estimatedMinutes: 22,
+    conceptIds: ["tree-recursion", "base-cases", "divide-and-combine"],
     lesson: {
       eyebrow: "Recursion · Trees",
       title: "Let the shape recurse",
@@ -192,6 +220,10 @@ Return one plus the left child depth.`,
   {
     id: "balanced-brackets-v1",
     label: "Balanced Brackets",
+    topic: "stacks",
+    difficulty: "foundation",
+    estimatedMinutes: 16,
+    conceptIds: ["stack-state", "nesting", "edge-cases"],
     lesson: {
       eyebrow: "Stacks · Validation",
       title: "Match the most recent opener",
@@ -245,6 +277,10 @@ Return true.`,
   {
     id: "climb-stairs-v1",
     label: "Climb Stairs",
+    topic: "dynamic-programming",
+    difficulty: "foundation",
+    estimatedMinutes: 18,
+    conceptIds: ["dynamic-programming", "recurrence", "rolling-state"],
     lesson: {
       eyebrow: "Dynamic programming · Basics",
       title: "Remember the smaller answers",
@@ -296,6 +332,10 @@ Return the answer.`,
   {
     id: "island-count-v1",
     label: "Island Count",
+    topic: "graphs",
+    difficulty: "intermediate",
+    estimatedMinutes: 28,
+    conceptIds: ["graph-traversal", "visited-state", "grid-connectivity"],
     lesson: {
       eyebrow: "Graphs · Flood fill",
       title: "Visit each connected piece once",
@@ -346,6 +386,10 @@ Return the count.`,
   {
     id: "task-order-v1",
     label: "Task Order",
+    topic: "queues",
+    difficulty: "advanced",
+    estimatedMinutes: 32,
+    conceptIds: ["topological-sort", "queue-processing", "cycle-detection"],
     lesson: {
       eyebrow: "Queues · Ordering",
       title: "Process in arrival order",
@@ -380,7 +424,7 @@ Return the order if every task was scheduled.`,
     flawedDraft: `Put the tasks in any order.
 Return the tasks.`,
     codeFunction: "taskOrder",
-    codeSignature: "tasks: string[]",
+    codeSignature: "tasks: string[], prerequisites: string[][]",
     trace: {
       title: "tasks",
       subtitle: "frontier of ready work",
@@ -399,6 +443,10 @@ Return the tasks.`,
   {
     id: "two-sum-window-v1",
     label: "Two Sum Window",
+    topic: "two-pointers",
+    difficulty: "foundation",
+    estimatedMinutes: 18,
+    conceptIds: ["two-pointers", "ordered-search", "boundary-movement"],
     lesson: {
       eyebrow: "Two pointers · Windows",
       title: "Move both ends with intent",
@@ -413,8 +461,8 @@ Return the tasks.`,
         "Given a sorted list of integers and a target, return the positions of two values whose sum equals the target.",
       example: {
         input: "values = [1, 3, 4, 6, 8, 11], target = 10",
-        output: "[1, 4]",
-        note: "3 + 7 would work if 7 were present, but here 4 + 6 is the valid pair.",
+        output: "[2, 3]",
+        note: "values[2] + values[3] = 4 + 6 = 10.",
       },
       constraints: [
         "2 ≤ values.length ≤ 100,000",
@@ -450,6 +498,10 @@ Return the first pair that matches.`,
   {
     id: "coin-change-lite-v1",
     label: "Coin Change Lite",
+    topic: "dynamic-programming",
+    difficulty: "advanced",
+    estimatedMinutes: 30,
+    conceptIds: ["dynamic-programming", "recurrence", "optimization"],
     lesson: {
       eyebrow: "Dynamic programming · Optimization",
       title: "Build from the cheapest subproblem",
@@ -501,6 +553,10 @@ Return the first answer found.`,
   {
     id: "first-unique-index-v1",
     label: "First Unique Index",
+    topic: "hashing",
+    difficulty: "foundation",
+    estimatedMinutes: 16,
+    conceptIds: ["hash-maps", "frequency-counting", "stable-ordering"],
     lesson: {
       eyebrow: "Hash maps · Counting",
       title: "Count first, decide second",
@@ -553,8 +609,11 @@ Return -1.`,
 
 export const defaultPracticeItem = practiceItems[0];
 
+export const findPracticeItem = (id: string) =>
+  practiceItems.find((item) => item.id === id);
+
 export const getPracticeItem = (id: string) =>
-  practiceItems.find((item) => item.id === id) ?? defaultPracticeItem;
+  findPracticeItem(id) ?? defaultPracticeItem;
 
 export const lesson = defaultPracticeItem.lesson;
 export const problem = defaultPracticeItem.problem;

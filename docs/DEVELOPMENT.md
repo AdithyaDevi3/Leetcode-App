@@ -147,9 +147,11 @@ OTEL_EXPORTER_OTLP_ENDPOINT
 The current private-beta runtime variables are listed in
 `apps/web/.env.example`. Production uses `EVALUATION_JOB_STORE=postgres`, a
 protected evaluation worker token, and an external scheduler. Keep
-`CODE_EXECUTION_ENABLED=false` until the isolated Judge0 provider and execution
-worker are live. The `x-request-id` response header is the correlation value for
-safe support and operational logs.
+`CODE_EXECUTION_ENABLED=false` for ordinary local development. Production on
+Vercel uses `CODE_EXECUTION_PROVIDER=vercel-sandbox` with automatic OIDC; local
+live-sandbox testing first requires pulling the linked Vercel environment.
+Self-hosted environments may use the Judge0 provider. The `x-request-id`
+response header is the correlation value for safe support and operational logs.
 
 Secret values such as database passwords, identity client secrets, AI keys, sandbox keys, email keys, and object-storage credentials remain server-only and are never added to `.env.example` as realistic values.
 
@@ -168,14 +170,11 @@ Do not commit directly to protected `main` once branch protection is enabled.
 
 ### Current integration policy
 
-While the consolidated `phase-3-evaluation-platform` pull request to `main` is
-open, create one branch and one focused pull request for each remaining roadmap
-work package. Target those focused pull requests at
-`phase-3-evaluation-platform`, not `main`; merging an approved focused PR into
-the integration branch updates the consolidated PR automatically. Do not open
-duplicate PRs for historical branches whose commits are already reachable from
-the integration branch. Each focused PR must remain independently testable and
-must not include unrelated roadmap work.
+`main` is the deployable integration branch and Vercel production source. Start
+each change from an updated `main`, use one short-lived branch and one focused
+pull request, and target that pull request directly at `main` unless a currently
+open ADR explicitly defines a temporary stacked dependency. Do not revive old
+phase integration branches or duplicate work already reachable from `main`.
 
 ## Issue template
 

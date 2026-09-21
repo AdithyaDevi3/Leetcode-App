@@ -2,7 +2,7 @@ import NextAuth, { type DefaultSession } from 'next-auth';
 import Google from 'next-auth/providers/google';
 import GitHub from 'next-auth/providers/github';
 import { type Adapter } from 'next-auth/adapters';
-import { createDatabaseClient, databaseConfigFromEnv, type DatabaseClient } from '@leetcode-app/database';
+import { createDatabaseClient, databaseConfigFromEnv } from '@leetcode-app/database';
 import { createAuthAdapter } from './adapter';
 
 /**
@@ -80,7 +80,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   },
 
   callbacks: {
-    async signIn({ user, account, profile }) {
+    async signIn() {
       // Check if there's a guest session to upgrade
       // This will be handled in the session callback
       return true;
@@ -107,7 +107,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   },
 
   events: {
-    async signIn({ user, account, isNewUser }) {
+    async signIn({ user, isNewUser }) {
       if (isNewUser) {
         console.log(`New user signed up: ${user.id}`);
         // Future: Send welcome email, initialize user preferences, etc.

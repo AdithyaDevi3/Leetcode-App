@@ -2,8 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { getOrCreateRequestId, requestIdHeader } from '@/lib/request-correlation';
 import { isSupabaseConfigured } from '@/lib/supabase/config';
+import { canonicalRedirectUrl } from '@/lib/app-url';
 
 export async function middleware(request: NextRequest) {
+  const canonicalUrl = canonicalRedirectUrl(request.url);
+  if (canonicalUrl) return NextResponse.redirect(canonicalUrl, 308);
+
   const requestHeaders = new Headers(request.headers);
   const requestId = getOrCreateRequestId(requestHeaders.get(requestIdHeader));
   requestHeaders.set(requestIdHeader, requestId);

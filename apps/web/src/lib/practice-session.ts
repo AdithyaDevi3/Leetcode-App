@@ -1,15 +1,19 @@
 import type { Evaluation } from "./evaluator";
+import type { CodeGrade } from './code-grading';
 import { astProgramToBlocks, blockModelToDraft, draftToBlockModel } from "./ast-block-adapter";
 
 export type EditorMode = "text" | "blocks";
+export type CodingLanguage = "typescript" | "python";
 
 export type PracticeSessionState = {
   draft: string;
   mode: EditorMode;
+  language: CodingLanguage;
   code: string;
   codeChecked: boolean;
   completed: boolean;
   evaluation: Evaluation | null;
+  codeGrade: CodeGrade | null;
 };
 
 export const sessionStorageKey = (problemId: string) => `method:${problemId}:session`;
@@ -18,7 +22,25 @@ export const selectedPracticeItemKey = "method:selected-practice-item";
 const defaultSignatureFor = (functionName: string) =>
   functionName === "findFirstUniqueIndex" ? "values: number[]" : "values: number[], target: number";
 
-export const defaultCode = (functionName: string, signature = defaultSignatureFor(functionName)) => `function ${functionName}(${signature}) {
+const snakeCase = (value: string) => value.replace(/([a-z0-9])([A-Z])/g, "$1_$2").toLowerCase();
+
+const pythonSignature = (signature: string) => signature
+  .replace(/number\[\]\[\]/g, "list[list[int]]")
+  .replace(/number\[\]/g, "list[int]")
+  .replace(/string\[\]/g, "list[str]")
+  .replace(/TreeNode \| null/g, "TreeNode | None")
+  .replace(/number/g, "int")
+  .replace(/string/g, "str");
+
+export const defaultCode = (
+  functionName: string,
+  signature = defaultSignatureFor(functionName),
+  language: CodingLanguage = "typescript",
+) => language === "python"
+  ? `def ${snakeCase(functionName)}(${pythonSignature(signature)}):
+    # Translate your approved plan here.
+    pass`
+  : `function ${functionName}(${signature}) {
   // Translate your approved plan here.
 }`;
 
@@ -47,8 +69,24 @@ ${planComments || "  // Translate your approved plan here."}
 }`;
 };
 
+export const buildCodeFromPlanForLanguage = (
+  functionName: string,
+  signature: string,
+  plan: string,
+  language: CodingLanguage,
+) => {
+  if (language === "typescript") return buildCodeFromPlan(functionName, signature, plan);
+
+  const planComments = splitDraftIntoBlocks(plan)
+    .map((line) => `    # ${line}`)
+    .join("\n");
+  return `def ${snakeCase(functionName)}(${pythonSignature(signature)}):
+${planComments || "    # Translate your approved plan here."}
+    pass`;
+};
+
 export const stripCodeComments = (source: string) =>
-  source.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
+  source.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "").replace(/#.*$/gm, "");
 
 const isEvaluation = (value: unknown): value is Evaluation => {
   if (typeof value !== "object" || value === null) {
@@ -62,6 +100,17 @@ const isEvaluation = (value: unknown): value is Evaluation => {
     typeof candidate.summary === "string" &&
     Array.isArray(candidate.findings)
   );
+};
+
+const isCodeGrade = (value: unknown): value is CodeGrade => {
+  if (typeof value !== 'object' || value === null) return false;
+  const candidate = value as Partial<CodeGrade>;
+  return typeof candidate.problemId === 'string'
+    && typeof candidate.version === 'string'
+    && typeof candidate.passed === 'boolean'
+    && typeof candidate.passedCount === 'number'
+    && typeof candidate.totalCount === 'number'
+    && Array.isArray(candidate.tests);
 };
 
 export const serializePracticeSession = (state: PracticeSessionState) => JSON.stringify(state);
@@ -82,10 +131,12 @@ export const deserializePracticeSession = (value: string): PracticeSessionState 
     return {
       draft: parsed.draft,
       mode: parsed.mode,
+      language: parsed.language === "python" ? "python" : "typescript",
       code: parsed.code,
       codeChecked: parsed.codeChecked,
-      completed: parsed.completed,
+      completed: parsed.completed && isCodeGrade(parsed.codeGrade) && parsed.codeGrade.passed,
       evaluation: parsed.evaluation && isEvaluation(parsed.evaluation) ? parsed.evaluation : null,
+      codeGrade: isCodeGrade(parsed.codeGrade) ? parsed.codeGrade : null,
     };
   } catch {
     return null;

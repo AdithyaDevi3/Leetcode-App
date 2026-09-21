@@ -20,14 +20,14 @@ Primary Options Evaluated:
 3. **Custom gVisor/Firecracker** - Container/microVM isolation
 4. **Cloud Functions** - Managed serverless (AWS Lambda, Google Cloud Functions)
 
-**Selected: Judge0 with custom hardening on Kubernetes**
+**Selected: Vercel Sandbox for the Vercel deployment, with Judge0 retained as a self-hosted fallback**
 
 Rationale:
-- Open-source with active maintenance
-- Multi-language support (TypeScript via Deno, Python)
-- Built-in resource limiting and networking controls
-- Can be self-hosted for privacy compliance
-- Proven security model used by competitive programming platforms
+- Firecracker microVM isolation keeps untrusted code outside the web function
+- TypeScript and Python are available in the managed universal image
+- Network policy can deny all sandbox egress
+- Production uses short-lived Vercel OIDC instead of a stored sandbox token
+- Judge0 remains available where self-hosting or broader language support is required
 
 ### Security Architecture
 
@@ -44,7 +44,7 @@ Rationale:
        │
        ▼
 ┌──────────────────────────────────┐
-│   Isolated Judge0 Instance       │
+│   Vercel Sandbox microVM         │
 │   ┌──────────────────────┐       │
 │   │  Execution Container │       │
 │   │  • No network access │       │
@@ -57,13 +57,12 @@ Rationale:
 
 ### Resource Limits (per execution)
 
-- **CPU:** 1 core, 50% throttle
-- **Memory:** 256 MB
-- **Execution Time:** 30 seconds max
+- **CPU:** 1 vCPU microVM
+- **Memory:** 2 GB microVM; language processes receive tighter runtime limits
+- **Execution Time:** 3 seconds for current practice verification
 - **Network:** Disabled completely
-- **Filesystem:** Read-only except /tmp (50 MB)
-- **Processes:** Max 10 processes
-- **File Descriptors:** Max 50
+- **Filesystem:** Ephemeral and destroyed after each run
+- **Output:** 50 KB application cap, with a shell file-size limit as defense in depth
 
 ### Quota System
 
@@ -95,11 +94,11 @@ Alert on:
 ### Supported Runtimes
 
 **Phase 1:**
-- Python 3.11+ (via Judge0)
-- TypeScript/JavaScript (via Deno in Judge0)
+- Python 3.14 (managed universal image)
+- TypeScript transpiled server-side and executed on Node.js 24
 
 **Future:**
-- Java, C++, Go (Judge0 supports, enabled after security review)
+- Java, C++, Go through Judge0 or reviewed custom images after security review
 
 ### Failure Modes
 
@@ -116,12 +115,12 @@ Alert on:
 - Users can validate their implementations
 - Multi-language support from single system
 - Proven security model from established platforms
-- Open-source allows customization and auditing
+- No separate sandbox cluster or long-lived production token is required on Vercel
 
 ### More Difficult
 
-- Infrastructure complexity (Kubernetes, queue integration)
-- Must maintain Judge0 and container images
+- Provider usage, quotas, and platform availability must be monitored
+- Judge0 maintenance remains necessary only for self-hosted deployments
 - Performance tuning for cold starts
 - Cost of dedicated execution infrastructure
 - Sophisticated abuse detection needed

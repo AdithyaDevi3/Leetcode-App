@@ -57,9 +57,9 @@ Remaining: complete onboarding and diagnostic flow, daily home/history/notes/con
 
 ### Phase 5 — safe coding workspace
 
-Present: execution contracts, job storage/store, worker, submission/status/cancellation APIs, cancellation/editor UI, result mapping, Judge0 adapter, and execution policy.
+Present: execution contracts, job storage/store, worker, submission/status/cancellation APIs, cancellation/editor UI, result mapping, Vercel Sandbox and Judge0 adapters, provider selection, and execution policy. The Vercel adapter uses ephemeral network-denied microVMs and process runtime/output limits.
 
-Remaining: select and independently review the production sandbox provider; deploy isolated workers/queues; validate limits, quotas, abuse controls, outage behavior, and hidden/public test handling; complete plan-versus-code feedback.
+Remaining: validate the Vercel Sandbox integration and limits in preview/production; operate the durable exploratory-execution worker; add distributed quotas and alerts; run abuse/outage drills; complete plan-versus-code feedback.
 
 ### Phase 6 — content operations, administration, and support
 

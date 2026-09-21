@@ -1,5 +1,6 @@
 import { createDatabaseClient, databaseConfigFromEnv, type DatabaseClient } from '@leetcode-app/database';
 import type { EvaluationJob, EvaluationJobRequest } from './evaluation-jobs';
+import { evaluationPolicy } from './evaluation-policy';
 
 type JobRow = {
   id: string; user_id: string; session_id: string; revision_number: number; evaluator_version: string; rubric_version: string;
@@ -25,7 +26,7 @@ export function createEvaluationJobStore(db: DatabaseClient = createDatabaseClie
          ON CONFLICT (user_id, session_id, revision_number, evaluator_version, rubric_version)
          DO UPDATE SET user_id = EXCLUDED.user_id
          RETURNING *`,
-        [request.userId, request.sessionId, request.revisionNumber, request.evaluatorVersion ?? 'v1', request.rubricVersion ?? 'rubric-v1'],
+        [request.userId, request.sessionId, request.revisionNumber, request.evaluatorVersion ?? evaluationPolicy.evaluatorVersion, request.rubricVersion ?? evaluationPolicy.reasoningRubricVersion],
       );
       return mapJob(result.rows[0]);
     },

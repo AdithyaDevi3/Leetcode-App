@@ -1,6 +1,6 @@
 export const evaluationPolicy = {
-  evaluatorVersion: 'deterministic-v2',
-  reasoningRubricVersion: 'reasoning-rubric-v2',
+  evaluatorVersion: 'deterministic-v3',
+  reasoningRubricVersion: 'reasoning-rubric-v3',
   minimumAiConfidence: 0.8,
   maxJobAttempts: 3,
   pollingIntervalMs: 1_000,

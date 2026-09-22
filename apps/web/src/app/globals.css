@@ -114,6 +114,10 @@ h1 { margin-bottom: 6px; font-size: clamp(26px, 3vw, 38px); line-height: 1.1; }
 .mode-switch { padding: 3px; display: flex; border: 1px solid var(--line); border-radius: 6px; background: #f0f1ec; }
 .mode-switch button { min-height: 30px; padding: 0 11px; border: 0; border-radius: 4px; background: transparent; color: var(--muted); font-size: 12px; }
 .mode-switch button.active { background: white; color: var(--ink); box-shadow: 0 1px 4px rgba(23, 33, 27, .12); }
+.approach-guide { margin-top: 16px; padding: 13px 14px; display: flex; align-items: center; justify-content: space-between; gap: 16px; border: 1px solid #d9d4c3; border-radius: 7px; background: #faf7ed; }
+.approach-guide strong { display: block; font-size: 12px; }
+.approach-guide p { margin: 3px 0 0; color: var(--muted); font-size: 11px; line-height: 1.45; }
+.approach-guide .button { min-height: 34px; flex: 0 0 auto; font-size: 11px; }
 .editor-wrap { margin-top: 18px; }
 .editor {
   width: 100%; min-height: 490px; padding: 20px; resize: vertical; border: 1px solid #cfd4cc; border-radius: 6px;
@@ -122,7 +126,7 @@ h1 { margin-bottom: 6px; font-size: clamp(26px, 3vw, 38px); line-height: 1.1; }
 .editor::placeholder { color: #929a93; }
 .editor-footer { min-height: 56px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .editor-tools, .draft-stats { display: flex; align-items: center; gap: 12px; }
-.text-button { padding: 7px 0; border: 0; background: transparent; color: var(--moss); font-size: 12px; font-weight: 700; }
+.text-button { padding: 7px 0; display: inline-flex; align-items: center; gap: 5px; border: 0; background: transparent; color: var(--moss); font-size: 12px; font-weight: 700; }
 .text-button.muted { color: var(--muted); }
 .text-button:disabled { cursor: not-allowed; color: #a2aaa3; }
 .draft-stats { color: var(--muted); font-size: 11px; white-space: nowrap; }
@@ -136,6 +140,15 @@ h1 { margin-bottom: 6px; font-size: clamp(26px, 3vw, 38px); line-height: 1.1; }
 .button.secondary:hover { background: var(--moss-soft); }
 .button:disabled { cursor: not-allowed; border-color: var(--line); background: #e7e9e3; color: #8b948c; }
 .full-button { width: 100%; margin-top: 16px; }
+.reference-answer { margin-top: 8px; padding: 20px; border: 1px solid #d7bf79; border-radius: 8px; background: linear-gradient(145deg, #fffaf0, #fbf4df); box-shadow: 0 10px 28px rgba(67, 53, 20, .08); }
+.reference-answer-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.reference-answer-heading h3 { margin: 5px 0 0; font-size: 16px; }
+.reference-answer-kicker { display: flex; align-items: center; gap: 6px; color: #8a6715; font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.reference-answer-intro { max-width: 660px; margin: 12px 0 14px; color: #59635c; font-size: 12px; line-height: 1.6; }
+.reference-answer pre { margin: 0; padding: 16px; overflow-x: auto; border: 1px solid #ded7c6; border-radius: 6px; background: #1a241e; color: #edf2ed; font-family: var(--font-geist-mono), monospace; font-size: 12px; line-height: 1.75; white-space: pre-wrap; }
+.reference-answer-why { margin: 14px 0; padding-left: 12px; border-left: 3px solid var(--mustard); }
+.reference-answer-why strong { font-size: 12px; }
+.reference-answer-why p { margin: 4px 0 0; color: #59635c; font-size: 12px; line-height: 1.55; }
 .block-builder { min-height: 490px; padding: 16px; border: 1px solid #cfd4cc; border-radius: 6px; background: #f0f2ed; }
 .block-palette { display: flex; flex-wrap: wrap; gap: 7px; padding-bottom: 14px; border-bottom: 1px solid var(--line); }
 .block-palette button { min-height: 32px; padding: 0 10px; border: 1px solid #bfc8c0; border-radius: 5px; background: white; color: var(--moss); font-size: 11px; font-weight: 700; }
@@ -239,8 +252,12 @@ h1 { margin-bottom: 6px; font-size: clamp(26px, 3vw, 38px); line-height: 1.1; }
 @media (max-width: 480px) {
   .pane-header { display: block; }
   .mode-switch { width: max-content; margin-top: 12px; }
+  .approach-guide { align-items: stretch; flex-direction: column; }
+  .approach-guide .button { width: 100%; }
   .editor-footer { align-items: stretch; flex-direction: column; }
   .editor-tools, .draft-stats { justify-content: space-between; }
   .editor-footer .button { width: 100%; }
+  .reference-answer { padding: 16px; }
+  .reference-answer .button { width: 100%; }
   .language-switch { display: grid; grid-template-columns: 1fr; }
 }

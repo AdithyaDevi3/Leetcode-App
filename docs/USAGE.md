@@ -1,7 +1,7 @@
 # Maintainer Quick Start
 
 This is the practical starting point for taking over Method. It describes the
-deployed application as of 2026-09-21, where common changes belong, and the
+deployed application as of 2026-09-22, where common changes belong, and the
 shortest safe path to the first administration console.
 
 ## Ten-minute orientation
@@ -26,7 +26,7 @@ network or a permitted VPN. Changing application redirects cannot repair DNS.
 | Area | Current behavior | Main code |
 |---|---|---|
 | Navigation | Home, roadmap, onboarding, dashboard, learn, library, practice, history, requests, settings, system design, and auth routes render with shared responsive navigation | `apps/web/src/app`, `apps/web/src/components/site-navigation.tsx` |
-| Practice | Ten original activities support structured-English and block-style pseudocode, drafts, staged progress, history, and deterministic feedback | `apps/web/src/lib/content.ts`, `apps/web/src/components/practice-workspace.tsx` |
+| Practice | Ten original activities support structured-English and block-style pseudocode, optional reference-answer comparison, drafts, staged progress, history, and deterministic feedback | `apps/web/src/lib/content.ts`, `apps/web/src/components/practice-workspace.tsx` |
 | Topic roadmap | Eight algorithm and eight system-design topics each provide foundation, intermediate, and advanced analysis questions; search, filters, and browser-local progress support browsing the 48-question catalog | `apps/web/src/app/roadmap`, `apps/web/src/lib/roadmap.ts`, `apps/web/src/lib/roadmap-evaluation.ts` |
 | Code grading | Python 3, C++20, and TypeScript solutions run against server-owned tests; only an all-tests-passing report completes verified practice | `apps/web/src/lib/code-grading.ts`, `apps/web/src/app/api/practice/sessions/[sessionId]/verify/route.ts` |
 | Isolation | Production code runs in ephemeral, network-denied Vercel Sandbox microVMs with runtime and output limits; Judge0 remains an optional self-hosted fallback | `apps/web/src/lib/sandbox` |

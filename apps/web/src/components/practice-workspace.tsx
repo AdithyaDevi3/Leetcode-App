@@ -15,6 +15,8 @@ import {
   Clock3,
   Code2,
   Compass,
+  Eye,
+  EyeOff,
   GitBranch,
   LayoutDashboard,
   Lightbulb,
@@ -92,6 +94,7 @@ export function PracticeWorkspace() {
   const [executionOutput, setExecutionOutput] = useState('');
   const [noteDraft, setNoteDraft] = useState('');
   const [libraryStatus, setLibraryStatus] = useState<string | null>(null);
+  const [showReferenceAnswer, setShowReferenceAnswer] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const viewer = useViewer();
   const activePracticeItem = getPracticeItem(activePracticeId);
@@ -441,6 +444,7 @@ export function PracticeWorkspace() {
     setCompleted(false);
     setExecutionStatus('idle');
     setExecutionOutput('');
+    setShowReferenceAnswer(false);
     removeBrowserStorage(storageKey);
     clearCachedPracticeSessionId(activePracticeItem.id);
     setSavedAt("Ready");
@@ -475,6 +479,7 @@ export function PracticeWorkspace() {
     setCompleted(false);
     setExecutionStatus('idle');
     setExecutionOutput('');
+    setShowReferenceAnswer(false);
     setSavedAt("Ready");
     setSyncStatus("ready");
     setElapsedSeconds(0);
@@ -636,6 +641,45 @@ export function PracticeWorkspace() {
                 </div>
               </div>
 
+              <div className="approach-guide">
+                <div>
+                  <strong>Write the algorithm as ordered steps.</strong>
+                  <p>Name the state you keep, the loop or recursion, each update, and the return value.</p>
+                </div>
+                <button
+                  aria-controls="reference-pseudocode-answer"
+                  aria-expanded={showReferenceAnswer}
+                  className="button secondary"
+                  onClick={() => setShowReferenceAnswer((visible) => !visible)}
+                  type="button"
+                >
+                  {showReferenceAnswer ? <EyeOff size={15} /> : <Eye size={15} />}
+                  {showReferenceAnswer ? 'Hide example answer' : 'Show example answer'}
+                </button>
+              </div>
+
+              {showReferenceAnswer ? (
+                <section className="reference-answer" id="reference-pseudocode-answer" aria-labelledby="reference-answer-title">
+                  <div className="reference-answer-heading">
+                    <div>
+                      <span className="reference-answer-kicker"><BookOpen size={14} /> Reference answer</span>
+                      <h3 id="reference-answer-title">One accepted pseudocode approach</h3>
+                    </div>
+                  </div>
+                  <p className="reference-answer-intro">
+                    Compare the order, state, and return step with your draft. Viewing this answer does not change or submit your work.
+                  </p>
+                  <pre><code>{activePracticeItem.starterDraft}</code></pre>
+                  <div className="reference-answer-why">
+                    <strong>Why it works</strong>
+                    <p>{activePracticeItem.lesson.principle}</p>
+                  </div>
+                  <button className="button secondary" onClick={() => updateDraft(activePracticeItem.starterDraft)} type="button">
+                    Use as my draft
+                  </button>
+                </section>
+              ) : null}
+
               <div className="editor-wrap">
                 {mode === "text" ? (
                   <textarea
@@ -716,7 +760,7 @@ export function PracticeWorkspace() {
                 <div className="editor-footer">
                   <div className="editor-tools">
                     <button className="text-button" onClick={() => updateDraft(activePracticeItem.starterDraft)} type="button">
-                      Use guided start
+                      Insert example answer
                     </button>
                     <button
                       className="text-button muted"

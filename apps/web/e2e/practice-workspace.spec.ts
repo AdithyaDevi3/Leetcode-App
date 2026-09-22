@@ -59,7 +59,7 @@ test('local preferences choose a working personalized algorithm', async ({ page 
 
   await expect(page).toHaveURL(/\/practice\?problem=island-count-v1$/);
   await expect(page.getByRole('heading', { name: 'Island Count' })).toBeVisible();
-  await page.getByRole('button', { name: 'Use guided start' }).click();
+  await page.getByRole('button', { name: 'Insert example answer' }).click();
   await expect(page.getByLabel('Pseudocode draft')).toHaveValue(/For each cell in the grid/);
   await page.getByRole('button', { name: 'Evaluate reasoning' }).click();
   await expect(page.getByText('Implementation unlocked')).toBeVisible();
@@ -88,10 +88,29 @@ test('guest can open the workspace and autosave a draft locally', async ({ page 
   expect(sessionValue).toContain('Check the complement.');
 });
 
-test('guest can use the guided start and pass the reasoning check', async ({ page }) => {
+test('guest can reveal and use the reference pseudocode without replacing their draft automatically', async ({ page }) => {
   await openHydratedWorkspace(page);
 
-  await page.getByRole('button', { name: 'Use guided start' }).click();
+  const editor = page.getByLabel('Pseudocode draft');
+  await editor.fill('My own approach stays here.');
+  await page.getByRole('button', { name: 'Show example answer' }).click();
+
+  const answer = page.getByRole('region', { name: 'One accepted pseudocode approach' });
+  await expect(answer).toBeVisible();
+  await expect(answer).toContainText('Create an empty map from value to position.');
+  await expect(answer).toContainText('Why it works');
+  await expect(editor).toHaveValue('My own approach stays here.');
+
+  await answer.getByRole('button', { name: 'Use as my draft' }).click();
+  await expect(editor).toHaveValue(/Let complement be target minus value/);
+  await page.getByRole('button', { name: 'Hide example answer' }).click();
+  await expect(answer).toBeHidden();
+});
+
+test('guest can insert the example answer and pass the reasoning check', async ({ page }) => {
+  await openHydratedWorkspace(page);
+
+  await page.getByRole('button', { name: 'Insert example answer' }).click();
   await page.getByRole('button', { name: 'Evaluate reasoning' }).click();
 
   await expect(page.getByText('Implementation unlocked')).toBeVisible();
@@ -155,7 +174,7 @@ test('guest draft resumes after reload', async ({ page }) => {
 test('unavailable execution never records an unverified completion', async ({ page }) => {
   await openHydratedWorkspace(page);
 
-  await page.getByRole('button', { name: 'Use guided start' }).click();
+  await page.getByRole('button', { name: 'Insert example answer' }).click();
   await page.getByRole('button', { name: 'Evaluate reasoning' }).click();
 
   await page.getByRole('button', { name: /TypeScript Node\.js/ }).click();

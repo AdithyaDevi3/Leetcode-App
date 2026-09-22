@@ -26,7 +26,7 @@ The repository currently contains these working product areas:
 | Area | Main locations |
 |---|---|
 | Algorithm curriculum and algorithm/system-design roadmap | `apps/web/src/lib/content.ts`, `apps/web/src/lib/roadmap.ts`, `/practice`, `/roadmap` |
-| Pseudocode analysis and feedback | `apps/web/src/lib/evaluator.ts`, evaluation quality fixtures, practice evaluation APIs |
+| Pseudocode analysis, reference answers, and feedback | `apps/web/src/lib/content.ts`, `apps/web/src/lib/evaluator.ts`, evaluation quality fixtures, practice evaluation APIs |
 | Python 3, C++20, and TypeScript verification | `apps/web/src/lib/sandbox`, execution APIs, activity test suites |
 | Learner profiles and recommendations | onboarding, `/learn`, dashboard, mastery and local learner modules |
 | Classes and assigned practice | `/admin/classes`, `/classes`, classroom repository and migration |

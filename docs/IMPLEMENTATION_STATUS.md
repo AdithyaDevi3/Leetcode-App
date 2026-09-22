@@ -1,7 +1,8 @@
 # Implementation status notes
 
-Snapshot: `main` as of 2026-09-21 after the administration, classrooms,
-roadmap, and dependency releases. This is an implementation ledger, not a
+Snapshot: `main` as of 2026-09-22 after the administration, classrooms,
+roadmap, multi-language grading, and reference-answer releases. This is an
+implementation ledger, not a
 declaration that any phase has passed its exit criteria. Code still requires
 tests, operational evidence, and the acceptance criteria named in
 [IMPLEMENTATION_ROADMAP.md](IMPLEMENTATION_ROADMAP.md).
@@ -15,7 +16,7 @@ workspace.
 
 Implemented foundations:
 
-- Practice-session APIs, local/offline draft persistence, deterministic rubric feedback, and coding unlock.
+- Practice-session APIs, local/offline draft persistence, learner-invoked reference pseudocode that preserves the current draft, deterministic rubric feedback, and coding unlock.
 - Durable evaluation-job storage, polling/cancellation contracts, worker trigger/worker code, retry and dead-letter state, queue health, and quality fixtures/metrics.
 - Appeals, second-pass triage, reviewer resolution, and appeal audit records.
 - Evaluation safety boundaries: AI kill switch, redaction, schema validation, timeout, and conservative evidence merge.
@@ -52,7 +53,7 @@ Remaining: prove cross-device signed-in resume, guest-to-account upgrade, owners
 
 ### Phase 2 — pseudocode platform
 
-Present: AST, parser, static-analysis, rubric-versioning, classifier, migration, and initial content foundations.
+Present: AST, parser, static-analysis, rubric-versioning, classifier, migration, initial content foundations, and optional validated reference pseudocode for every current activity.
 
 Remaining: complete authored-content expansion, Blockly adapter/product experience, and phase-level accessibility and migration evidence.
 

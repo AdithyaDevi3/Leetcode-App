@@ -36,7 +36,8 @@ The first deployable product slice lives in [apps/web](apps/web). It includes:
 - A browseable roadmap with 48 foundation, intermediate, and advanced analysis
   questions across eight algorithm and eight system-design topics, with search,
   filters, and device-local progress.
-- Structured-English and semantic-block pseudocode modes.
+- Structured-English and semantic-block pseudocode modes with learner-invoked
+  reference answers that never replace a draft automatically.
 - Local profiles, history-aware practice recommendations, and draft autosave for guest learners.
 - Deterministic, activity-specific reasoning evaluation for every algorithm
   activity, including explicit contradiction checks and fail-closed rubric selection.

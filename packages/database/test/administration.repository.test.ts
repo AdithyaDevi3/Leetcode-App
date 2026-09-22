@@ -30,6 +30,7 @@ beforeAll(async () => {
 
 afterEach(async () => {
   await database.query('TRUNCATE users CASCADE');
+  await database.query('TRUNCATE auth.users CASCADE');
 });
 
 afterAll(async () => {
@@ -46,6 +47,27 @@ async function createUser(email: string, role: 'learner' | 'admin' = 'learner'):
 }
 
 describe('PostgresAdministrationRepository', () => {
+  it('bootstraps the first confirmed administrator and records an audit event', async () => {
+    const authUser = await database.query<{ id: string }>(`
+      INSERT INTO auth.users (email, raw_user_meta_data, email_confirmed_at)
+      VALUES ('owner@example.com', '{"display_name":"Project Owner"}'::jsonb, NOW())
+      RETURNING id
+    `);
+
+    await expect(repository.bootstrapFirstAdministrator({
+      email: 'owner@example.com',
+      reason: 'Initial production administrator',
+    })).resolves.toEqual({ userId: authUser.rows[0].id });
+
+    expect(await repository.listActiveRoles(authUser.rows[0].id)).toEqual(['administrator']);
+    const audit = await repository.listAuditEvents();
+    expect(audit[0]).toMatchObject({
+      action: 'administration.bootstrap',
+      targetId: authUser.rows[0].id,
+      reason: 'Initial production administrator',
+    });
+  });
+
   it('lists active roles and returns safe overview counts', async () => {
     const administratorId = await createUser('administrator@example.com');
     await database.query(

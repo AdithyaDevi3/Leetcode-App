@@ -36,6 +36,11 @@ describe("practice-session helpers", () => {
     );
   });
 
+  it("builds C++20 starters with translated signatures", () => {
+    expect(defaultCode("taskOrder", "tasks: string[], prerequisites: string[][]", "cpp"))
+      .toContain("vector<string> taskOrder(vector<string> tasks, vector<vector<string>> prerequisites)");
+  });
+
   it("round-trips a practice session snapshot", () => {
     const serialized = serializePracticeSession({
       draft: "Create a map.",

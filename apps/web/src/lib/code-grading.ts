@@ -3,7 +3,7 @@ import type { ExecutionLanguage, ExecutionRequest } from '@leetcode-app/domain';
 import { executionLimits } from './sandbox/execution-policy';
 
 export const CODE_GRADING_MARKER = '__METHOD_GRADE__';
-export const CODE_GRADING_VERSION = 'code-tests-v2';
+export const CODE_GRADING_VERSION = 'code-tests-v3';
 
 export type CodeTestResult = {
   name: string;
@@ -232,6 +232,114 @@ for __method_case in __method_cases:
 __method_passed_count = sum(1 for result in __method_results if result["passed"])
 print(${JSON.stringify(CODE_GRADING_MARKER)} + json.dumps({"problemId": ${JSON.stringify(problemId)}, "version": ${JSON.stringify(CODE_GRADING_VERSION)}, "passed": __method_passed_count == len(__method_results), "passedCount": __method_passed_count, "totalCount": len(__method_results), "tests": __method_results}))`;
 
+const cppPreamble = `#include <algorithm>
+#include <iostream>
+#include <set>
+#include <stdexcept>
+#include <string>
+#include <unordered_map>
+#include <utility>
+#include <vector>
+using namespace std;
+
+struct TreeNode {
+  int val;
+  TreeNode* left;
+  TreeNode* right;
+  TreeNode(int value, TreeNode* leftNode = nullptr, TreeNode* rightNode = nullptr)
+      : val(value), left(leftNode), right(rightNode) {}
+};`;
+
+const cppLiteral = (value: unknown): string => {
+  if (value === null) return 'nullptr';
+  if (typeof value === 'string') return JSON.stringify(value);
+  if (typeof value === 'boolean') return value ? 'true' : 'false';
+  if (typeof value === 'number') return String(value);
+  if (Array.isArray(value)) return `{${value.map(cppLiteral).join(', ')}}`;
+  throw new Error('Unsupported C++ grading literal');
+};
+
+const cppTreeLiteral = (value: unknown): string => {
+  if (value === null) return 'nullptr';
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new Error('Invalid tree grading value');
+  }
+  const node = value as { val?: unknown; left?: unknown; right?: unknown };
+  return `new TreeNode(${cppLiteral(node.val)}, ${cppTreeLiteral(node.left ?? null)}, ${cppTreeLiteral(node.right ?? null)})`;
+};
+
+const cppCase = (problemId: string, spec: CodeGradeSpec, testCase: GradeCase): string => {
+  const name = JSON.stringify(testCase.name);
+  const callArguments = testCase.args
+    .map((argument, index) => problemId === 'tree-max-depth-v1' && index === 0 ? cppTreeLiteral(argument) : cppLiteral(argument))
+    .join(', ');
+
+  if (spec.validator === 'pair') {
+    return `{
+    bool passed = false;
+    try {
+      const vector<int> values = ${cppLiteral(testCase.args[0])};
+      const int target = ${cppLiteral(testCase.args[1])};
+      const auto actual = ${spec.functionName}(values, target);
+      passed = actual.size() == 2 && actual[0] != actual[1] && actual[0] >= 0 && actual[1] >= 0
+        && actual[0] < static_cast<int>(values.size()) && actual[1] < static_cast<int>(values.size())
+        && values[actual[0]] + values[actual[1]] == target;
+    } catch (...) {}
+    __method_results.push_back({${name}, passed});
+  }`;
+  }
+
+  if (spec.validator === 'topological-order') {
+    return `{
+    bool passed = false;
+    try {
+      const vector<string> tasks = ${cppLiteral(testCase.args[0])};
+      const vector<vector<string>> prerequisites = ${cppLiteral(testCase.args[1])};
+      const auto actual = ${spec.functionName}(tasks, prerequisites);
+      if (${cppLiteral(testCase.expected)} == false) {
+        passed = actual.empty();
+      } else {
+        const set<string> unique(actual.begin(), actual.end());
+        unordered_map<string, int> positions;
+        for (int index = 0; index < static_cast<int>(actual.size()); ++index) positions[actual[index]] = index;
+        passed = actual.size() == tasks.size() && unique.size() == tasks.size();
+        for (const auto& task : tasks) passed = passed && positions.contains(task);
+        for (const auto& edge : prerequisites) passed = passed && positions[edge[1]] < positions[edge[0]];
+      }
+    } catch (...) {}
+    __method_results.push_back({${name}, passed});
+  }`;
+  }
+
+  return `{
+    bool passed = false;
+    try {
+      const auto actual = ${spec.functionName}(${callArguments});
+      passed = actual == ${cppLiteral(testCase.expected)};
+    } catch (...) {}
+    __method_results.push_back({${name}, passed});
+  }`;
+};
+
+const cppHarness = (problemId: string, spec: CodeGradeSpec) => `
+int main() {
+  vector<pair<string, bool>> __method_results;
+  ${spec.cases.map((testCase) => cppCase(problemId, spec, testCase)).join('\n  ')}
+  int __method_passed_count = 0;
+  for (const auto& result : __method_results) if (result.second) ++__method_passed_count;
+  cout << ${JSON.stringify(CODE_GRADING_MARKER)};
+  cout << "{\\\"problemId\\\":${problemId ? `\\\"${problemId}\\\"` : 'null'},\\\"version\\\":\\\"${CODE_GRADING_VERSION}\\\",\\\"passed\\\":";
+  cout << (__method_passed_count == static_cast<int>(__method_results.size()) ? "true" : "false");
+  cout << ",\\\"passedCount\\\":" << __method_passed_count << ",\\\"totalCount\\\":" << __method_results.size() << ",\\\"tests\\\":[";
+  for (size_t index = 0; index < __method_results.size(); ++index) {
+    if (index) cout << ',';
+    cout << "{\\\"name\\\":\\\"" << __method_results[index].first << "\\\",\\\"passed\\\":"
+         << (__method_results[index].second ? "true" : "false") << '}';
+  }
+  cout << "]}" << endl;
+  return 0;
+}`;
+
 export function buildGradedExecutionRequest(input: {
   problemId: string;
   language: ExecutionLanguage;
@@ -242,7 +350,9 @@ export function buildGradedExecutionRequest(input: {
 
   const source = input.language === 'python'
     ? `${pythonPreamble}\n\n${input.source}\n${pythonHarness(input.problemId, spec)}`
-    : `${input.problemId === 'tree-max-depth-v1' ? `${typescriptPreamble}\n\n` : ''}${input.source}\n${typescriptHarness(input.problemId, spec)}`;
+    : input.language === 'cpp'
+      ? `${cppPreamble}\n\n${input.source}\n${cppHarness(input.problemId, spec)}`
+      : `${input.problemId === 'tree-max-depth-v1' ? `${typescriptPreamble}\n\n` : ''}${input.source}\n${typescriptHarness(input.problemId, spec)}`;
 
   return { language: input.language, source, limits: executionLimits };
 }

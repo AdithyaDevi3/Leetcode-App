@@ -175,11 +175,26 @@ h1 { margin-bottom: 6px; font-size: clamp(26px, 3vw, 38px); line-height: 1.1; }
 .study-capture-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .study-status { margin: 6px 0 0; color: var(--muted); font-size: 11px; line-height: 1.45; }
 
-.coding-section { margin-top: 22px; padding: 24px; border: 1px solid var(--line); background: var(--surface); }
-.coding-grid { margin-top: 16px; display: grid; grid-template-columns: minmax(0, 1fr) 260px; gap: 18px; }
-.code-editor { min-height: 260px; background: #142019; color: #e6eee8; border-color: #142019; }
+.coding-section { margin-top: 22px; padding: 26px; border: 1px solid #bcc8bf; background: linear-gradient(145deg, #fffefa 0%, #f5f7f1 100%); box-shadow: 0 18px 50px rgba(34, 46, 38, .08); }
+.language-toolbar { margin-top: 18px; display: flex; align-items: center; justify-content: space-between; gap: 18px; }
+.language-toolbar > p { margin: 0; display: flex; align-items: center; gap: 7px; color: var(--muted); font-size: 11px; }
+.language-switch { padding: 4px; display: inline-flex; gap: 4px; border: 1px solid #c8d0c9; border-radius: 9px; background: #e9ede7; }
+.language-switch button { min-width: 112px; padding: 8px 13px; border: 0; border-radius: 6px; background: transparent; color: var(--muted); text-align: left; }
+.language-switch button span, .language-switch button small { display: block; }
+.language-switch button span { font-size: 12px; font-weight: 780; }
+.language-switch button small { margin-top: 2px; color: #89928b; font-family: var(--font-geist-mono); font-size: 9px; }
+.language-switch button.active { background: var(--surface); color: var(--ink); box-shadow: 0 2px 9px rgba(23, 33, 27, .14); }
+.language-switch button.active small { color: var(--moss); }
+.coding-grid { margin-top: 16px; display: grid; grid-template-columns: minmax(0, 1fr) 290px; gap: 18px; }
+.code-editor { min-height: 320px; border-color: #21382c; background: linear-gradient(160deg, #101a14, #17271e); color: #e9f0ea; box-shadow: inset 0 1px 0 rgba(255,255,255,.04); tab-size: 2; }
 .code-editor:disabled { opacity: .55; }
-.test-panel { padding: 16px; background: #f1f2ed; font-size: 12px; }
+.test-panel { padding: 18px; border: 1px solid #d3d9d2; border-radius: 7px; background: rgba(255, 254, 250, .88); font-size: 12px; }
+.test-panel-heading { margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.test-panel-heading span, .test-panel-heading strong { display: block; }
+.test-panel-heading > div > span { margin-bottom: 3px; color: var(--muted); font-size: 9px; font-weight: 780; letter-spacing: .08em; text-transform: uppercase; }
+.grader-state { padding: 5px 8px; border-radius: 999px; background: #e7e9e3; color: var(--muted); font-size: 9px; font-weight: 800; text-transform: uppercase; }
+.grader-state.pass { background: var(--moss-soft); color: var(--moss); }
+.grader-state.revise { background: var(--coral-soft); color: var(--coral); }
 .test-row { padding: 10px 0; display: grid; grid-template-columns: 20px 1fr; align-items: center; gap: 7px; border-bottom: 1px solid var(--line); }
 .test-row:last-of-type { border-bottom: 0; }
 .test-icon { width: 18px; height: 18px; display: grid; place-items: center; border-radius: 50%; background: #e7e9e3; color: #89928b; }
@@ -208,6 +223,9 @@ h1 { margin-bottom: 6px; font-size: clamp(26px, 3vw, 38px); line-height: 1.1; }
   .pane + .pane { border-top: 1px solid var(--line); border-left: 0; }
   .editor, .block-builder { min-height: 400px; }
   .finding-list, .coding-grid { display: block; }
+  .language-toolbar { align-items: flex-start; flex-direction: column; }
+  .language-switch { width: 100%; }
+  .language-switch button { min-width: 0; flex: 1; }
   .test-panel { margin-top: 14px; }
   .mobile-nav {
     position: fixed; z-index: 20; right: 0; bottom: 0; left: 0; min-height: 64px;
@@ -224,4 +242,5 @@ h1 { margin-bottom: 6px; font-size: clamp(26px, 3vw, 38px); line-height: 1.1; }
   .editor-footer { align-items: stretch; flex-direction: column; }
   .editor-tools, .draft-stats { justify-content: space-between; }
   .editor-footer .button { width: 100%; }
+  .language-switch { display: grid; grid-template-columns: 1fr; }
 }

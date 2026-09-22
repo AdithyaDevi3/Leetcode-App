@@ -109,7 +109,7 @@ describe('User Domain Types', () => {
     it('should have correct default preferences', () => {
       expect(DEFAULT_USER_PREFERENCES.theme).toBe('system');
       expect(DEFAULT_USER_PREFERENCES.contentLanguage).toBe('en');
-      expect(DEFAULT_USER_PREFERENCES.preferredCodeLanguage).toBe('typescript');
+      expect(DEFAULT_USER_PREFERENCES.preferredCodeLanguage).toBe('python');
       expect(DEFAULT_USER_PREFERENCES.difficultyPreference).toBe('mixed');
       expect(DEFAULT_USER_PREFERENCES.enableAiHints).toBe(false);
       expect(DEFAULT_USER_PREFERENCES.enableAiExplanations).toBe(false);

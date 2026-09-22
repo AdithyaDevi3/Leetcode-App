@@ -355,7 +355,7 @@ export class PostgresAdministrationRepository {
       await client.query(`
         INSERT INTO administration_audit_events
           (actor_id, action, target_type, target_id, reason, metadata)
-        VALUES ($1, 'administration.bootstrap', 'user', $1, $2, $3::jsonb)
+        VALUES ($1::uuid, 'administration.bootstrap', 'user', $1::text, $2, $3::jsonb)
       `, [user.id, input.reason, JSON.stringify({ after: ['administrator'] })]);
       return { userId: user.id };
     });

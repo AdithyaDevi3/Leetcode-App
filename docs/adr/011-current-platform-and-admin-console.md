@@ -30,7 +30,7 @@ appeal action.
 - Supabase Auth provides active email/password identity and session refresh.
 - Supabase Postgres is the production system of record; repository migrations
   use `node-pg-migrate`.
-- Vercel Sandbox executes untrusted TypeScript and Python with outbound network
+- Vercel Sandbox executes untrusted Python 3, C++20, and TypeScript with outbound network
   access denied.
 - Administration starts inside `apps/web`; create a separate `apps/admin` only
   after deployment ownership or scaling creates a demonstrated need.

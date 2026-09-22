@@ -6,29 +6,29 @@
   "types": "dist/index.d.ts",
   "exports": {
     ".": {
+      "types": "./dist/index.d.ts",
       "import": "./dist/index.mjs",
-      "require": "./dist/index.js",
-      "types": "./dist/index.d.ts"
+      "require": "./dist/index.js"
     },
     "./user": {
+      "types": "./dist/user.d.ts",
       "import": "./dist/user.mjs",
-      "require": "./dist/user.js",
-      "types": "./dist/user.d.ts"
+      "require": "./dist/user.js"
     },
     "./content": {
+      "types": "./dist/content.d.ts",
       "import": "./dist/content.mjs",
-      "require": "./dist/content.js",
-      "types": "./dist/content.d.ts"
+      "require": "./dist/content.js"
     },
     "./practice": {
+      "types": "./dist/practice.d.ts",
       "import": "./dist/practice.mjs",
-      "require": "./dist/practice.js",
-      "types": "./dist/practice.d.ts"
+      "require": "./dist/practice.js"
     },
     "./evaluation": {
+      "types": "./dist/evaluation.d.ts",
       "import": "./dist/evaluation.mjs",
-      "require": "./dist/evaluation.js",
-      "types": "./dist/evaluation.d.ts"
+      "require": "./dist/evaluation.js"
     }
   },
   "scripts": {

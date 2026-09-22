@@ -49,6 +49,15 @@ export async function prepareSupabaseTestDatabase(dbClient: DatabaseClient): Pro
 
   await dbClient.query('CREATE SCHEMA IF NOT EXISTS auth');
   await dbClient.query(`
+    CREATE TABLE IF NOT EXISTS auth.users (
+      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+      email text UNIQUE,
+      raw_user_meta_data jsonb NOT NULL DEFAULT '{}'::jsonb,
+      email_confirmed_at timestamptz,
+      created_at timestamptz NOT NULL DEFAULT now()
+    )
+  `);
+  await dbClient.query(`
     CREATE OR REPLACE FUNCTION auth.uid()
     RETURNS uuid
     LANGUAGE sql

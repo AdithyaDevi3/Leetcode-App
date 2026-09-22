@@ -64,6 +64,10 @@ test('local preferences choose a working personalized algorithm', async ({ page 
   await page.getByRole('button', { name: 'Evaluate reasoning' }).click();
   await expect(page.getByText('Implementation unlocked')).toBeVisible();
   await expect(page.getByLabel('Python implementation')).toHaveValue(/def count_islands\(grid: list\[list\[int\]\]\):/);
+  await page.getByRole('button', { name: /C\+\+ C\+\+20/ }).click();
+  await expect(page.getByLabel('C++ implementation')).toHaveValue(/int countIslands\(vector<vector<int>> grid\)/);
+  await page.getByRole('button', { name: /Python 3 python3/ }).click();
+  await expect(page.getByLabel('Python implementation')).toHaveValue(/def count_islands/);
 });
 
 test('guest can open the workspace and autosave a draft locally', async ({ page }) => {
@@ -93,6 +97,7 @@ test('guest can use the guided start and pass the reasoning check', async ({ pag
   await expect(page.getByText('Implementation unlocked')).toBeVisible();
   await expect(page.getByRole('button', { name: /Run verified tests/i })).toBeEnabled();
 
+  await page.getByRole('button', { name: /TypeScript Node\.js/ }).click();
   await page.getByLabel('TypeScript implementation').fill(`function findPair(values: number[], target: number) {
   const map = new Map<number, number>();
   for (let index = 0; index < values.length; index += 1) {
@@ -114,7 +119,7 @@ test('guest can use the guided start and pass the reasoning check', async ({ pag
           status: 'completed',
           grade: {
             problemId: 'pair-with-target-v1',
-            version: 'code-tests-v2',
+            version: 'code-tests-v3',
             passed: true,
             passedCount: 4,
             totalCount: 4,
@@ -153,6 +158,7 @@ test('unavailable execution never records an unverified completion', async ({ pa
   await page.getByRole('button', { name: 'Use guided start' }).click();
   await page.getByRole('button', { name: 'Evaluate reasoning' }).click();
 
+  await page.getByRole('button', { name: /TypeScript Node\.js/ }).click();
   await page.getByLabel('TypeScript implementation').fill(`function findPair(values: number[], target: number) {
   const map = new Map<number, number>();
   for (let index = 0; index < values.length; index += 1) {

@@ -38,6 +38,8 @@ import { recordLocalPracticeCompletion } from "@/lib/local-practice-history";
 import { readBrowserStorage, removeBrowserStorage, writeBrowserStorage } from "@/lib/safe-browser-storage";
 import {
   buildCodeFromPlanForLanguage,
+  codingLanguageLabel,
+  codingLanguages,
   deserializePracticeSession,
   joinBlocksIntoDraft,
   projectDraftBlocks,
@@ -74,12 +76,12 @@ export function PracticeWorkspace() {
   const [activePracticeId, setActivePracticeId] = useState(defaultPracticeItem.id);
   const [draft, setDraft] = useState("");
   const [mode, setMode] = useState<EditorMode>("text");
-  const [codingLanguage, setCodingLanguage] = useState<CodingLanguage>("typescript");
+  const [codingLanguage, setCodingLanguage] = useState<CodingLanguage>("python");
   const [evaluation, setEvaluation] = useState<Evaluation | null>(null);
   const [codeGrade, setCodeGrade] = useState<CodeGrade | null>(null);
   const [savedAt, setSavedAt] = useState("Not saved");
   const [syncStatus, setSyncStatus] = useState<PracticeSyncStatus>("ready");
-  const [code, setCode] = useState(defaultCode(defaultPracticeItem.codeFunction, defaultPracticeItem.codeSignature));
+  const [code, setCode] = useState(defaultCode(defaultPracticeItem.codeFunction, defaultPracticeItem.codeSignature, "python"));
   const [codeChecked, setCodeChecked] = useState(false);
   const [completed, setCompleted] = useState(false);
   const [evaluationStatus, setEvaluationStatus] = useState<'idle' | 'queued' | 'running' | 'completed' | 'failed' | 'canceled'>('idle');
@@ -112,7 +114,7 @@ export function PracticeWorkspace() {
         : savedPracticeId
           ? getPracticeItem(savedPracticeId)
           : defaultPracticeItem;
-      const preferredLanguage = readLocalLearnerProfile()?.preferredLanguage ?? "typescript";
+      const preferredLanguage = readLocalLearnerProfile()?.preferredLanguage ?? "python";
 
       if (restoredPracticeItem.id !== defaultPracticeItem.id) {
         setActivePracticeId(restoredPracticeItem.id);
@@ -228,6 +230,17 @@ export function PracticeWorkspace() {
 
   const addBlock = (block: string) => {
     updateDraft(joinBlocksIntoDraft([...blocks, block]));
+  };
+
+  const chooseCodingLanguage = (language: CodingLanguage) => {
+    if (language === codingLanguage) return;
+    setCodingLanguage(language);
+    setCode(defaultCode(activePracticeItem.codeFunction, activePracticeItem.codeSignature, language));
+    setCodeChecked(false);
+    setCompleted(false);
+    setCodeGrade(null);
+    setExecutionStatus('idle');
+    setExecutionOutput('');
   };
 
   const updateBlocks = (nextBlocks: string[]) => {
@@ -771,7 +784,7 @@ export function PracticeWorkspace() {
                 <div className="approved-panel">
                   <Code2 size={19} />
                   <strong>Implementation unlocked</strong>
-                  <p>Your approved reasoning stays visible while you translate it into {codingLanguage === "python" ? "Python" : "TypeScript"}.</p>
+                  <p>Your approved reasoning stays visible while you translate it into {codingLanguageLabel(codingLanguage)}.</p>
                 </div>
               ) : (
                 <div className="locked-panel">
@@ -813,14 +826,31 @@ export function PracticeWorkspace() {
                 <p className="eyebrow">Optional next step</p>
                 <h2 id="coding-title">Translate the approved plan</h2>
                 <span className="pane-kicker">
-                  {codingLanguage === "python" ? "Python" : "TypeScript"} · isolated verification
+                  {codingLanguageLabel(codingLanguage)} · isolated verification
                 </span>
               </div>
               {approved ? <Check color="var(--moss)" /> : <LockKeyhole color="var(--muted)" />}
             </div>
+            <div className="language-toolbar">
+              <div className="language-switch" role="group" aria-label="Solution language">
+                {codingLanguages.map((language) => (
+                  <button
+                    aria-pressed={codingLanguage === language.value}
+                    className={codingLanguage === language.value ? "active" : ""}
+                    key={language.value}
+                    onClick={() => chooseCodingLanguage(language.value)}
+                    type="button"
+                  >
+                    <span>{language.label}</span>
+                    <small>{language.runtime}</small>
+                  </button>
+                ))}
+              </div>
+              <p><LockKeyhole size={14} /> Network denied · bounded CPU, memory, output, and runtime</p>
+            </div>
             <div className="coding-grid">
               <textarea
-                aria-label={`${codingLanguage === "python" ? "Python" : "TypeScript"} implementation`}
+                aria-label={`${codingLanguage === 'python' ? 'Python' : codingLanguageLabel(codingLanguage)} implementation`}
                 className="editor code-editor"
                 disabled={!approved}
                 onChange={(event) => {
@@ -834,7 +864,15 @@ export function PracticeWorkspace() {
                 value={code}
               />
               <div className="test-panel">
-                <strong>Verified code tests</strong>
+                <div className="test-panel-heading">
+                  <div>
+                    <span>Server-owned suite</span>
+                    <strong>Verified code tests</strong>
+                  </div>
+                  <span className={`grader-state ${completed ? 'pass' : codeChecked ? 'revise' : ''}`}>
+                    {completed ? 'Passed' : codeChecked ? 'Revise' : 'Not run'}
+                  </span>
+                </div>
                 {(codeGrade?.tests ?? [{ name: 'Correct outputs and return contract', passed: false }, { name: 'Problem-specific edge cases', passed: false }, { name: 'Isolated time and memory limits', passed: false }]).map((check) => (
                   <div className={`test-row ${codeChecked ? (check.passed ? "pass" : "revise") : ""}`} key={check.name}>
                     <span className="test-icon">

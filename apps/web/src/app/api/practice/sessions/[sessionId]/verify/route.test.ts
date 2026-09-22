@@ -88,4 +88,18 @@ describe('/api/practice/sessions/[sessionId]/verify', () => {
     await expect(response.json()).resolves.toMatchObject({ grade: { passed: false } });
     expect(completePracticeSession).not.toHaveBeenCalled();
   });
+
+  it('accepts C++ and builds the server-owned C++20 harness', async () => {
+    execute.mockResolvedValue({ status: 'failed', stdout: '', stderr: 'compile failed', durationMs: 20 });
+    const { POST } = await import('./route');
+    const response = await POST(new Request('http://localhost', {
+      method: 'POST',
+      body: JSON.stringify({ language: 'cpp', source: 'vector<int> findPair(vector<int>, int) { return {}; }' }),
+    }), { params: Promise.resolve({ sessionId: 'session-1' }) });
+
+    expect(response.status).toBe(200);
+    expect(execute.mock.calls[0][0]).toMatchObject({ language: 'cpp' });
+    expect(execute.mock.calls[0][0].source).toContain('#include <iostream>');
+    expect(execute.mock.calls[0][0].source).toContain('int main()');
+  });
 });

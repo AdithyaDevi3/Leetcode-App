@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { isSupabaseConfigured } from '@/lib/supabase/config';
 import { createDatabaseClient, databaseConfigFromEnv } from '@leetcode-app/database';
 import { cookies } from 'next/headers';
 import { randomBytes } from 'crypto';
@@ -60,6 +61,7 @@ const parseGuestCookie = (value: string): GuestSessionCookie | null => {
  * Returns null if user is not authenticated
  */
 export async function getSession(): Promise<Session | null> {
+  if (!isSupabaseConfigured()) return null;
   const supabase = await createSupabaseServerClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return null;

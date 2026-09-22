@@ -21,6 +21,8 @@ describe('application URL routing', () => {
     expect(safeAppDestination('/practice?problem=pair-with-target-v1')).toBe('/practice?problem=pair-with-target-v1');
     expect(safeAppDestination('https://attacker.example')).toBe('/practice');
     expect(safeAppDestination('//attacker.example')).toBe('/practice');
+    expect(safeAppDestination('/\\attacker.example')).toBe('/practice');
+    expect(safeAppDestination('/\n/attacker.example')).toBe('/practice');
   });
 
   it('redirects production aliases to the canonical domain while preserving path and query', () => {

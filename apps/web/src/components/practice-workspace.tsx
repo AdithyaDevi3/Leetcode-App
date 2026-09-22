@@ -1,26 +1,17 @@
 "use client";
 
-/* Primary navigation deliberately reloads the document after a deployment. */
-/* eslint-disable @next/next/no-html-link-for-pages */
-
 import Link from "next/link";
 import {
   Bookmark,
   BookOpen,
-  Braces,
   Check,
   ChevronDown,
   ChevronUp,
-  CircleHelp,
   Clock3,
   Code2,
-  Compass,
   Eye,
   EyeOff,
-  GitBranch,
-  LayoutDashboard,
   Lightbulb,
-  ListChecks,
   LockKeyhole,
   Play,
   Save,
@@ -264,10 +255,6 @@ export function PracticeWorkspace() {
 
   const evaluationFindings = evaluation?.findings ?? evaluatePseudocode("", activePracticeItem.id).findings;
   const approved = evaluation?.approved ?? false;
-  const passedReasoningChecks = evaluation?.findings.filter((finding) => finding.status === 'pass').length ?? 0;
-  const secureCheckCount = passedReasoningChecks + (codeGrade?.passed ? 1 : 0);
-  const totalCheckCount = evaluationFindings.length + 1;
-  const progressPercent = Math.round((secureCheckCount / totalCheckCount) * 100);
 
   useEffect(() => {
     if (!evaluationJobId || (evaluationStatus !== 'queued' && evaluationStatus !== 'running')) return;
@@ -486,52 +473,7 @@ export function PracticeWorkspace() {
   };
 
   return (
-    <div className="app-shell">
-      <aside className="sidebar">
-        <div className="brand">
-          <span className="brand-mark">M/</span>
-          Method
-        </div>
-        <nav className="nav-group" aria-label="Primary navigation">
-          <a className="nav-item" href="/">
-            <LayoutDashboard size={17} /> Today
-          </a>
-          <a className="nav-item active" href="/practice" aria-current="page">
-            <Braces size={17} /> Algorithms
-          </a>
-          <a className="nav-item" href="/system-design">
-            <GitBranch size={17} /> System design
-          </a>
-          <a className="nav-item" href="/learn">
-            <Compass size={17} /> Learning plan
-          </a>
-          <a className="nav-item" href="/dashboard">
-            <LayoutDashboard size={17} /> Dashboard
-          </a>
-          <p className="nav-label">Your work</p>
-          <a className="nav-item" href="/history">
-            <ListChecks size={17} /> Practice history
-          </a>
-          <a className="nav-item" href="/library">
-            <Bookmark size={17} /> Study library
-          </a>
-          <a className="nav-item" href="/settings">
-            <BookOpen size={17} /> Preferences
-          </a>
-          <a className="nav-item" href="/requests">
-            <CircleHelp size={17} /> Feedback
-          </a>
-        </nav>
-        <div className="sidebar-progress">
-          <strong>{activePracticeItem.label}</strong>
-          <span>{secureCheckCount} of {totalCheckCount} checks verified</span>
-          <div className="progress-track" aria-label={`${progressPercent}% complete`}>
-            <div style={{ width: `${progressPercent}%` }} />
-          </div>
-          {completed ? <div className="complete-badge">{activePracticeItem.label} complete</div> : null}
-        </div>
-      </aside>
-
+    <div className="practice-shell">
       <main className="workspace">
         <header className="topbar">
           <div className="crumbs">
@@ -565,8 +507,9 @@ export function PracticeWorkspace() {
             </div>
           </div>
 
+          <nav className="practice-stage-nav" aria-label="Practice stages"><a href="#workspace-title"><span>01</span>Write your approach</a><a href="#feedback-title"><span>02</span>Review feedback</a><a href="#coding-workspace"><span>03</span>Implement & test</a></nav>
           <div className="work-grid">
-            <section className="pane" aria-labelledby="lesson-title">
+            <section className="pane problem-pane" aria-labelledby="lesson-title">
               <div className="pane-header">
                 <div>
                   <h2>Concept & problem</h2>
@@ -864,7 +807,7 @@ export function PracticeWorkspace() {
             </aside>
           </div>
 
-          <section className="coding-section" aria-labelledby="coding-title">
+          <section id="coding-workspace" className="coding-section" aria-labelledby="coding-title">
             <div className="pane-header">
               <div>
                 <p className="eyebrow">Optional next step</p>
@@ -968,20 +911,7 @@ export function PracticeWorkspace() {
         </div>
       </main>
 
-      <nav className="mobile-nav" aria-label="Mobile navigation">
-        <a href="/">
-          <LayoutDashboard size={18} />Today
-        </a>
-        <a className="active" href="/practice" aria-current="page">
-          <Braces size={18} />Practice
-        </a>
-        <a href="/history">
-          <CircleHelp size={18} />History
-        </a>
-        <a href="/onboarding">
-          <BookOpen size={18} />Plan
-        </a>
-      </nav>
+
     </div>
   );
 }

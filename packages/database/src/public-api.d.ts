@@ -85,7 +85,7 @@ export interface StudentAssignment {
 }
 
 export class PostgresClassroomRepository {
-  constructor(db: DatabaseClient);
+  constructor(db: DatabaseClient, ownerId?: string);
   createClass(input: {
     name: string; description: string; actorId: string; reason: string; requestId?: string | null;
   }): Promise<ClassroomSummary>;

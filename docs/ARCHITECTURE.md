@@ -26,7 +26,15 @@ flowchart LR
 | Personalization | Explainable deterministic ranking using profile, practice history, review age, and local mastery evidence |
 | Offline behavior | Network-first navigation with a self-contained cached fallback; application drafts also use guarded browser storage |
 | Administration | `/admin` uses Supabase sessions plus database role assignments for least-privilege server authorization; read-only operational views, audited role management, and administrator-managed classes are available, while appeal resolution still uses the legacy reviewer token |
-| Classes | Server-generated codes link signed-in learners to classes; administrators assign existing practice items, and completed practice sessions provide task progress |
+| Classes | Server-generated codes link signed-in learners to classes; instructors manage their own classes at `/teach`, platform administrators manage all classes at `/admin/classes`, and completed practice sessions provide task progress |
+
+Instructor opt-in updates only the verified user's learner role to instructor
+and records an audit event in the same transaction. It never grants platform
+administration roles. Instructor reads and writes use a classroom repository
+scoped to the authenticated owner's ID; role selection in the signup form is
+only routing intent. This reuses the existing ownership columns and server-only
+database boundary. The development-only admin preview uses in-memory sample
+data and returns 404 in production.
 
 [ADR-011](adr/011-current-platform-and-admin-console.md) records the current
 provider choices and the administration boundary. It supersedes older provider

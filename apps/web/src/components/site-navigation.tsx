@@ -3,20 +3,14 @@
 /* Full document navigation avoids stale client-router assets after a deployment. */
 /* eslint-disable @next/next/no-html-link-for-pages */
 
+import { useAppShell } from "@/components/app-shell";
 import { useViewer } from '@/lib/use-viewer';
 
 const navigationItems = [
   { href: "/practice", label: "Practice" },
   { href: "/roadmap", label: "Roadmap" },
-  { href: "/classes", label: "Classes" },
-  { href: "/learn", label: "Plan" },
-  { href: "/system-design", label: "System design" },
   { href: "/dashboard", label: "Dashboard" },
-  { href: "/history", label: "History" },
-  { href: "/library", label: "Library" },
-  { href: "/onboarding", label: "Setup" },
-  { href: "/settings", label: "Settings" },
-  { href: "/requests", label: "Feedback" },
+  { href: "/teach", label: "Teach" },
 ] as const;
 
 type SiteNavigationProps = {
@@ -25,6 +19,8 @@ type SiteNavigationProps = {
 
 export function SiteNavigation({ currentPath }: SiteNavigationProps) {
   const viewer = useViewer();
+  const inShell = useAppShell();
+  if (inShell) return null;
   const items = viewer
     ? [...navigationItems, ...(viewer.canAccessAdministration ? [{ href: '/admin', label: 'Admin' }] : [])]
     : [...navigationItems, { href: '/auth', label: 'Sign in' }];

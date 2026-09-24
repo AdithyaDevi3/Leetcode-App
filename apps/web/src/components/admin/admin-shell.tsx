@@ -19,14 +19,15 @@ const adminLinks: Array<{ href: string; label: string; action: AdministrationAct
 
 const roleLabel = (role: string) => role.replaceAll('_', ' ');
 
-export function AdminShell({ principal, children }: { principal: AdministrationPrincipal; children: React.ReactNode }) {
-  const links = adminLinks.filter((link) => canPerformAdministrationAction(principal.roles, link.action));
+export function AdminShell({ principal, children, preview = false }: { principal: AdministrationPrincipal; children: React.ReactNode; preview?: boolean }) {
+  const links = adminLinks.filter((link) => canPerformAdministrationAction(principal.roles, link.action) && (!preview || ['/admin', '/admin/classes'].includes(link.href)));
+  const destination = (href: string) => preview ? href.replace('/admin', '/admin-preview') : href;
   const displayName = principal.displayName?.trim() || principal.email?.split('@')[0] || 'Operator';
 
   return <div className="min-h-screen lg:grid lg:grid-cols-[248px_minmax(0,1fr)]">
     <aside className="border-b border-[#35443a] bg-[var(--ink)] px-5 py-5 text-[#f8f6ef] lg:sticky lg:top-0 lg:h-screen lg:border-b-0 lg:border-r lg:px-6 lg:py-7">
       <div className="flex items-center justify-between gap-4 lg:block">
-        <a className="flex items-center gap-3 font-bold text-white no-underline" href="/admin">
+        <a className="flex items-center gap-3 font-bold text-white no-underline" href={destination('/admin')}>
           <span className="grid h-9 w-9 place-items-center rounded-md bg-[var(--mustard)] font-mono text-sm text-[var(--ink)]">M</span>
           <span><span className="block text-lg leading-none">Method</span><span className="mt-1 block text-[10px] uppercase tracking-[0.16em] text-[#aeb8b0]">Administration</span></span>
         </a>
@@ -34,7 +35,7 @@ export function AdminShell({ principal, children }: { principal: AdministrationP
       </div>
 
       <nav aria-label="Administration navigation" className="mt-5 flex gap-2 overflow-x-auto pb-1 lg:mt-9 lg:grid lg:gap-1 lg:overflow-visible">
-        {links.map((link) => <a className="flex min-h-10 shrink-0 items-center rounded-md px-3 text-sm font-semibold text-[#cad1cb] no-underline hover:bg-[#29372f] hover:text-white" href={link.href} key={link.href}>{link.label}</a>)}
+        {links.map((link) => <a className="flex min-h-10 shrink-0 items-center rounded-md px-3 text-sm font-semibold text-[#cad1cb] no-underline hover:bg-[#29372f] hover:text-white" href={destination(link.href)} key={link.href}>{link.label}</a>)}
       </nav>
 
       <div className="mt-5 border-t border-[#35443a] pt-5 lg:absolute lg:inset-x-6 lg:bottom-7">
@@ -42,7 +43,7 @@ export function AdminShell({ principal, children }: { principal: AdministrationP
         <p className="mb-3 truncate text-xs text-[#aeb8b0]">{principal.roles.map(roleLabel).join(' · ')}</p>
         <div className="flex flex-wrap gap-3 text-xs font-bold">
           <a className="text-[#cad1cb] underline underline-offset-4" href="/">Learner app</a>
-          <form action={signOut}><button className="border-0 bg-transparent p-0 text-[#cad1cb] underline underline-offset-4" type="submit">Sign out</button></form>
+          {preview ? <span className="text-[#cad1cb]">Sample account</span> : <form action={signOut}><button className="border-0 bg-transparent p-0 text-[#cad1cb] underline underline-offset-4" type="submit">Sign out</button></form>}
         </div>
       </div>
     </aside>

@@ -1,10 +1,11 @@
 import { SiteNavigation } from '@/components/site-navigation';
 import { signInWithPassword, signUpWithPassword } from './actions';
 
-export default async function AuthPage({ searchParams }: { searchParams: Promise<{ error?: string; message?: string; next?: string }> }) {
-  const { error, message, next } = await searchParams;
-  return <main className="min-h-screen px-6 py-8 text-[var(--ink)] sm:py-12"><div className="mx-auto max-w-5xl"><SiteNavigation currentPath="/auth" /><form className="mx-auto mt-10 w-full max-w-md space-y-5 rounded-xl border border-slate-700 bg-slate-900 p-7 text-slate-100">
-    <h1 className="text-2xl font-bold">Save your progress</h1><p className="text-sm text-slate-300">Create an account, or sign in to continue where you left off.</p>
+export default async function AuthPage({ searchParams }: { searchParams: Promise<{ error?: string; message?: string; next?: string; account?: string }> }) {
+  const { error, message, next, account } = await searchParams;
+  return <main className="min-h-screen px-6 py-8 text-[var(--ink)] sm:py-12"><div className="mx-auto max-w-5xl"><SiteNavigation currentPath="/auth" /><form className="mx-auto mt-10 w-full max-w-md space-y-5 rounded-xl border border-slate-700 bg-[var(--moss)] p-7 text-slate-100">
+    <h1 className="text-2xl font-bold">Your Method account</h1><p className="text-sm text-slate-300">Learn at your own pace, or teach with classes and shared practice.</p>
+    <label className="block text-sm">I’m here to<select name="accountType" defaultValue={account === 'instructor' || next === '/teach' || next === '/teach/start' ? 'instructor' : 'learner'} className="mt-1 min-h-11 w-full rounded bg-slate-800 p-3"><option value="learner">Learn — practice and join a class</option><option value="instructor">Teach — create my own classes and join codes</option></select></label>
     {error && <p className="rounded bg-red-950 p-3 text-sm text-red-200">{error}</p>}{message && <p className="rounded bg-cyan-950 p-3 text-sm text-cyan-100">{message}</p>}
     <input type="hidden" name="next" value={next ?? '/practice'} /><label className="block text-sm">Email<input required name="email" type="email" autoComplete="email" className="mt-1 w-full rounded bg-slate-800 p-3" /></label>
     <label className="block text-sm">Password<input required name="password" type="password" minLength={8} autoComplete="current-password" className="mt-1 w-full rounded bg-slate-800 p-3" /></label>

@@ -44,11 +44,12 @@ The first deployable product slice lives in [apps/web](apps/web). It includes:
 - Server-side Python 3, C++20, and TypeScript verification against activity-specific test suites before a solution can be marked complete.
 - Local concept-mastery evidence that adjusts practice recommendations as the learner improves.
 - Python 3, C++20, and TypeScript coding starters that follow the learner's local language preference.
-- Responsive desktop and mobile layouts.
+- A shared desktop sidebar and mobile navigation, with a level, uncluttered landing page.
 - A role-scoped administration portal with live operational summaries, safe
   queue views, audited operator-role changes, and deny-by-default Supabase RLS.
-- Administrator-created classes with join codes, learner enrollment, assigned
-  practice activities, due dates, and completion progress.
+- Instructor signup and owner-scoped classes with join codes, learner enrollment,
+  assigned practice activities, due dates, and completion progress. Platform
+  administrators retain separate access to manage all classes.
 - Unit tests, CI, a health endpoint, and a non-root production container.
 
 Run it locally from the repository root:

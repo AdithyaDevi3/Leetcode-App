@@ -25,7 +25,7 @@ export function applicationUrl(environment: RuntimeEnvironment = process.env): s
 }
 
 export function safeAppDestination(value: FormDataEntryValue | null): string {
-  if (typeof value !== 'string' || !value.startsWith('/') || value.startsWith('//')) return '/practice';
+  if (typeof value !== 'string' || !value.startsWith('/') || value.startsWith('//') || /[\\\u0000-\u001f\u007f]/.test(value)) return '/practice';
   return value;
 }
 

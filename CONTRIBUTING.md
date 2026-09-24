@@ -29,7 +29,8 @@ The repository currently contains these working product areas:
 | Pseudocode analysis, reference answers, and feedback | `apps/web/src/lib/content.ts`, `apps/web/src/lib/evaluator.ts`, evaluation quality fixtures, practice evaluation APIs |
 | Python 3, C++20, and TypeScript verification | `apps/web/src/lib/sandbox`, execution APIs, activity test suites |
 | Learner profiles and recommendations | onboarding, `/learn`, dashboard, mastery and local learner modules |
-| Classes and assigned practice | `/admin/classes`, `/classes`, classroom repository and migration |
+| Instructor signup, classes, and assigned practice | `/teach`, `/admin/classes`, `/classes`, owner-scoped classroom repository |
+| Shared learner navigation and landing page | application shell, responsive sidebar and mobile navigation |
 | Authentication and persistence | Supabase Auth, PostgreSQL repositories and migrations |
 | Administration | `/admin`, database roles, server authorization, audit events |
 
@@ -51,8 +52,8 @@ Good next contributions are coherent slices with clear evidence:
   cases demonstrate a real false acceptance or false rejection.
 - Persist roadmap progress for signed-in learners and reconcile it with local
   guest progress during account upgrade.
-- Add class editing, code rotation, archiving, individual assignments, and
-  instructor controls with authorization and audit coverage.
+- Add class editing, code rotation, archiving, and individual assignments with
+  authorization and audit coverage.
 - Complete staging evidence for durable evaluation workers, execution limits,
   backups, rate limits, alerts, accessibility, and recovery behavior.
 - Build accessible system-design diagramming and rubric feedback.

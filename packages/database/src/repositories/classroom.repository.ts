@@ -116,11 +116,12 @@ const mapClassroom = (row: ClassroomRow): ClassroomSummary => ({
 });
 
 export class PostgresClassroomRepository {
-  constructor(private readonly db: DatabaseClient) {}
+  constructor(private readonly db: DatabaseClient, private readonly ownerId?: string) {}
 
   async createClass(input: {
     name: string; description: string; actorId: string; reason: string; requestId?: string | null;
   }): Promise<ClassroomSummary> {
+    if (this.ownerId && input.actorId !== this.ownerId) throw new ClassroomNotFoundError();
     for (let attempt = 0; attempt < 5; attempt += 1) {
       try {
         return await this.db.transaction(async (client) => {
@@ -151,10 +152,10 @@ export class PostgresClassroomRepository {
         (SELECT COUNT(*) FROM class_enrollments e WHERE e.class_id = c.id) AS learner_count,
         (SELECT COUNT(*) FROM class_assignments a WHERE a.class_id = c.id) AS assignment_count
       FROM classrooms c
-      WHERE c.archived_at IS NULL
+      WHERE c.archived_at IS NULL AND ($1::uuid IS NULL OR c.created_by = $1)
       ORDER BY c.created_at DESC
       LIMIT 100
-    `);
+    `, [this.ownerId ?? null]);
     return result.rows.map(mapClassroom);
   }
 
@@ -164,7 +165,8 @@ export class PostgresClassroomRepository {
         (SELECT COUNT(*) FROM class_enrollments e WHERE e.class_id = c.id) AS learner_count,
         (SELECT COUNT(*) FROM class_assignments a WHERE a.class_id = c.id) AS assignment_count
       FROM classrooms c WHERE c.id = $1 AND c.archived_at IS NULL
-    `, [classId]);
+        AND ($2::uuid IS NULL OR c.created_by = $2)
+    `, [classId, this.ownerId ?? null]);
     if (!classResult.rows[0]) throw new ClassroomNotFoundError();
 
     const [assignmentResult, learnerResult] = await Promise.all([
@@ -226,6 +228,7 @@ export class PostgresClassroomRepository {
     classId: string; contentId: string; title: string; instructions: string;
     dueOn: string | null; actorId: string; reason: string; requestId?: string | null;
   }): Promise<string> {
+    if (this.ownerId && input.actorId !== this.ownerId) throw new ClassroomNotFoundError();
     try {
       return await this.db.transaction(async (client) => {
         const result = await client.query<{ id: string }>(`
@@ -233,9 +236,10 @@ export class PostgresClassroomRepository {
           SELECT c.id, ci.id, $3, $4, $5::date, $6
           FROM classrooms c CROSS JOIN content_items ci
           WHERE c.id = $1 AND c.archived_at IS NULL
+            AND ($7::uuid IS NULL OR c.created_by = $7)
             AND ci.id = $2 AND ci.status = 'published' AND ci.type = 'problem'
           RETURNING id
-        `, [input.classId, input.contentId, input.title, input.instructions, input.dueOn, input.actorId]);
+        `, [input.classId, input.contentId, input.title, input.instructions, input.dueOn, input.actorId, this.ownerId ?? null]);
         if (!result.rows[0]) throw new InvalidClassActivityError();
         await client.query(`
           INSERT INTO administration_audit_events

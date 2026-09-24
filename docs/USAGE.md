@@ -178,6 +178,21 @@ verify the class pages with a non-production administrator and learner. The web
 deployment must follow the migration so the new server queries have their tables
 and indexes available.
 
+### Instructor signup and local admin preview
+
+Choose **Teach** on the account form, create an account, confirm your email,
+and enable your instructor workspace. Existing learners can use **Instructor
+workspace** in navigation to opt in. At `/teach`, instructors create classes
+and join codes, assign practice, and view enrolled learners and completion.
+Each instructor can access only classes they created; platform administrator
+permissions are granted separately. Instructor setup and class changes are
+audited. This uses the existing user role and classroom ownership columns.
+
+During `next dev`, `/admin-preview` shows an unauthenticated admin design
+preview. Its class form uses sample data held in page memory; codes are not
+valid enrollment codes, and reloading resets changes. The preview returns
+not found outside development. Real `/admin` routes still require authorization.
+
 ### Change solution-language support
 
 The learner workspace offers Python 3 first, C++20 second, and TypeScript as an

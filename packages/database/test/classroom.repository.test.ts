@@ -2,7 +2,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { GenericContainer, type StartedTestContainer } from 'testcontainers';
 import { createDatabaseClient, type DatabaseClient, type DatabaseConfig } from '../src/client.js';
 import {
-  ClassCodeNotFoundError, DuplicateClassAssignmentError, PostgresClassroomRepository,
+  ClassCodeNotFoundError, ClassroomNotFoundError, DuplicateClassAssignmentError, InvalidClassActivityError, PostgresClassroomRepository,
 } from '../src/repositories/classroom.repository.js';
 import { runMigrations } from '../src/migrations/index.js';
 import { prepareSupabaseTestDatabase } from './support/supabase.js';
@@ -43,6 +43,22 @@ async function createUser(name: string): Promise<string> {
 const activityId = '20000000-0000-0000-0000-000000000001';
 
 describe('PostgresClassroomRepository', () => {
+  it('isolates instructor class lists, join codes, learners, and assignment writes by owner', async () => {
+    const alice = await createUser('instructor-alice');
+    const bob = await createUser('instructor-bob');
+    const aliceRepository = new PostgresClassroomRepository(database, alice);
+    const bobRepository = new PostgresClassroomRepository(database, bob);
+    const aliceClass = await aliceRepository.createClass({ name: 'Alice class', description: '', actorId: alice, reason: 'Instructor class setup' });
+    const bobClass = await bobRepository.createClass({ name: 'Bob class', description: '', actorId: bob, reason: 'Instructor class setup' });
+    expect((await aliceRepository.listClasses()).map(item => item.id)).toEqual([aliceClass.id]);
+    expect((await bobRepository.listClasses()).map(item => item.id)).toEqual([bobClass.id]);
+    expect((await aliceRepository.getClassDetail(aliceClass.id)).classroom.joinCode).toBe(aliceClass.joinCode);
+    await expect(aliceRepository.getClassDetail(bobClass.id)).rejects.toBeInstanceOf(ClassroomNotFoundError);
+    await expect(aliceRepository.createAssignment({ classId: bobClass.id, contentId: activityId, title: 'Unauthorized task', instructions: '', dueOn: null, actorId: alice, reason: 'Cross-owner assignment attempt' })).rejects.toBeInstanceOf(InvalidClassActivityError);
+    await expect(aliceRepository.createClass({ name: 'Forged owner', description: '', actorId: bob, reason: 'Forged actor attempt' })).rejects.toBeInstanceOf(ClassroomNotFoundError);
+    expect((await repository.listClasses()).length).toBe(2);
+  });
+
   it('creates an unguessable class code and audits class creation', async () => {
     const administratorId = await createUser('administrator');
     const classroom = await repository.createClass({

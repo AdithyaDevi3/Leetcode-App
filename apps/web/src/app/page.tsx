@@ -1,40 +1,27 @@
 import { LocalPracticeEntryLink } from '@/components/local-practice-entry-link';
 import { SiteNavigation } from '@/components/site-navigation';
-import { AccountCta } from '@/components/account-cta';
+import { ArrowUpRight, Braces, Check, Compass, GraduationCap } from 'lucide-react';
 
 export default function Home() {
-  return <main className="min-h-screen px-6 py-8 text-[var(--ink)] sm:py-12">
-    <div className="mx-auto max-w-6xl"><SiteNavigation currentPath="/" /></div>
-    <section className="mx-auto grid max-w-6xl gap-8 py-12 lg:grid-cols-[1.2fr_.8fr] lg:items-center">
-      <div>
-        <p className="text-sm font-semibold uppercase tracking-[0.2em] text-[var(--coral)]">Structured practice</p>
-        <h1 className="mt-5 max-w-3xl text-4xl font-bold tracking-tight sm:text-6xl">Learn the reasoning before the syntax.</h1>
-        <p className="mt-6 max-w-2xl text-lg leading-8 text-[var(--muted)]">Practice algorithms in structured English, receive evidence-based feedback, and move into code only when your plan is ready. Your learning plan and drafts work locally in this browser.</p>
-        <div className="mt-9 flex flex-wrap gap-3">
-          <LocalPracticeEntryLink className="rounded-md bg-[var(--moss)] px-5 py-3 font-semibold text-white transition hover:bg-[#193e2e]">Start a practice session</LocalPracticeEntryLink>
-          <a className="rounded-md border border-[#b9c8bd] bg-[var(--surface)] px-5 py-3 font-semibold text-[var(--moss)]" href="/onboarding">Build my learning plan</a>
-          <AccountCta />
+  return <main className="home-page">
+    <div className="home-container"><SiteNavigation currentPath="/" />
+      <section className="home-hero">
+        <div><p className="home-eyebrow"><span /> A little practice. A clearer way to think.</p>
+          <h1>Good code starts<br />with a <em>clear idea.</em></h1>
+          <p className="home-description">Build your problem-solving skills one step at a time. Think through the approach, get useful feedback, then bring your solution to life in code.</p>
+          <div className="home-actions"><LocalPracticeEntryLink className="button">Start a practice session <ArrowUpRight size={17} /></LocalPracticeEntryLink><a href="/roadmap">Explore the roadmap <span aria-hidden="true">→</span></a></div>
+          <p className="home-meta">Start as a guest · Python 3, C++20 & TypeScript</p>
         </div>
-        <div className="mt-8 flex flex-wrap gap-x-6 gap-y-3 text-sm text-[var(--muted)]">
-          <a className="underline decoration-[#b9c8bd] underline-offset-4 hover:text-[var(--moss)]" href="/learn">My learning plan</a>
-          <a className="underline decoration-[#b9c8bd] underline-offset-4 hover:text-[var(--moss)]" href="/dashboard">Dashboard</a>
-          <a className="underline decoration-[#b9c8bd] underline-offset-4 hover:text-[var(--moss)]" href="/history">Practice history</a>
-          <a className="underline decoration-[#b9c8bd] underline-offset-4 hover:text-[var(--moss)]" href="/library">Study library</a>
-          <a className="underline decoration-[#b9c8bd] underline-offset-4 hover:text-[var(--moss)]" href="/system-design">System design practice</a>
-          <a className="underline decoration-[#b9c8bd] underline-offset-4 hover:text-[var(--moss)]" href="/offline">Continue offline</a>
-          <a className="underline decoration-[#b9c8bd] underline-offset-4 hover:text-[var(--moss)]" href="/requests">Request a question or feature</a>
-        </div>
-      </div>
-      <aside className="border border-[var(--line)] bg-[var(--surface)] p-7 shadow-[0_18px_50px_rgba(34,46,38,.08)]">
-        <p className="text-sm font-semibold text-[var(--coral)]">The learner loop</p>
-        <ol className="mt-5 space-y-5">
-          {[
-            ['1', 'Plan', 'Describe your state, decisions, and edge cases in plain language.'],
-            ['2', 'Evaluate', 'See deterministic feedback tied to the reasoning requirements.'],
-            ['3', 'Implement', 'Translate an approved plan into code when you are ready.'],
-          ].map(([number, title, detail]) => <li className="flex gap-4" key={number}><span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--mustard)] font-bold">{number}</span><div><h2 className="font-semibold">{title}</h2><p className="mt-1 text-sm leading-6 text-[var(--muted)]">{detail}</p></div></li>)}
-        </ol>
-      </aside>
-    </section>
+        <aside className="home-preview" aria-label="How practice works"><div className="home-preview-bar"><span className="home-preview-dot" /> YOUR NEXT BREAKTHROUGH <Braces size={18}/></div>
+          <div className="home-preview-body"><span className="home-tag">Algorithms · Foundation</span><h2>A pair. A target.<br />A better approach.</h2><p>Find two numbers that add up to a target. How would you avoid checking every pair?</p>
+            <div className="home-example"><span>01</span><code>Remember the numbers you have seen.</code><span>02</span><code>Look for the missing complement.</code><span>03</span><code>Return the matching pair.</code></div>
+            <div className="home-preview-result"><span><Check size={16}/></span><div><strong>Make your reasoning visible.</strong><p>Then turn your plan into working code.</p></div></div>
+          </div>
+        </aside>
+      </section>
+      <section className="home-paths" aria-label="Choose your learning path"><div className="home-path-heading"><p className="eyebrow">YOUR NEXT STEP</p><h2>Find your way into practice.</h2></div><div className="home-path-grid">
+        {[{href:'/roadmap',icon:Compass,title:'Follow a roadmap',text:'Build from foundations to advanced algorithms and system design.',tag:'Explore by topic'},{href:'/onboarding',icon:Braces,title:'Make it personal',text:'Set your goals and get a learning plan that fits your experience.',tag:'Build your plan'},{href:'/classes',icon:GraduationCap,title:'Learn with your class',text:'Join with an instructor’s code and keep your assignments in one place.',tag:'Find your class'}].map(({href,icon:Icon,title,text,tag})=><a className="home-path-card" href={href} key={href}><Icon size={22} strokeWidth={1.6}/><h3>{title}</h3><p>{text}</p><span>{tag}<ArrowUpRight size={16}/></span></a>)}
+      </div></section><footer className="home-footer"><span>Method — Think before syntax.</span><a href="/requests">Help shape Method ↗</a></footer>
+    </div>
   </main>;
 }

@@ -23,3 +23,4 @@ export * from './content-workflow';
 export * from './onboarding';
 export * from './system-design-flow';
 export * from './notifications';
+export * from './gradebook';

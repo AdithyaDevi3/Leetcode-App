@@ -36,6 +36,40 @@ only routing intent. This reuses the existing ownership columns and server-only
 database boundary. The development-only admin preview uses in-memory sample
 data and returns 404 in production.
 
+### Gradebook calculation boundary
+
+`packages/domain/src/gradebook.ts` provides a pure points-based calculation
+foundation, exported from `@leetcode-app/domain`. It is not yet connected to
+classroom storage or screens. Callers must authorize the class/cohort and read
+a consistent snapshot before calculation; the domain function does not grant
+access or publish grades. Existing content-level completion counters are not
+assignment grades.
+
+Policies pin assignment, content, rubric/verifier versions, maximum points,
+and attempt selection. `freezeAssignmentGradePolicy` validates and copies them
+into deeply frozen objects; immutable database storage remains a separate
+requirement. Scored outcomes identify the attempt, response revision, evaluator,
+and grade revision. Missing-work zeros require an explicit attributable reason.
+
+Points use integer hundredths and reject unsafe ranges. `parseGradePoints`
+accepts decimal strings without floating-point conversion. Totals round half-up
+to two decimal places for display; ranking compares exact ratios using integer
+cross-products. Empty denominators are unknown. Published partial totals carry
+coverage and cannot become a rank until the same declared assignment set has
+published, undisputed numeric outcomes. Excused/not-assigned work changes the
+personal denominator and excludes that learner from the default comparison set.
+Ties use competition ranking (1, 1, 3); input ordering does not break a tie.
+
+This deliberately supports points-based totals and binary verified-completion
+or reviewed-rubric policies first. Category weights, curves, bonus points,
+automated late penalties, attempt selection execution, persistence, and grade
+publication workflows are not implemented by this module. Every caller supplies
+one explicit current-outcome cell per learner/assignment, including nonnumeric
+states; missing cells and mismatched policy versions fail rather than silently
+dropping work from the denominator. A previous published revision can be shown
+separately by a future UI, but cannot substitute for an unresolved current outcome
+in a new comparison snapshot.
+
 [ADR-011](adr/011-current-platform-and-admin-console.md) records the current
 provider choices and the administration boundary. It supersedes older provider
 choices where they conflict with this deployed topology.

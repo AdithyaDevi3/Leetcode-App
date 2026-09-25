@@ -30,6 +30,7 @@ The repository currently contains these working product areas:
 | Python 3, C++20, and TypeScript verification | `apps/web/src/lib/sandbox`, execution APIs, activity test suites |
 | Learner profiles and recommendations | onboarding, `/learn`, dashboard, mastery and local learner modules |
 | Instructor signup, classes, and assigned practice | `/teach`, `/admin/classes`, `/classes`, owner-scoped classroom repository |
+| Gradebook calculation foundation (not yet connected to classroom screens) | `packages/domain/src/gradebook.ts`, exact points, published coverage, comparable totals and tied ranks |
 | Shared learner navigation and landing page | application shell, responsive sidebar and mobile navigation |
 | Authentication and persistence | Supabase Auth, PostgreSQL repositories and migrations |
 | Administration | `/admin`, database roles, server authorization, audit events |
@@ -54,6 +55,8 @@ Good next contributions are coherent slices with clear evidence:
   guest progress during account upgrade.
 - Add class editing, code rotation, archiving, and individual assignments with
   authorization and audit coverage.
+- Connect the gradebook calculation foundation to assignment-specific submissions,
+  versioned grade storage, publication, and authorized instructor/student views.
 - Complete staging evidence for durable evaluation workers, execution limits,
   backups, rate limits, alerts, accessibility, and recovery behavior.
 - Build accessible system-design diagramming and rubric feedback.

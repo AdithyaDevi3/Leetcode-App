@@ -140,6 +140,15 @@ Use a new forward migration. Do not edit a migration already applied outside
 your local environment. Enable RLS on every table exposed through the Supabase
 Data API and write ownership or permission policies explicitly.
 
+The gradebook storage foundation adds migration
+`1790363936520_gradebook-storage.ts`. Apply it before enabling any code that calls
+`PostgresGradebookRepository`. It adds five server-only tables and copies no
+legacy practice data. The current classroom screens do not call this repository.
+Verify RLS and revoked browser-role privileges after migration. Roll back an
+application release by leaving the additive tables in place; the migration's
+down operation drops grade history and is only appropriate for disposable test
+databases. Use a forward fix once real grades exist.
+
 ### Change authentication or administration
 
 The active user-facing authentication path is Supabase Auth. Do not revive the

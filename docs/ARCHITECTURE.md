@@ -47,8 +47,8 @@ assignment grades.
 
 Policies pin assignment, content, rubric/verifier versions, maximum points,
 and attempt selection. `freezeAssignmentGradePolicy` validates and copies them
-into deeply frozen objects; immutable database storage remains a separate
-requirement. Scored outcomes identify the attempt, response revision, evaluator,
+into deeply frozen objects; the persistence boundary below stores these snapshots.
+Scored outcomes identify the attempt, response revision, evaluator,
 and grade revision. Missing-work zeros require an explicit attributable reason.
 
 Points use integer hundredths and reject unsafe ranges. `parseGradePoints`
@@ -69,6 +69,49 @@ states; missing cells and mismatched policy versions fail rather than silently
 dropping work from the denominator. A previous published revision can be shown
 separately by a future UI, but cannot substitute for an unresolved current outcome
 in a new comparison snapshot.
+
+### Gradebook persistence boundary
+
+The server-only `PostgresGradebookRepository` stores one immutable published
+policy and content snapshot per assignment, explicit recipient snapshots,
+assignment-specific response revisions, reviewed grade revisions, and publication
+history. It does not backfill grades from private practice. It is not yet wired
+to routes, workers, classroom screens, or the calculation projection.
+
+Every instance requires a verified learner or instructor identity. Instructor
+queries enforce class ownership; learner queries enforce recipient ownership.
+There is no implicit global administrator scope. All five tables enable RLS and
+revoke browser-role privileges; authorization still runs in server SQL because
+the server connection is privileged. Composite foreign keys prevent attempts,
+grades, and publications from crossing recipients or policies.
+
+Recipient locks serialize submissions, corrections, and publication. Request
+keys make retries idempotent; changing a retried payload is a conflict. Grade
+corrections and publication also require the expected prior revision. History
+reads use a repeatable-read transaction. Policies, responses, and published
+evidence cannot be updated in place. Content is copied at policy publication,
+so editing source content does not rewrite an existing assignment's evidence.
+
+The first persistence adapter accepts latest-attempt policies. Human rubric
+scores must cover every criterion and stay within its maximum. Verified-completion
+scores require a future trusted verifier adapter; a caller cannot supply a pass
+flag. Missing-work zero requires no submission, an elapsed explicit closing time,
+and an instructor reason. New submissions use database receipt time and require
+live enrollment and an active class. Withdrawal preserves history. Publishing a
+grade for an older attempt is rejected when a newer submission exists.
+
+Students see their own attempts and published grade history, including earlier
+publications after a new submission. That history is not the current gradebook
+projection: consumers must represent the new pending attempt explicitly, never
+reuse an old published score as a current finalized outcome. Unpublished
+corrections remain instructor-only. Full-cohort ranking snapshots, disputes,
+accommodations, excusals, policy replacement, and best-attempt selection remain
+separate workflows.
+
+Database update triggers enforce immutability, while authorized account/class
+deletion cascades can erase learner records. Staff attribution follows existing
+audit retention constraints. The repository exposes no deletion API. This keeps
+normal corrections append-only without blocking learner account erasure.
 
 [ADR-011](adr/011-current-platform-and-admin-console.md) records the current
 provider choices and the administration boundary. It supersedes older provider

@@ -1,4 +1,17 @@
 import type { Pool, PoolClient } from 'pg';
+import type { PostgresGradebookRepository as GradebookRepository, GradebookPrincipal } from './repositories/gradebook.repository.js';
+
+export { GradebookAccessError, GradebookConflictError } from './repositories/gradebook.repository.js';
+export type { GradebookPrincipal, AssignmentResponse, StoredGradebookAttempt, StoredGradebookGrade, StoredGradebookPublication, GradebookRecipientHistory } from './repositories/gradebook.repository.js';
+
+export class PostgresGradebookRepository {
+  constructor(db: DatabaseClient, principal: GradebookPrincipal);
+  publishPolicy: GradebookRepository['publishPolicy'];
+  submitAttempt: GradebookRepository['submitAttempt'];
+  appendGrade: GradebookRepository['appendGrade'];
+  publishGrade: GradebookRepository['publishGrade'];
+  readRecipient: GradebookRepository['readRecipient'];
+}
 
 export interface DatabaseConfig {
   host: string;

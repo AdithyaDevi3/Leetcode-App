@@ -7,6 +7,7 @@ import type { DatabaseClient as PublicDatabaseClient, PostgresGradebookRepositor
 import { createDatabaseClient, type DatabaseClient, type DatabaseConfig } from '../src/client.js';
 import { PostgresClassroomRepository } from '../src/repositories/classroom.repository.js';
 import { GradebookAccessError, GradebookConflictError, PostgresGradebookRepository } from '../src/repositories/gradebook.repository.js';
+import { PostgresGradebookVerificationRepository } from '../src/repositories/gradebook-verification.repository.js';
 import { runMigrations } from '../src/migrations/index.js';
 import { prepareSupabaseTestDatabase } from './support/supabase.js';
 
@@ -258,7 +259,9 @@ describe('PostgresGradebookRepository', () => {
     const policy: AssignmentGradePolicy = { ...f.policy, scoring: { mode: 'verified_completion', verifierVersionId: 'tests-v1' } };
     const published = await f.instructor.publishPolicy({ ...f.publishInput, policy });
     const recipientId = published.recipients.find(item => item.learnerId === f.learnerId)!.id;
-    const attempt = await f.learner.submitAttempt({ ...submission(f), recipientId });
+    const attempt = await f.learner.submitAttempt({ ...submission(f), recipientId, response: { text: 'print(1)', language: 'python' } });
+    const job = await new PostgresGradebookVerificationRepository(database).claimNext();
+    expect(job?.id).toBe(attempt.verificationJobId);
     const snapshot = await database.query('SELECT content_snapshot FROM gradebook_policies WHERE id = $1', [policy.versionId]);
     const original = await database.query<{ title: string }>('SELECT title FROM content_versions WHERE id = $1', [policy.contentVersionId]);
     try {
@@ -267,16 +270,16 @@ describe('PostgresGradebookRepository', () => {
     } finally {
       await database.query('UPDATE content_versions SET title = $1 WHERE id = $2', [original.rows[0].title, policy.contentVersionId]);
     }
-    const insert = `INSERT INTO gradebook_grade_revisions (recipient_id,policy_id,sequence,attempt_id,kind,earned_units,evaluator_version_id,criterion_scores,reason,authored_by,request_key)
-      VALUES ($1,$2,1,$3,'scored',$4,'tests-v1','{}','Pinned verifier result',$5,$6)`;
-    await expect(database.query(insert, [recipientId, policy.versionId, attempt.id, 500, f.instructorId, randomUUID()])).rejects.toMatchObject({ code: '23514' });
-    await database.query(insert, [recipientId, policy.versionId, attempt.id, 1000, f.instructorId, randomUUID()]);
+    const insert = `INSERT INTO gradebook_grade_revisions (recipient_id,policy_id,sequence,attempt_id,kind,earned_units,evaluator_version_id,criterion_scores,reason,authored_by,request_key,verification_job_id)
+      VALUES ($1,$2,1,$3,'scored',$4,'tests-v1','{}','Pinned verifier result',NULL,$5,$6)`;
+    await expect(database.query(insert, [recipientId, policy.versionId, attempt.id, 500, randomUUID(), job!.id])).rejects.toMatchObject({ code: '23514' });
+    await database.query(insert, [recipientId, policy.versionId, attempt.id, 1000, randomUUID(), job!.id]);
   });
 
   it('upgrades legacy class data and can reverse only the additive migration', async () => {
     const f = await fixture(null, false);
     await database.query("INSERT INTO practice_sessions (user_id, content_id, content_version, current_stage, status, session_metadata, revision) VALUES ($1, $2, 1, 'evaluate', 'completed', '{}', 1)", [f.learnerId, contentId]);
-    const options = { databaseUrl: `postgresql://test:test@${migrationConfig.host}:${migrationConfig.port}/testdb`, dir: 'migrations', migrationsTable: 'pgmigrations', count: 1 };
+    const options = { databaseUrl: `postgresql://test:test@${migrationConfig.host}:${migrationConfig.port}/testdb`, dir: 'migrations', migrationsTable: 'pgmigrations', count: 2 };
     await runner({ ...options, direction: 'down' });
     expect((await database.query("SELECT to_regclass('gradebook_policies') AS table_name")).rows[0].table_name).toBeNull();
     expect((await f.classrooms.getClassDetail(f.classroom.id)).assignments[0].completedCount).toBe(1);

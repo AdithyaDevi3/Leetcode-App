@@ -149,6 +149,13 @@ application release by leaving the additive tables in place; the migration's
 down operation drops grade history and is only appropriate for disposable test
 databases. Use a forward fix once real grades exist.
 
+Migration `1790543189816_assignment-verification-jobs.ts` adds the assignment-only
+verification queue and system-grade provenance. Apply it before running an
+assignment verification worker. Queue failures and malformed verifier output must
+be recorded as unavailable and must not create a zero. Keep hidden tests and raw
+sandbox output out of HTTP responses and routine logs. The generic practice
+execution worker is not a grade source.
+
 ### Change authentication or administration
 
 The active user-facing authentication path is Supabase Auth. Do not revive the

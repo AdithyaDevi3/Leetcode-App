@@ -108,6 +108,20 @@ corrections remain instructor-only. Full-cohort ranking snapshots, disputes,
 accommodations, excusals, policy replacement, and best-attempt selection remain
 separate workflows.
 
+Verified-completion submissions use a dedicated assignment queue. The learner
+submission transaction creates the immutable attempt and queue record together,
+using the policy's pinned verifier version and copied test suite. The browser
+cannot supply recipient, policy, verifier, source-test, or grading identifiers.
+This queue never reads private practice sessions or the general execution queue.
+
+Workers claim jobs with expiring lease tokens. Completion, retry, and terminal
+unavailability compare the active lease, preventing a late worker from changing
+a reclaimed job. A completed verifier run appends a binary zero/full grade only
+when its attempt is still the latest submission. A newer attempt supersedes the
+older job. Provider failures retry within a bounded budget and then remain
+unavailable without creating a grade. Raw hidden tests and sandbox output stay
+server-side; stored summaries contain only bounded outcome metadata.
+
 Database update triggers enforce immutability, while authorized account/class
 deletion cascades can erase learner records. Staff attribution follows existing
 audit retention constraints. The repository exposes no deletion API. This keeps

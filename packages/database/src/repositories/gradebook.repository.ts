@@ -12,7 +12,7 @@ export class GradebookConflictError extends Error {
 
 export type GradebookPrincipal = Readonly<{ role: 'instructor' | 'learner'; userId: string }>;
 export type AssignmentResponse = Readonly<{ text: string; language?: string }>;
-export type StoredGradebookAttempt = { id: string; responseRevisionId: string; sequence: number; response: AssignmentResponse };
+export type StoredGradebookAttempt = { id: string; responseRevisionId: string; sequence: number; response: AssignmentResponse; verificationJobId?: string };
 export type StoredGradebookGrade = { id: string; sequence: number; earnedUnits: number; kind: 'scored' | 'missing_zero'; attemptId: string | null };
 export type StoredGradebookPublication = { id: string; sequence: number; gradeRevisionId: string };
 export type GradebookRecipientHistory = {
@@ -22,7 +22,7 @@ export type GradebookRecipientHistory = {
 
 type Recipient = {
   id: string; learner_id: string; policy_id: string; policy: AssignmentGradePolicy;
-  closes_at: Date | null; archived_at: Date | null; enrolled: boolean;
+  content_snapshot: { test_cases?: unknown }; closes_at: Date | null; archived_at: Date | null; enrolled: boolean;
 };
 type GradeRow = {
   id: string; sequence: number; earned_units: string; kind: 'scored' | 'missing_zero';
@@ -63,7 +63,7 @@ export class PostgresGradebookRepository {
   private async recipient(client: PoolClient, recipientId: string, lock: boolean): Promise<Recipient> {
     uuid(recipientId);
     const result = await client.query<Recipient>(`
-      SELECT r.id, r.learner_id, r.policy_id, p.policy, p.closes_at, c.archived_at,
+      SELECT r.id, r.learner_id, r.policy_id, p.policy, p.content_snapshot, p.closes_at, c.archived_at,
         EXISTS (SELECT 1 FROM class_enrollments e WHERE e.class_id = c.id AND e.user_id = r.learner_id) AS enrolled
       FROM gradebook_recipients r
       JOIN gradebook_policies p ON p.id = r.policy_id
@@ -135,7 +135,8 @@ export class PostgresGradebookRepository {
       const retry = await client.query<AttemptRow>('SELECT * FROM gradebook_attempts WHERE recipient_id = $1 AND request_key = $2', [recipient.id, input.requestKey]);
       if (retry.rows[0]) {
         if (!same(retry.rows[0].response, response)) throw new GradebookConflictError();
-        return mapAttempt(retry.rows[0]);
+        const job = await client.query<{ id: string }>('SELECT id FROM gradebook_verification_jobs WHERE attempt_id = $1', [retry.rows[0].id]);
+        return { ...mapAttempt(retry.rows[0]), ...(job.rows[0] ? { verificationJobId: job.rows[0].id } : {}) };
       }
       if (!recipient.enrolled || recipient.archived_at) throw new GradebookAccessError();
       // Lock the live enrollment so a concurrent withdrawal cannot race this admission.
@@ -150,7 +151,17 @@ export class PostgresGradebookRepository {
         FROM receipt WHERE $6::timestamptz IS NULL OR received_at <= $6
         RETURNING *`, [recipient.id, recipient.policy_id, randomUUID(), response, input.requestKey, recipient.closes_at]);
       if (!result.rows[0]) throw new GradebookAccessError();
-      return mapAttempt(result.rows[0]);
+      if (recipient.policy.scoring.mode !== 'verified_completion') return mapAttempt(result.rows[0]);
+      if (!['python', 'cpp', 'typescript'].includes(response.language ?? '')) throw new Error('Verified submissions require a supported language');
+      const tests = recipient.content_snapshot.test_cases;
+      if (!Array.isArray(tests) || !tests.length) throw new Error('The pinned verifier has no test suite');
+      const job = await client.query<{ id: string }>(`INSERT INTO gradebook_verification_jobs
+        (attempt_id,recipient_id,policy_id,learner_id,verifier_version_id,language,source,pinned_tests)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id`, [result.rows[0].id, recipient.id, recipient.policy_id,
+        this.principal.userId, recipient.policy.scoring.verifierVersionId, response.language, response.text, JSON.stringify(tests)]);
+      await client.query(`INSERT INTO gradebook_verification_events (verification_job_id,status,reason)
+        VALUES ($1,'queued','assignment-submitted')`, [job.rows[0].id]);
+      return { ...mapAttempt(result.rows[0]), verificationJobId: job.rows[0].id };
     });
   }
 

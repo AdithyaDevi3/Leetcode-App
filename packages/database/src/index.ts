@@ -45,6 +45,10 @@ export type {
   AdministrationUser,
 } from './repositories/administration.repository.js';
 
+// Gradebook persistence
+export { PostgresGradebookRepository, GradebookAccessError, GradebookConflictError } from './repositories/gradebook.repository.js';
+export type { GradebookPrincipal, AssignmentResponse, StoredGradebookAttempt, StoredGradebookGrade, StoredGradebookPublication, GradebookRecipientHistory } from './repositories/gradebook.repository.js';
+
 // Classroom repository
 export {
   ClassCodeNotFoundError,

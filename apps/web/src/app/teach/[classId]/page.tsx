@@ -31,7 +31,7 @@ export default async function InstructorClassDetailPage({ params, searchParams }
 
   return <main><div className="mx-auto max-w-6xl space-y-7">
     <Link className="inline-flex text-sm font-bold text-[var(--moss)] underline underline-offset-4" href="/teach">← All classes</Link>
-    <AdminPageHeader eyebrow="Class workspace" title={classroom.name} description={classroom.description || 'Share the code, assign activities, and follow learner progress.'} />
+    <AdminPageHeader eyebrow="Class workspace" title={classroom.name} description={classroom.description || 'Share the code, assign activities, and follow learner progress.'} action={<Link className="inline-flex min-h-11 items-center rounded-md bg-[var(--moss)] px-4 font-bold text-white no-underline" href={`/teach/${classId}/submissions`}>Review submissions</Link>} />
     {notice.error ? <p role="alert" className="rounded-lg border border-[var(--coral)] bg-[var(--coral-soft)] px-4 py-3 text-sm text-red-950">{notice.error}</p> : null}
     {notice.created ? <p role="status" className="rounded-lg border border-[var(--moss)] bg-[var(--moss-soft)] px-4 py-3 text-sm text-[var(--moss)]">{notice.created}</p> : null}
 
@@ -51,7 +51,7 @@ export default async function InstructorClassDetailPage({ params, searchParams }
       </div>
     </section>
 
-    <AdminSection title="Assign a practice task" description="Choose an existing activity. Completion is based on passing its verified code tests.">
+    <AdminSection title="Assign a practice task" description="Choose an existing activity. New submissions use a 100-point rubric for approach, correctness, and communication.">
       <form action={createClassAssignment} className="grid gap-4 p-5 sm:grid-cols-2 sm:p-6">
         <input name="classId" type="hidden" value={classId} />
         <label className="grid gap-1.5 text-sm font-bold">Task title

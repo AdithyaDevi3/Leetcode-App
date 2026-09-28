@@ -66,6 +66,23 @@ async function readOutput(sandbox: SandboxHandle, path: string): Promise<string>
   return sanitizeSandboxOutput(value?.toString('utf8') ?? '');
 }
 
+async function createWithDeadline(create: Promise<SandboxHandle>, timeoutMs: number): Promise<SandboxHandle> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      create,
+      new Promise<never>((_resolve, reject) => {
+        timer = setTimeout(() => reject(new Error('Sandbox creation timed out')), timeoutMs);
+      }),
+    ]);
+  } catch (error) {
+    void create.then((sandbox) => sandbox.stop()).catch(() => undefined);
+    throw error;
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
 export function createVercelSandbox(config: VercelSandboxConfig = {}) {
   const createSandbox = config.createSandbox ?? ((options) => Sandbox.create(options));
 
@@ -88,13 +105,13 @@ export function createVercelSandbox(config: VercelSandboxConfig = {}) {
 
       const extension = request.language === 'typescript' ? '.js' : request.language === 'python' ? '.py' : '.cpp';
       const sourcePath = `${paths.source}${extension}`;
-      const sandbox = await createSandbox({
+      const sandbox = await createWithDeadline(createSandbox({
         persistent: false,
         networkPolicy: 'deny-all',
         timeout: Math.max(15_000, request.limits.timeoutMs + 10_000),
         resources: { vcpus: 1 },
         tags: { workload: 'code-grading' },
-      });
+      }), request.limits.timeoutMs + 10_000);
 
       try {
         await sandbox.writeFiles([
@@ -109,7 +126,7 @@ export function createVercelSandbox(config: VercelSandboxConfig = {}) {
           ? `node --max-old-space-size=${Math.max(32, request.limits.memoryMb - 96)} ${sourcePath}`
           : request.language === 'python'
             ? `ulimit -v ${memoryKb}; python3 ${sourcePath}`
-            : `if g++ -std=c++20 -O2 -pipe ${sourcePath} -o ${paths.executable}; then ulimit -v ${memoryKb}; ${paths.executable}; else exit $?; fi`;
+            : `bash -lc 'if g++ -std=c++20 -O2 -pipe ${sourcePath} -o ${paths.executable}; then ulimit -v ${memoryKb}; ${paths.executable}; else exit $?; fi'`;
         const shellScript = [
           'set +e',
           `ulimit -f ${outputBlocks}`,

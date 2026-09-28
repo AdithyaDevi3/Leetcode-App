@@ -156,6 +156,20 @@ be recorded as unavailable and must not create a zero. Keep hidden tests and raw
 sandbox output out of HTTP responses and routine logs. The generic practice
 execution worker is not a grade source.
 
+`apps/web/src/workers/verification-worker.ts` claims pinned assignment jobs,
+runs each pinned test through the configured sandbox, and resolves a binary
+pass/fail grade or marks the job unavailable for retry. Trigger it with an
+authenticated `POST /api/internal/workers/verifications` request using
+`VERIFICATION_WORKER_TOKEN`, the same pattern as the evaluation worker route.
+The initial `stdin-stdout-v1` adapter supports one to five pinned cases with
+bounded string `input` and `expected` fields. Any other verifier version or
+malformed suite remains unavailable and cannot create a grade.
+Learners submit supported source through
+`POST /api/learner/assignments/{recipientId}/submissions`. The server resolves
+the authenticated learner and pinned policy, generates the immutable response
+revision, and returns `202` when verification is queued. Client-supplied owner,
+policy, test, and evaluator identifiers are rejected.
+
 ### Change authentication or administration
 
 The active user-facing authentication path is Supabase Auth. Do not revive the

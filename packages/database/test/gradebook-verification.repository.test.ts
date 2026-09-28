@@ -5,7 +5,7 @@ import type { AssignmentGradePolicy } from '@leetcode-app/domain';
 import { createDatabaseClient, type DatabaseClient, type DatabaseConfig } from '../src/client.js';
 import { runMigrations } from '../src/migrations/index.js';
 import { PostgresClassroomRepository } from '../src/repositories/classroom.repository.js';
-import { PostgresGradebookRepository } from '../src/repositories/gradebook.repository.js';
+import { ASSIGNMENT_VERIFIER_VERSION, PostgresGradebookRepository } from '../src/repositories/gradebook.repository.js';
 import { PostgresGradebookVerificationRepository } from '../src/repositories/gradebook-verification.repository.js';
 import { prepareSupabaseTestDatabase } from './support/supabase.js';
 
@@ -35,7 +35,7 @@ async function createUser() {
   return result.rows[0].id;
 }
 
-async function fixture(mode: 'verified' | 'reviewed' = 'verified', closesAt: Date | null = null) {
+async function fixture(mode: 'verified' | 'reviewed' = 'verified', closesAt: Date | null = null, verifierVersionId = ASSIGNMENT_VERIFIER_VERSION, tests: unknown = pinnedTests) {
   const instructorId = await createUser();
   const learnerId = await createUser();
   const classrooms = new PostgresClassroomRepository(database, instructorId);
@@ -43,9 +43,9 @@ async function fixture(mode: 'verified' | 'reviewed' = 'verified', closesAt: Dat
   await classrooms.joinClassByCode({ userId: learnerId, code: classroom.joinCode });
   const assignmentId = await classrooms.createAssignment({ classId: classroom.id, contentId, title: 'Pinned verifier', instructions: '', dueOn: null, actorId: instructorId, reason: 'Fixture' });
   const version = await database.query<{ id: string }>('SELECT id FROM content_versions WHERE content_id=$1 ORDER BY version DESC LIMIT 1', [contentId]);
-  await database.query('UPDATE content_versions SET test_cases=$1 WHERE id=$2', [JSON.stringify(pinnedTests), version.rows[0].id]);
+  await database.query('UPDATE content_versions SET test_cases=$1 WHERE id=$2', [JSON.stringify(tests), version.rows[0].id]);
   const scoring: AssignmentGradePolicy['scoring'] = mode === 'verified'
-    ? { mode: 'verified_completion', verifierVersionId: 'suite-v7' }
+    ? { mode: 'verified_completion', verifierVersionId }
     : { mode: 'reviewed_rubric', rubricVersionId: 'rubric-v1', criteria: [{ id: 'correct', label: 'Correct', maxUnits: 1000 }] };
   const policy: AssignmentGradePolicy = { assignmentId, versionId: randomUUID(), contentVersionId: version.rows[0].id, maxUnits: 1000, attemptPolicy: 'latest', scoring };
   const instructor = new PostgresGradebookRepository(database, { role: 'instructor', userId: instructorId });
@@ -59,6 +59,15 @@ async function fixture(mode: 'verified' | 'reviewed' = 'verified', closesAt: Dat
 }
 
 describe('assignment verification persistence', () => {
+  it('rejects a verified policy whose adapter is not implemented', async () => {
+    await expect(fixture('verified', null, 'suite-v7')).rejects.toThrow('supported pinned stdin/stdout suite');
+  });
+
+  it('rejects a pinned suite whose UTF-8 bytes exceed the sandbox contract', async () => {
+    await expect(fixture('verified', null, ASSIGNMENT_VERIFIER_VERSION, [{ input: '', expected: '界'.repeat(20_000) }]))
+      .rejects.toThrow('supported pinned stdin/stdout suite');
+  });
+
   it('atomically creates one pinned job and event and returns it on an idempotent retry', async () => {
     const f = await fixture();
     const key = randomUUID();
@@ -67,7 +76,7 @@ describe('assignment verification persistence', () => {
     expect(first.verificationJobId).toBeDefined();
     const jobs = await database.query('SELECT * FROM gradebook_verification_jobs WHERE attempt_id=$1', [first.id]);
     expect(jobs.rows).toHaveLength(1);
-    expect(jobs.rows[0]).toMatchObject({ learner_id: f.learnerId, verifier_version_id: 'suite-v7', language: 'python', source: 'print("ok")', pinned_tests: pinnedTests, status: 'queued', attempts: 0 });
+    expect(jobs.rows[0]).toMatchObject({ learner_id: f.learnerId, verifier_version_id: ASSIGNMENT_VERIFIER_VERSION, language: 'python', source: 'print("ok")', pinned_tests: pinnedTests, status: 'queued', attempts: 0 });
     const events = await database.query('SELECT status,reason FROM gradebook_verification_events WHERE verification_job_id=$1', [first.verificationJobId]);
     expect(events.rows).toEqual([{ status: 'queued', reason: 'assignment-submitted' }]);
   });
@@ -85,7 +94,7 @@ describe('assignment verification persistence', () => {
     const workers = [new PostgresGradebookVerificationRepository(database), new PostgresGradebookVerificationRepository(database)];
     const claims = await Promise.all(workers.map(worker => worker.claimNext(5_000)));
     expect(claims.filter(Boolean)).toHaveLength(1);
-    expect(claims.find(Boolean)).toMatchObject({ attempts: 1, maxAttempts: 3, verifierVersionId: 'suite-v7', pinnedTests });
+    expect(claims.find(Boolean)).toMatchObject({ attempts: 1, maxAttempts: 3, verifierVersionId: ASSIGNMENT_VERIFIER_VERSION, pinnedTests });
     const row = (await database.query('SELECT status,lease_token,lease_expires_at,started_at FROM gradebook_verification_jobs')).rows[0];
     expect(row.status).toBe('running');
     expect(row.lease_token).toBeTruthy();
@@ -103,7 +112,7 @@ describe('assignment verification persistence', () => {
       const gradeId = await verifier.resolve({ jobId: job!.id, leaseToken: job!.leaseToken, outcome, summary });
       expect(gradeId).toBeTruthy();
       const grade = await database.query('SELECT * FROM gradebook_grade_revisions WHERE id=$1', [gradeId]);
-      expect(grade.rows[0]).toMatchObject({ attempt_id: attempt.id, earned_units: units, evaluator_version_id: 'suite-v7', authored_by: null, verification_job_id: job!.id });
+      expect(grade.rows[0]).toMatchObject({ attempt_id: attempt.id, earned_units: units, evaluator_version_id: ASSIGNMENT_VERIFIER_VERSION, authored_by: null, verification_job_id: job!.id });
       expect((await database.query('SELECT status,result_summary FROM gradebook_verification_jobs WHERE id=$1', [job!.id])).rows[0])
         .toMatchObject({ status: 'completed', result_summary: summary });
     },
@@ -234,8 +243,8 @@ describe('assignment verification persistence', () => {
       .rejects.toMatchObject({ code: '23514' });
     await expect(database.query(`INSERT INTO gradebook_grade_revisions
       (recipient_id,policy_id,attempt_id,sequence,kind,earned_units,evaluator_version_id,criterion_scores,reason,authored_by,request_key,verification_job_id)
-      VALUES($1,$2,$3,1,'scored',1000,'suite-v7','{}','forged',NULL,$4,$5)`,
-    [right.recipientId, right.policy.versionId, rightAttempt.id, randomUUID(), leftAttempt.verificationJobId])).rejects.toMatchObject({ code: '23514' });
+      VALUES($1,$2,$3,1,'scored',1000,$6,'{}','forged',NULL,$4,$5)`,
+    [right.recipientId, right.policy.versionId, rightAttempt.id, randomUUID(), leftAttempt.verificationJobId, ASSIGNMENT_VERIFIER_VERSION])).rejects.toMatchObject({ code: '23514' });
   });
 
   it('never derives assignment credit from private practice or a different source', async () => {

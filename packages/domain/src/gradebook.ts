@@ -31,6 +31,7 @@ export type AssignmentGradeResult =
       gradeRevisionId: string;
       finalizedBy: string;
       reason: string;
+      publication: 'draft' | 'published';
       dispute: 'none' | 'open' | 'resolved';
     }>;
 
@@ -148,8 +149,9 @@ function publishedScore(result: AssignmentGradeResult, policy: AssignmentGradePo
       identifier(result.gradeRevisionId);
       identifier(result.finalizedBy);
       identifier(result.reason);
+      if (!['draft', 'published'].includes(result.publication)) throw new Error('Invalid publication state');
       if (!['none', 'open', 'resolved'].includes(result.dispute)) throw new Error('Invalid dispute state');
-      return 0;
+      return result.publication === 'published' ? 0 : null;
     default: throw new Error('Invalid grade state');
   }
 }

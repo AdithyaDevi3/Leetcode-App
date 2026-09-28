@@ -13,7 +13,7 @@ export function MissingWorkEditor({ submission }: { submission: GradebookRecipie
   const [confirmed, setConfirmed] = useState(false);
   const [busy, setBusy] = useState<'draft' | 'publish' | null>(null);
   const [message, setMessage] = useState<string | null>(null);
-  const closed = submission.assignment.closesAt !== null && new Date(submission.assignment.closesAt).getTime() < Date.now();
+  const closed = submission.assignment.isClosed;
   const published = grade !== null && latestPublication?.gradeRevisionId === grade.id;
 
   async function createDraft() {

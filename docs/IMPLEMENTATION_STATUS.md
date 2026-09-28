@@ -1,7 +1,8 @@
 # Implementation status notes
 
-Snapshot: `main` as of 2026-09-22 after the administration, classrooms,
-roadmap, multi-language grading, and reference-answer releases. This is an
+Snapshot: `main` as of 2026-09-28 after the administration, classrooms,
+assignment grading, roadmap, multi-language grading, and reference-answer
+releases. This is an
 implementation ledger, not a
 declaration that any phase has passed its exit criteria. Code still requires
 tests, operational evidence, and the acceptance criteria named in
@@ -28,6 +29,11 @@ Implemented foundations:
 - The role-scoped administration portal, audited role management, class codes,
   learner enrollment, assigned practice, due dates, and derived completion
   progress are merged. The classrooms migration is applied in production.
+- Assignment policies and recipient snapshots, rate-limited learner submissions,
+  leased verification, immutable grade revisions/publications, instructor manual
+  grading, an instructor matrix with published-grade totals, and learner
+  score/feedback views are merged. Draft grades and private notes remain
+  instructor-only.
 
 Still required before a private beta can be claimed:
 
@@ -79,7 +85,9 @@ Remaining: validate the Vercel Sandbox integration and limits in preview/product
 
 Present: content validation/lifecycle workflow, database-backed administration
 authorization, audited role changes, operational views, and administrator
-managed classes and assignments.
+managed classes and assignments. Instructor-owned classes include assignment
+submissions, private rubric drafts, explicit grade publication, published-grade
+totals with comparable ranking, and learner published-grade views.
 
 Remaining: production author/review/publish workflow, operations queues, privileged-action audit controls, support/privacy/legal workflows, and rollback exercises.
 

@@ -109,6 +109,17 @@ This matrix tracks the functional and operational requirements defined in [PRODU
 | OPS-009 | Privileged audit log | Planned | 6 | Tamper-evident events with retention/access policy |
 | OPS-010 | Read-only support diagnostics | Planned | 6 | No unrestricted impersonation; access is audited |
 
+## Classroom grading
+
+| ID | Requirement | Status | Phase | Acceptance evidence |
+|---|---|---|---|---|
+| GRADE-001 | Owner-scoped instructor classes and grade access | Implemented | Current | Repository and route tests deny cross-owner access to submissions and class gradebooks |
+| GRADE-002 | Recipient-scoped assignment submission and verification | Prototype | Current, 5 | Immutable attempts, pinned tests, durable leases, rate limits, and worker tests exist; production worker monitoring remains required |
+| GRADE-003 | Immutable grade revisions and explicit publication | Implemented | Current | Database constraints and repository tests cover lineage, idempotency, conflicts, and append-only publication history |
+| GRADE-004 | Private manual-rubric drafts and instructor publication | Prototype | Current | Instructor workflow and repository coverage exist; browser evidence for draft, conflict, and publication states remains required |
+| GRADE-005 | Published-only totals, coverage, and comparable class ranking | Implemented | Current | Domain and repository tests cover exact totals, incomplete coverage, ties, exclusions, and draft-safe ranking |
+| GRADE-006 | Learner published score, rubric, and feedback view | Prototype | Current | Owner-scoped learner read-model tests and `/classes/[classId]/grades` exist; browser and accessibility evidence remains required |
+
 ## Mobile and notifications
 
 | ID | Requirement | Status | Phase | Acceptance evidence |

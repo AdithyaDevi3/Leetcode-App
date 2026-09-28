@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { PostgresClassroomRepository, createDatabaseClient, databaseConfigFromEnv } from '@leetcode-app/database';
 import { SiteNavigation } from '@/components/site-navigation';
@@ -56,6 +57,7 @@ export default async function ClassesPage({ searchParams }: {
             <h3 className="mb-2 text-lg font-bold">{classroom.name}</h3>
             {classroom.description ? <p className="mb-3 text-sm leading-6 text-[var(--muted)]">{classroom.description}</p> : null}
             <p className="mb-0 text-xs font-bold uppercase tracking-wide text-[var(--moss)]">{classroom.completedCount} of {classroom.assignmentCount} tasks complete</p>
+            <Link className="mt-4 inline-flex min-h-11 items-center rounded-md border border-[var(--moss)] px-4 font-bold text-[var(--moss)] no-underline hover:bg-[var(--moss-soft)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--moss)]" href={`/classes/${classroom.id}/grades`}>View grades</Link>
           </article>)}
         </div>}
       </section>

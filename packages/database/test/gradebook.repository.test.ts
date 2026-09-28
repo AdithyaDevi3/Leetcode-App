@@ -242,6 +242,51 @@ describe('PostgresGradebookRepository', () => {
     await expect(other.instructor.listManualReviewInbox({ classId: f.classroom.id })).rejects.toBeInstanceOf(GradebookAccessError);
   });
 
+  it('reads an owner-scoped class matrix without exposing response or feedback data', async () => {
+    const f = await fixture();
+    const result = await f.instructor.readClassGradebook(f.classroom.id);
+    expect(result).toMatchObject({
+      classroom: { id: f.classroom.id, name: 'Gradebook tests' },
+      assignments: [{ id: f.policy.assignmentId, maxUnits: 1000, policyVersionId: f.policy.versionId }],
+      learners: [
+        expect.objectContaining({ membership: 'included', cells: [expect.objectContaining({ state: 'unsubmitted', earnedUnits: null })] }),
+        expect.objectContaining({ membership: 'included', cells: [expect.objectContaining({ state: 'unsubmitted', earnedUnits: null })] }),
+      ],
+      calculationVersion: 'points-v1',
+    });
+    expect(result.rows.every(row => row.rank === null && row.exclusions.includes('unsubmitted'))).toBe(true);
+    expect(JSON.stringify(result)).not.toContain('Use a map');
+    expect(JSON.stringify(result)).not.toContain('privateNote');
+    await expect(f.learner.readClassGradebook(f.classroom.id)).rejects.toBeInstanceOf(GradebookAccessError);
+    const other = await fixture();
+    await expect(other.instructor.readClassGradebook(f.classroom.id)).rejects.toBeInstanceOf(GradebookAccessError);
+  });
+
+  it('ranks only fully published current results and invalidates a score after resubmission', async () => {
+    const f = await fixture();
+    const { grade } = await scored(f);
+    const draft = await f.instructor.readClassGradebook(f.classroom.id);
+    expect(draft.learners.find(item => item.id === f.learnerId)?.cells[0]).toMatchObject({ state: 'draft', earnedUnits: 800 });
+    expect(draft.rows.find(item => item.learnerId === f.learnerId)).toMatchObject({ rank: null, exclusions: ['unpublished_grade'] });
+
+    await f.instructor.publishGrade({ recipientId: f.recipientId, gradeRevisionId: grade.id, expectedPublicationSequence: 0, reason: 'Publish score', requestKey: randomUUID() });
+    const otherRecipient = f.published.recipients.find(item => item.learnerId === f.otherLearnerId)!;
+    const otherAttempt = await f.otherLearner.submitAttempt({ recipientId: otherRecipient.id, policyVersionId: f.policy.versionId,
+      response: { text: 'Try every pair.', language: 'text' }, requestKey: randomUUID() });
+    const otherGrade = await f.instructor.appendGrade({ recipientId: otherRecipient.id, attemptId: otherAttempt.id, expectedGradeRevisionId: null,
+      kind: 'scored', criterionScores: { approach: 0, explanation: 0 }, reason: 'Reviewed response', requestKey: randomUUID() });
+    await f.instructor.publishGrade({ recipientId: otherRecipient.id, gradeRevisionId: otherGrade.id, expectedPublicationSequence: 0,
+      reason: 'Publish score', requestKey: randomUUID() });
+    const published = await f.instructor.readClassGradebook(f.classroom.id);
+    expect(published.rows.find(item => item.learnerId === f.learnerId)).toMatchObject({ rank: 1, publishedTotal: { earnedUnits: 800, possibleUnits: 1000 } });
+    expect(published.rows.find(item => item.learnerId === f.otherLearnerId)).toMatchObject({ rank: 2, publishedTotal: { earnedUnits: 0, possibleUnits: 1000 } });
+
+    await f.learner.submitAttempt(submission(f));
+    const stale = await f.instructor.readClassGradebook(f.classroom.id);
+    expect(stale.learners.find(item => item.id === f.learnerId)?.cells[0]).toMatchObject({ state: 'needs_review', earnedUnits: null });
+    expect(stale.rows.find(item => item.learnerId === f.learnerId)).toMatchObject({ rank: null, exclusions: ['awaiting_grade'] });
+  });
+
   it('records attributable missing-work zero only after close and when no submission exists', async () => {
     const f = await fixture('2000-01-01T00:00:00Z');
     const input = { recipientId: f.recipientId, attemptId: null, expectedGradeRevisionId: null, kind: 'missing_zero' as const, criterionScores: {}, reason: 'Instructor explicitly finalized missing work', requestKey: randomUUID() };

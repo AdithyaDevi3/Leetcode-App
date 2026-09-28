@@ -70,6 +70,19 @@ export type ClassGradebook = {
   rows: GradebookRow[];
   calculationVersion: typeof GRADEBOOK_CALCULATION_VERSION;
 };
+export type LearnerClassGradeAssignment = {
+  id: string; title: string; dueOn: string | null; maxUnits: number; recipientId: string;
+  state: 'unsubmitted' | 'queued' | 'running' | 'needs_review' | 'unavailable' | 'awaiting_publication' | 'published';
+  publishedGrade: null | {
+    earnedUnits: number; criterionScores: Record<string, number>; learnerFeedback: string; publishedAt: string;
+  };
+};
+export type LearnerClassGrades = {
+  classroom: { id: string; name: string };
+  assignments: LearnerClassGradeAssignment[];
+  summary: Pick<GradebookRow, 'publishedTotal' | 'coverage'>;
+  calculationVersion: typeof GRADEBOOK_CALCULATION_VERSION;
+};
 
 type Recipient = {
   id: string; learner_id: string; policy_id: string; policy: AssignmentGradePolicy;
@@ -106,6 +119,14 @@ type ClassOutcomeRow = {
   grade_id: string | null; grade_kind: 'scored' | 'missing_zero' | null; earned_units: string | null;
   grade_attempt_id: string | null; evaluator_version_id: string | null; authored_by: string | null; grade_reason: string | null;
   published_grade_revision_id: string | null; verification_status: string | null;
+};
+type LearnerClassGradeRow = {
+  assignment_id: string; title: string; due_on: string | null; policy_id: string; policy: AssignmentGradePolicy;
+  recipient_id: string | null; attempt_id: string | null; response_revision_id: string | null;
+  grade_id: string | null; grade_kind: 'scored' | 'missing_zero' | null; earned_units: string | null;
+  grade_attempt_id: string | null; evaluator_version_id: string | null; authored_by: string | null; grade_reason: string | null;
+  criterion_scores: Record<string, number> | null; learner_feedback: string | null;
+  published_grade_revision_id: string | null; published_at: Date | null; verification_status: string | null;
 };
 
 const uuid = (value: string): void => {
@@ -513,6 +534,107 @@ export class PostgresGradebookRepository {
         rows: calculateGradebook(policies, domainLearners),
         calculationVersion: GRADEBOOK_CALCULATION_VERSION,
       };
+    });
+  }
+
+  async readLearnerClassGrades(classId: string): Promise<LearnerClassGrades> {
+    this.requireRole('learner'); uuid(classId);
+    return this.db.transaction(async client => {
+      await client.query('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY');
+      const classroom = await client.query<{ id: string; name: string }>(`
+        SELECT c.id, c.name
+        FROM classrooms c
+        JOIN class_enrollments e ON e.class_id = c.id
+        WHERE c.id = $1 AND e.user_id = $2 AND c.archived_at IS NULL
+      `, [classId, this.principal.userId]);
+      if (!classroom.rows[0]) throw new GradebookAccessError();
+
+      const result = await client.query<LearnerClassGradeRow>(`
+        SELECT a.id AS assignment_id, a.title, to_char(a.due_on, 'YYYY-MM-DD') AS due_on,
+          p.id AS policy_id, p.policy, r.id AS recipient_id,
+          la.id AS attempt_id, la.response_revision_id,
+          lg.id AS grade_id, lg.kind AS grade_kind, lg.earned_units, lg.attempt_id AS grade_attempt_id,
+          lg.evaluator_version_id, lg.authored_by, lg.reason AS grade_reason,
+          lg.criterion_scores, lg.learner_feedback,
+          lp.grade_revision_id AS published_grade_revision_id, lp.created_at AS published_at,
+          v.status AS verification_status
+        FROM class_assignments a
+        JOIN gradebook_policies p ON p.assignment_id = a.id
+        LEFT JOIN gradebook_recipients r ON r.policy_id = p.id AND r.learner_id = $2
+        LEFT JOIN LATERAL (
+          SELECT x.id, x.response_revision_id FROM gradebook_attempts x
+          WHERE x.recipient_id = r.id ORDER BY x.sequence DESC LIMIT 1
+        ) la ON true
+        LEFT JOIN LATERAL (
+          SELECT x.id, x.kind, x.earned_units, x.attempt_id, x.evaluator_version_id, x.authored_by,
+            x.reason, x.criterion_scores, x.learner_feedback
+          FROM gradebook_grade_revisions x WHERE x.recipient_id = r.id ORDER BY x.sequence DESC LIMIT 1
+        ) lg ON true
+        LEFT JOIN LATERAL (
+          SELECT x.grade_revision_id, x.created_at FROM gradebook_publications x
+          WHERE x.recipient_id = r.id ORDER BY x.sequence DESC LIMIT 1
+        ) lp ON true
+        LEFT JOIN gradebook_verification_jobs v ON v.attempt_id = la.id
+        WHERE a.class_id = $1
+        ORDER BY a.created_at, a.id
+      `, [classId, this.principal.userId]);
+
+      const policies: AssignmentGradePolicy[] = [];
+      const cells: GradebookCell[] = [];
+      const assignments: LearnerClassGradeAssignment[] = [];
+      for (const row of result.rows) {
+        if (!row.recipient_id) throw new Error('Gradebook integrity check failed: current learner recipient is missing');
+        const policy = freezeAssignmentGradePolicy(row.policy);
+        if (policy.assignmentId !== row.assignment_id || policy.versionId !== row.policy_id) {
+          throw new Error('Gradebook integrity check failed: assignment policy identity does not match');
+        }
+        policies.push(policy);
+
+        let gradeResult: AssignmentGradeResult;
+        if (row.grade_kind === 'missing_zero' && row.grade_id !== null) {
+          if (row.grade_attempt_id !== null || !row.authored_by || !row.grade_reason) {
+            throw new Error('Gradebook integrity check failed: invalid missing-work grade');
+          }
+          gradeResult = { status: 'missing_zero', gradeRevisionId: row.grade_id, finalizedBy: row.authored_by,
+            reason: row.grade_reason, publication: row.published_grade_revision_id === row.grade_id ? 'published' : 'draft', dispute: 'none' };
+        } else if (row.attempt_id === null) {
+          if (row.grade_id !== null) throw new Error('Gradebook integrity check failed: grade has no current attempt');
+          gradeResult = { status: 'unsubmitted' };
+        } else if (row.grade_id !== null && row.grade_kind === 'scored' && row.grade_attempt_id === row.attempt_id) {
+          if (row.earned_units === null || !row.response_revision_id || !row.evaluator_version_id) {
+            throw new Error('Gradebook integrity check failed: scored grade lineage is incomplete');
+          }
+          const earnedUnits = Number(row.earned_units);
+          if (!Number.isSafeInteger(earnedUnits)) throw new Error('Gradebook integrity check failed: invalid grade units');
+          gradeResult = { status: 'scored', earnedUnits, attemptId: row.attempt_id, responseRevisionId: row.response_revision_id,
+            evaluatorVersionId: row.evaluator_version_id, gradeRevisionId: row.grade_id,
+            publication: row.published_grade_revision_id === row.grade_id ? 'published' : 'draft', dispute: 'none' };
+        } else if (policy.scoring.mode === 'reviewed_rubric') gradeResult = { status: 'needs_review' };
+        else {
+          if (!row.verification_status) throw new Error('Gradebook integrity check failed: verification job is missing');
+          if (row.verification_status === 'queued') gradeResult = { status: 'queued' };
+          else if (row.verification_status === 'running') gradeResult = { status: 'running' };
+          else if (['unavailable', 'failed', 'superseded'].includes(row.verification_status)) gradeResult = { status: 'unavailable' };
+          else throw new Error('Gradebook integrity check failed: completed verification has no current grade');
+        }
+
+        const published = (gradeResult.status === 'scored' || gradeResult.status === 'missing_zero')
+          && gradeResult.publication === 'published';
+        const state: LearnerClassGradeAssignment['state'] = published ? 'published'
+          : gradeResult.status === 'scored' || gradeResult.status === 'missing_zero' ? 'awaiting_publication' : gradeResult.status;
+        assignments.push({ id: row.assignment_id, title: row.title, dueOn: row.due_on, maxUnits: policy.maxUnits,
+          recipientId: row.recipient_id, state,
+          publishedGrade: published ? {
+            earnedUnits: gradeResult.status === 'scored' ? gradeResult.earnedUnits : 0,
+            criterionScores: row.criterion_scores ?? {}, learnerFeedback: row.learner_feedback ?? '',
+            publishedAt: row.published_at!.toISOString(),
+          } : null });
+        cells.push({ assignmentId: row.assignment_id, policyVersionId: policy.versionId, applicability: 'assigned', result: gradeResult });
+      }
+      const summary = calculateGradebook(policies, [{ learnerId: this.principal.userId, membership: 'included', cells }])[0];
+      return { classroom: classroom.rows[0], assignments,
+        summary: { publishedTotal: summary.publishedTotal, coverage: summary.coverage },
+        calculationVersion: GRADEBOOK_CALCULATION_VERSION };
     });
   }
 

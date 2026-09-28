@@ -12,16 +12,21 @@ export function createJudge0Sandbox(config: Judge0Config) {
       if (policyErrors.length) throw new Error(policyErrors.join('; '));
       const response = await fetcher(`${config.endpoint.replace(/\/$/, '')}/submissions?base64_encoded=false&wait=true`, {
         method: 'POST',
+        signal: AbortSignal.timeout(request.limits.timeoutMs + 10_000),
         headers: { 'Content-Type': 'application/json', 'X-Auth-Token': config.token },
         body: JSON.stringify({ source_code: request.source, stdin: request.stdin ?? '', language_id: config.languageIds[request.language], cpu_time_limit: request.limits.timeoutMs / 1000, memory_limit: request.limits.memoryMb * 1024, max_file_size: Math.ceil(request.limits.outputBytes / 1024) }),
       });
       if (!response.ok) throw new Error(`Sandbox request failed with status ${response.status}`);
       const result = await response.json() as Judge0Response;
+      const statusId = result.status?.id;
+      if (!Number.isInteger(statusId) || statusId === 1 || statusId === 2 || statusId === 13) {
+        throw new Error('Sandbox provider returned an unavailable status');
+      }
       const durationMs = Math.round(Number(result.time ?? 0) * 1000);
       const stderr = sanitizeSandboxOutput(result.stderr ?? result.compile_output ?? '');
-      const timedOut = result.status?.id === 5;
+      const timedOut = statusId === 5;
       const nonzeroExit = result.exit_code !== undefined && result.exit_code !== null && result.exit_code !== 0;
-      const sandboxFailure = result.status?.id !== undefined && result.status.id !== 3 && !timedOut;
+      const sandboxFailure = statusId !== 3 && !timedOut;
       return { status: timedOut ? 'timed_out' : stderr || nonzeroExit || sandboxFailure ? 'failed' : 'completed', stdout: sanitizeSandboxOutput(result.stdout ?? ''), stderr, exitCode: result.exit_code ?? null, durationMs, limits: request.limits };
     },
   };

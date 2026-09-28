@@ -6,7 +6,7 @@ import type { AssignmentGradePolicy } from '@leetcode-app/domain';
 import type { DatabaseClient as PublicDatabaseClient, PostgresGradebookRepository as PublicGradebookRepository } from '../src/public-api.js';
 import { createDatabaseClient, type DatabaseClient, type DatabaseConfig } from '../src/client.js';
 import { PostgresClassroomRepository } from '../src/repositories/classroom.repository.js';
-import { GradebookAccessError, GradebookConflictError, PostgresGradebookRepository } from '../src/repositories/gradebook.repository.js';
+import { ASSIGNMENT_VERIFIER_VERSION, GradebookAccessError, GradebookConflictError, PostgresGradebookRepository } from '../src/repositories/gradebook.repository.js';
 import { PostgresGradebookVerificationRepository } from '../src/repositories/gradebook-verification.repository.js';
 import { runMigrations } from '../src/migrations/index.js';
 import { prepareSupabaseTestDatabase } from './support/supabase.js';
@@ -200,6 +200,17 @@ describe('PostgresGradebookRepository', () => {
 
   });
 
+  it('enforces a serialized database submission budget while allowing idempotent retries', async () => {
+    const f = await fixture();
+    const original = submission(f, 'stable-retry');
+    const first = await f.learner.submitAttempt(original);
+    for (let index = 1; index < 5; index += 1) {
+      await f.learner.submitAttempt(submission(f, randomUUID()));
+    }
+    await expect(f.learner.submitAttempt(submission(f, randomUUID()))).rejects.toMatchObject({ name: 'GradebookRateLimitError' });
+    await expect(f.learner.submitAttempt(original)).resolves.toEqual(first);
+  });
+
   it('does not turn historical completed private practice into assignment attempts or grades', async () => {
     const f = await fixture();
     await database.query("INSERT INTO practice_sessions (user_id, content_id, content_version, current_stage, status, session_metadata, revision) VALUES ($1, $2, 1, 'evaluate', 'completed', '{}', 1)", [f.learnerId, contentId]);
@@ -256,7 +267,7 @@ describe('PostgresGradebookRepository', () => {
 
   it('freezes source content and enforces binary completion grades in SQL', async () => {
     const f = await fixture(null, false);
-    const policy: AssignmentGradePolicy = { ...f.policy, scoring: { mode: 'verified_completion', verifierVersionId: 'tests-v1' } };
+    const policy: AssignmentGradePolicy = { ...f.policy, scoring: { mode: 'verified_completion', verifierVersionId: ASSIGNMENT_VERIFIER_VERSION } };
     const published = await f.instructor.publishPolicy({ ...f.publishInput, policy });
     const recipientId = published.recipients.find(item => item.learnerId === f.learnerId)!.id;
     const attempt = await f.learner.submitAttempt({ ...submission(f), recipientId, response: { text: 'print(1)', language: 'python' } });
@@ -271,9 +282,9 @@ describe('PostgresGradebookRepository', () => {
       await database.query('UPDATE content_versions SET title = $1 WHERE id = $2', [original.rows[0].title, policy.contentVersionId]);
     }
     const insert = `INSERT INTO gradebook_grade_revisions (recipient_id,policy_id,sequence,attempt_id,kind,earned_units,evaluator_version_id,criterion_scores,reason,authored_by,request_key,verification_job_id)
-      VALUES ($1,$2,1,$3,'scored',$4,'tests-v1','{}','Pinned verifier result',NULL,$5,$6)`;
-    await expect(database.query(insert, [recipientId, policy.versionId, attempt.id, 500, randomUUID(), job!.id])).rejects.toMatchObject({ code: '23514' });
-    await database.query(insert, [recipientId, policy.versionId, attempt.id, 1000, randomUUID(), job!.id]);
+      VALUES ($1,$2,1,$3,'scored',$4,$7,'{}','Pinned verifier result',NULL,$5,$6)`;
+    await expect(database.query(insert, [recipientId, policy.versionId, attempt.id, 500, randomUUID(), job!.id, ASSIGNMENT_VERIFIER_VERSION])).rejects.toMatchObject({ code: '23514' });
+    await database.query(insert, [recipientId, policy.versionId, attempt.id, 1000, randomUUID(), job!.id, ASSIGNMENT_VERIFIER_VERSION]);
   });
 
   it('upgrades legacy class data and can reverse only the additive migration', async () => {

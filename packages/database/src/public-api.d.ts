@@ -1,7 +1,10 @@
-import type { Pool, PoolClient } from 'pg';
 import type { PostgresGradebookRepository as GradebookRepository, GradebookPrincipal } from './repositories/gradebook.repository.js';
+import type { DatabaseClient } from './client.js';
 
-export { GradebookAccessError, GradebookConflictError } from './repositories/gradebook.repository.js';
+export type { DatabaseClient, DatabaseConfig } from './client.js';
+export { createDatabaseClient, databaseConfigFromEnv } from './client.js';
+
+export { ASSIGNMENT_VERIFIER_VERSION, GradebookAccessError, GradebookConflictError, GradebookRateLimitError } from './repositories/gradebook.repository.js';
 export type { GradebookPrincipal, AssignmentResponse, StoredGradebookAttempt, StoredGradebookGrade, StoredGradebookPublication, GradebookRecipientHistory } from './repositories/gradebook.repository.js';
 export { PostgresGradebookVerificationRepository } from './repositories/gradebook-verification.repository.js';
 export type { GradebookVerificationJob, GradebookVerificationSummary } from './repositories/gradebook-verification.repository.js';
@@ -14,25 +17,6 @@ export class PostgresGradebookRepository {
   publishGrade: GradebookRepository['publishGrade'];
   readRecipient: GradebookRepository['readRecipient'];
 }
-
-export interface DatabaseConfig {
-  host: string;
-  port: number;
-  database: string;
-  user: string;
-  password: string;
-  ssl?: boolean | { rejectUnauthorized: boolean };
-}
-
-export class DatabaseClient {
-  query<T = Record<string, unknown>>(text: string, params?: unknown[]): Promise<{ rows: T[]; rowCount: number | null }>;
-  transaction<T>(callback: (client: PoolClient) => Promise<T>): Promise<T>;
-  close(): Promise<void>;
-  getPool(): Pool;
-}
-
-export function createDatabaseClient(config: DatabaseConfig): DatabaseClient;
-export function databaseConfigFromEnv(env?: NodeJS.ProcessEnv): DatabaseConfig;
 
 export class LastAdministratorError extends Error {}
 export class AdministratorAlreadyExistsError extends Error {}

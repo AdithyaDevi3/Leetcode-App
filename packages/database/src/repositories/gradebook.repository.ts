@@ -9,10 +9,23 @@ export class GradebookAccessError extends Error {
 export class GradebookConflictError extends Error {
   constructor() { super('The gradebook record changed or the request key was reused.'); this.name = 'GradebookConflictError'; }
 }
+export class GradebookRateLimitError extends Error {
+  constructor() { super('Too many assignment submissions.'); this.name = 'GradebookRateLimitError'; }
+}
+export const ASSIGNMENT_VERIFIER_VERSION = 'stdin-stdout-v1';
+
+function validPinnedTests(value: unknown): boolean {
+  return Array.isArray(value) && value.length >= 1 && value.length <= 5 && value.every((test) => {
+    if (!test || typeof test !== 'object' || Array.isArray(test)) return false;
+    const record = test as Record<string, unknown>;
+    return typeof record.input === 'string' && new TextEncoder().encode(record.input).byteLength <= 50_000
+      && typeof record.expected === 'string' && new TextEncoder().encode(record.expected).byteLength <= 50_000;
+  });
+}
 
 export type GradebookPrincipal = Readonly<{ role: 'instructor' | 'learner'; userId: string }>;
 export type AssignmentResponse = Readonly<{ text: string; language?: string }>;
-export type StoredGradebookAttempt = { id: string; responseRevisionId: string; sequence: number; response: AssignmentResponse; verificationJobId?: string };
+export type StoredGradebookAttempt = { id: string; responseRevisionId: string; sequence: number; response: AssignmentResponse; verificationJobId?: string; verificationStatus?: string };
 export type StoredGradebookGrade = { id: string; sequence: number; earnedUnits: number; kind: 'scored' | 'missing_zero'; attemptId: string | null };
 export type StoredGradebookPublication = { id: string; sequence: number; gradeRevisionId: string };
 export type GradebookRecipientHistory = {
@@ -101,6 +114,12 @@ export class PostgresGradebookRepository {
         FOR UPDATE OF a FOR SHARE OF c, cv
       `, [policy.assignmentId, policy.contentVersionId, this.principal.userId]);
       if (!assignment.rows[0]) throw new GradebookAccessError();
+      if (policy.scoring.mode === 'verified_completion') {
+        const snapshot = assignment.rows[0].snapshot as { test_cases?: unknown };
+        if (policy.scoring.verifierVersionId !== ASSIGNMENT_VERIFIER_VERSION || !validPinnedTests(snapshot.test_cases)) {
+          throw new Error('Verified assignments require the supported pinned stdin/stdout suite');
+        }
+      }
       const existing = await client.query<{ id: string; policy: AssignmentGradePolicy; closes_at: Date | null; reason: string }>(
         'SELECT id, policy, closes_at, reason FROM gradebook_policies WHERE assignment_id = $1', [policy.assignmentId]);
       if (existing.rows[0]) {
@@ -135,9 +154,14 @@ export class PostgresGradebookRepository {
       const retry = await client.query<AttemptRow>('SELECT * FROM gradebook_attempts WHERE recipient_id = $1 AND request_key = $2', [recipient.id, input.requestKey]);
       if (retry.rows[0]) {
         if (!same(retry.rows[0].response, response)) throw new GradebookConflictError();
-        const job = await client.query<{ id: string }>('SELECT id FROM gradebook_verification_jobs WHERE attempt_id = $1', [retry.rows[0].id]);
-        return { ...mapAttempt(retry.rows[0]), ...(job.rows[0] ? { verificationJobId: job.rows[0].id } : {}) };
+        const job = await client.query<{ id: string; status: string }>('SELECT id,status FROM gradebook_verification_jobs WHERE attempt_id = $1', [retry.rows[0].id]);
+        return { ...mapAttempt(retry.rows[0]), ...(job.rows[0] ? { verificationJobId: job.rows[0].id, verificationStatus: job.rows[0].status } : {}) };
       }
+      await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [this.principal.userId]);
+      const recent = await client.query<{ count: string }>(`SELECT COUNT(*)::text AS count FROM gradebook_attempts a
+        JOIN gradebook_recipients r ON r.id = a.recipient_id
+        WHERE r.learner_id = $1 AND a.submitted_at > clock_timestamp() - interval '10 minutes'`, [this.principal.userId]);
+      if (Number(recent.rows[0]?.count ?? 0) >= 5) throw new GradebookRateLimitError();
       if (!recipient.enrolled || recipient.archived_at) throw new GradebookAccessError();
       // Lock the live enrollment so a concurrent withdrawal cannot race this admission.
       const enrollment = await client.query(`SELECT e.user_id FROM class_enrollments e
@@ -161,7 +185,7 @@ export class PostgresGradebookRepository {
         this.principal.userId, recipient.policy.scoring.verifierVersionId, response.language, response.text, JSON.stringify(tests)]);
       await client.query(`INSERT INTO gradebook_verification_events (verification_job_id,status,reason)
         VALUES ($1,'queued','assignment-submitted')`, [job.rows[0].id]);
-      return { ...mapAttempt(result.rows[0]), verificationJobId: job.rows[0].id };
+      return { ...mapAttempt(result.rows[0]), verificationJobId: job.rows[0].id, verificationStatus: 'queued' };
     });
   }
 

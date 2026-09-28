@@ -18,4 +18,8 @@ describe('Judge0 sandbox adapter', () => {
     const sandbox = createJudge0Sandbox({ endpoint: 'https://judge.example', token: 'secret', languageIds: { typescript: 74, python: 71, cpp: 54 }, fetcher: vi.fn().mockResolvedValue(new Response(JSON.stringify({ status: { id: 11 }, exit_code: 1 }), { status: 201 })) });
     await expect(sandbox.execute(request)).resolves.toMatchObject({ status: 'failed', exitCode: 1 });
   });
+  it('treats provider-internal statuses as unavailable', async () => {
+    const sandbox = createJudge0Sandbox({ endpoint: 'https://judge.example', token: 'secret', languageIds: { typescript: 74, python: 71, cpp: 54 }, fetcher: vi.fn().mockResolvedValue(new Response(JSON.stringify({ status: { id: 13 } }), { status: 201 })) });
+    await expect(sandbox.execute(request)).rejects.toThrow('Sandbox provider returned an unavailable status');
+  });
 });

@@ -46,7 +46,7 @@ export type {
 } from './repositories/administration.repository.js';
 
 // Gradebook persistence
-export { PostgresGradebookRepository, GradebookAccessError, GradebookConflictError } from './repositories/gradebook.repository.js';
+export { ASSIGNMENT_VERIFIER_VERSION, PostgresGradebookRepository, GradebookAccessError, GradebookConflictError, GradebookRateLimitError } from './repositories/gradebook.repository.js';
 export type { GradebookPrincipal, AssignmentResponse, StoredGradebookAttempt, StoredGradebookGrade, StoredGradebookPublication, GradebookRecipientHistory } from './repositories/gradebook.repository.js';
 export { PostgresGradebookVerificationRepository } from './repositories/gradebook-verification.repository.js';
 export type { GradebookVerificationJob, GradebookVerificationSummary } from './repositories/gradebook-verification.repository.js';

@@ -81,6 +81,7 @@ describe('Vercel Sandbox adapter', () => {
     expect(sandbox.writeFiles.mock.calls[0][0][0].path).toBe('/vercel/sandbox/submission.cpp');
     expect(sandbox.runCommand.mock.calls[0][1][1]).toContain('g++ -std=c++20 -O2 -pipe');
     expect(sandbox.runCommand.mock.calls[0][1][1]).toContain('/vercel/sandbox/submission-bin');
+    expect(sandbox.runCommand.mock.calls[0][1][1]).toMatch(/timeout[^\n]+bash -lc 'if g\+\+/);
   });
 
   it('always stops the sandbox after infrastructure errors', async () => {

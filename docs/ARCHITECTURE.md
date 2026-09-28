@@ -111,7 +111,8 @@ separate workflows.
 Verified-completion submissions use a dedicated assignment queue. The learner
 submission transaction creates the immutable attempt and queue record together,
 using the policy's pinned verifier version and copied test suite. The browser
-cannot supply recipient, policy, verifier, source-test, or grading identifiers.
+supplies only source, language, and an idempotency key at its recipient-scoped
+route; it cannot supply learner, policy, verifier, test, or grading identifiers.
 This queue never reads private practice sessions or the general execution queue.
 
 Workers claim jobs with expiring lease tokens. Completion, retry, and terminal
@@ -121,6 +122,12 @@ when its attempt is still the latest submission. A newer attempt supersedes the
 older job. Provider failures retry within a bounded budget and then remain
 unavailable without creating a grade. Raw hidden tests and sandbox output stay
 server-side; stored summaries contain only bounded outcome metadata.
+The first worker adapter, `stdin-stdout-v1`, accepts at most five bounded
+stdin/expected-stdout cases and runs them in the configured isolated sandbox.
+Unknown adapter versions and malformed suites remain unavailable.
+Submission admission is serialized and counted in PostgreSQL at five new
+attempts per learner per ten minutes, so serverless instance churn cannot reset
+the execution budget. Idempotent retries do not consume another slot.
 
 Database update triggers enforce immutability, while authorized account/class
 deletion cascades can erase learner records. Staff attribution follows existing

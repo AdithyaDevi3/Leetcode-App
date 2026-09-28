@@ -40,7 +40,7 @@ export type StoredGradebookPublication = { id: string; sequence: number; gradeRe
 export type GradebookRecipientHistory = {
   recipientId: string; learnerId: string; policy: AssignmentGradePolicy;
   learner: { id: string; displayName: string; email: string | null };
-  assignment: { id: string; classId: string; title: string; instructions: string; dueOn: string | null };
+  assignment: { id: string; classId: string; title: string; instructions: string; dueOn: string | null; closesAt: string | null };
   attempts: StoredGradebookAttempt[]; grades: StoredGradebookGrade[]; publications: StoredGradebookPublication[];
 };
 export type ManualReviewStatus = 'awaiting_review' | 'draft' | 'published';
@@ -385,7 +385,7 @@ export class PostgresGradebookRepository {
       return { recipientId, learnerId: recipient.learner_id, policy: recipient.policy,
         learner: { id: recipient.learner_id, displayName: recipient.learner_name, email: recipient.learner_email },
         assignment: { id: recipient.assignment_id, classId: recipient.class_id, title: recipient.assignment_title,
-          instructions: recipient.assignment_instructions, dueOn: recipient.due_on }, attempts: attempts.rows.map(mapAttempt),
+          instructions: recipient.assignment_instructions, dueOn: recipient.due_on, closesAt: recipient.closes_at?.toISOString() ?? null }, attempts: attempts.rows.map(mapAttempt),
         grades: grades.rows.map(row => mapGrade(row, this.principal.role === 'instructor')), publications: publications.rows.map(mapPublication) };
     });
   }

@@ -48,7 +48,9 @@ The first deployable product slice lives in [apps/web](apps/web). It includes:
 - A role-scoped administration portal with live operational summaries, safe
   queue views, audited operator-role changes, and deny-by-default Supabase RLS.
 - Instructor signup and owner-scoped classes with join codes, learner enrollment,
-  assigned practice activities, due dates, and completion progress. Platform
+  assigned practice activities, due dates, a manual-grading inbox, and a
+  published-only class gradebook. Learners can review published scores, rubric
+  breakdowns, and instructor feedback without seeing draft grades. Platform
   administrators retain separate access to manage all classes.
 - Unit tests, CI, a health endpoint, and a non-root production container.
 

@@ -1,7 +1,7 @@
 # Maintainer Quick Start
 
 This is the practical starting point for taking over Method. It describes the
-deployed application as of 2026-09-22, where common changes belong, and the
+deployed application as of 2026-09-28, where common changes belong, and the
 shortest safe path to the first administration console.
 
 ## Ten-minute orientation
@@ -33,7 +33,7 @@ network or a permitted VPN. Changing application redirects cannot repair DNS.
 | Persistence | Supabase Postgres stores guest identities, sessions, revisions, evaluations, history, profiles, requests, notes, bookmarks, and queue records | `packages/database/migrations`, `apps/web/src/lib/practice-api.ts` |
 | Authentication | Supabase email/password signup, confirmation, sign-in, sign-out, server session refresh, and guest-progress merge are implemented | `apps/web/src/app/auth`, `apps/web/src/lib/auth/session.ts`, `apps/web/src/middleware.ts` |
 | Administration | A server-authorized portal exposes role-scoped overview, people, classes, content, operations, feedback, privacy, and audit views; role and class changes are audited | `apps/web/src/app/admin`, `apps/web/src/lib/admin`, `packages/database/src/repositories/administration.repository.ts` |
-| Classes and tasks | Administrators create class codes and assign existing practice activities; signed-in learners join classes and see task progress from verified practice completion | `apps/web/src/app/classes`, `apps/web/src/app/admin/classes`, `packages/database/src/repositories/classroom.repository.ts` |
+| Classes, submissions, and grades | Instructors create owner-scoped classes and assignments, review submissions, save private rubric drafts, publish grades, and inspect a published-only gradebook; learners join by code and see only their published scores, rubric breakdowns, and feedback | `apps/web/src/app/classes`, `apps/web/src/app/teach`, `packages/database/src/repositories/classroom.repository.ts`, `packages/database/src/repositories/gradebook.repository.ts` |
 | Personalization | A deterministic policy ranks activities using goals, experience, weekly time, preferred language, history, review age, and concept mastery; no neural network is required | `apps/web/src/lib/local-learner.ts`, `apps/web/src/lib/local-mastery.ts` |
 | Resilience | Health endpoints, request IDs, queue recovery foundations, CI/security scans, browser tests, and a build-independent offline fallback exist | `apps/web/src/app/api/health`, `apps/web/public/sw.js`, `.github/workflows` |
 
@@ -143,7 +143,9 @@ Data API and write ownership or permission policies explicitly.
 The gradebook storage foundation adds migration
 `1790363936520_gradebook-storage.ts`. Apply it before enabling any code that calls
 `PostgresGradebookRepository`. It adds five server-only tables and copies no
-legacy practice data. The current classroom screens do not call this repository.
+legacy practice data. Instructor submission, manual-grading, and class-gradebook
+screens call it through owner-scoped server routes; learner submission and grade
+views use recipient-scoped reads that exclude drafts and private notes.
 Verify RLS and revoked browser-role privileges after migration. Roll back an
 application release by leaving the additive tables in place; the migration's
 down operation drops grade history and is only appropriate for disposable test
@@ -199,8 +201,13 @@ available without a code. Administrators assign one existing practice activity
 per class task, with an optional due date. A task is complete when the learner
 has passed the activity's verified code tests, including completion achieved
 before joining the class. Class creation and task assignment require an audit
-reason. Class editing, code rotation, individual assignment, and manual grading
-are not part of this release.
+reason. Instructor-owned classes also support a manual-grading workflow at
+`/teach/{classId}/submissions`:
+reviewed-rubric scores and feedback are saved as private drafts, then published
+explicitly. `/teach/{classId}/gradebook` calculates published totals, coverage,
+and comparable ranks. Learners use `/classes/{classId}/grades` to see only
+published scores, rubric breakdowns, and feedback. Class editing, code rotation,
+archiving, and individual assignment remain future work.
 
 Before enabling this release in staging or production, apply migration
 `1789932382585_classrooms-and-assignments.ts` to that environment's database and
@@ -214,6 +221,10 @@ Choose **Teach** on the account form, create an account, confirm your email,
 and enable your instructor workspace. Existing learners can use **Instructor
 workspace** in navigation to opt in. At `/teach`, instructors create classes
 and join codes, assign practice, and view enrolled learners and completion.
+They can also review the latest assignment submissions, save and publish manual
+rubric grades, and inspect the class gradebook. Learners can open each enrolled
+class's grade view from `/classes`; unpublished scores and private instructor
+notes never appear there.
 Each instructor can access only classes they created; platform administrator
 permissions are granted separately. Instructor setup and class changes are
 audited. This uses the existing user role and classroom ownership columns.

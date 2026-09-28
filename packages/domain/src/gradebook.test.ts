@@ -74,10 +74,12 @@ describe('gradebook totals and competition ranking', () => {
   });
   it('only assigns a missing-work zero with an explicit attributable finalization', () => {
     const final = learner('farah', [cell('a', scored(1800)), cell('b', scored(2700)), cell('c', {
-      status: 'missing_zero', gradeRevisionId: 'missing-v1', finalizedBy: 'instructor', reason: 'Closed assignment without submission', dispute: 'none',
+      status: 'missing_zero', gradeRevisionId: 'missing-v1', finalizedBy: 'instructor', reason: 'Closed assignment without submission', publication: 'published', dispute: 'none',
     })]);
     expect(calculateGradebook(policies, [...fixtures.slice(0, 5), final])[5]).toMatchObject({ publishedTotal: { percentage: '45.00' }, rank: 4 });
-    expect(() => one({ status: 'missing_zero', gradeRevisionId: 'v1', finalizedBy: '', reason: 'Missing', dispute: 'none' })).toThrow();
+    expect(() => one({ status: 'missing_zero', gradeRevisionId: 'v1', finalizedBy: '', reason: 'Missing', publication: 'published', dispute: 'none' })).toThrow();
+    expect(one({ status: 'missing_zero', gradeRevisionId: 'v2', finalizedBy: 'instructor', reason: 'Pending finalization', publication: 'draft', dispute: 'none' }))
+      .toMatchObject({ publishedTotal: { percentage: null }, rank: null, exclusions: ['unpublished_grade'] });
   });
   it.each(['queued', 'running', 'needs_review', 'unavailable'] as const)('%s never becomes zero or rank', status => {
     expect(one({ status })).toMatchObject({ publishedTotal: { earnedUnits: 0, possibleUnits: 0, percentage: null }, rank: null, exclusions: ['awaiting_grade'] });

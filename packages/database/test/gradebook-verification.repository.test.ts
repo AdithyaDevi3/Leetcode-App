@@ -41,7 +41,7 @@ async function fixture(mode: 'verified' | 'reviewed' = 'verified', closesAt: Dat
   const classrooms = new PostgresClassroomRepository(database, instructorId);
   const classroom = await classrooms.createClass({ name: 'Verifier tests', description: '', actorId: instructorId, reason: 'Fixture' });
   await classrooms.joinClassByCode({ userId: learnerId, code: classroom.joinCode });
-  const assignmentId = await classrooms.createAssignment({ classId: classroom.id, contentId, title: 'Pinned verifier', instructions: '', dueOn: null, actorId: instructorId, reason: 'Fixture' });
+  const assignmentId = await classrooms.createAssignment({ classId: classroom.id, contentId, title: 'Pinned verifier', instructions: '', dueOn: null, actorId: instructorId, reason: 'Fixture', publishDefaultGradePolicy: false });
   const version = await database.query<{ id: string }>('SELECT id FROM content_versions WHERE content_id=$1 ORDER BY version DESC LIMIT 1', [contentId]);
   await database.query('UPDATE content_versions SET test_cases=$1 WHERE id=$2', [JSON.stringify(tests), version.rows[0].id]);
   const scoring: AssignmentGradePolicy['scoring'] = mode === 'verified'

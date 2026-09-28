@@ -38,7 +38,7 @@ async function fixture(closesAt: string | null = null, publish = true) {
   const classroom = await classrooms.createClass({ name: 'Gradebook tests', description: '', actorId: instructorId, reason: 'Synthetic fixture' });
   await classrooms.joinClassByCode({ userId: learnerId, code: classroom.joinCode });
   await classrooms.joinClassByCode({ userId: otherLearnerId, code: classroom.joinCode });
-  const assignmentId = await classrooms.createAssignment({ classId: classroom.id, contentId, title: 'Reviewed activity', instructions: '', dueOn: null, actorId: instructorId, reason: 'Synthetic fixture' });
+  const assignmentId = await classrooms.createAssignment({ classId: classroom.id, contentId, title: 'Reviewed activity', instructions: '', dueOn: null, actorId: instructorId, reason: 'Synthetic fixture', publishDefaultGradePolicy: false });
   const version = await database.query<{ id: string }>('SELECT id FROM content_versions WHERE content_id = $1 ORDER BY version DESC LIMIT 1', [contentId]);
   const policy: AssignmentGradePolicy = { assignmentId, versionId: randomUUID(), contentVersionId: version.rows[0].id, maxUnits: 1000, attemptPolicy: 'latest', scoring: { mode: 'reviewed_rubric', rubricVersionId: 'reviewed-v1', criteria: [{ id: 'approach', label: 'Approach', maxUnits: 600 }, { id: 'explanation', label: 'Explanation', maxUnits: 400 }] } };
   const instructor = new PostgresGradebookRepository(database, { role: 'instructor', userId: instructorId });
@@ -351,7 +351,7 @@ describe('PostgresGradebookRepository', () => {
   it('upgrades legacy class data and can reverse only the additive migration', async () => {
     const f = await fixture(null, false);
     await database.query("INSERT INTO practice_sessions (user_id, content_id, content_version, current_stage, status, session_metadata, revision) VALUES ($1, $2, 1, 'evaluate', 'completed', '{}', 1)", [f.learnerId, contentId]);
-    const options = { databaseUrl: `postgresql://test:test@${migrationConfig.host}:${migrationConfig.port}/testdb`, dir: 'migrations', migrationsTable: 'pgmigrations', count: 3 };
+    const options = { databaseUrl: `postgresql://test:test@${migrationConfig.host}:${migrationConfig.port}/testdb`, dir: 'migrations', migrationsTable: 'pgmigrations', count: 4 };
     await runner({ ...options, direction: 'down' });
     expect((await database.query("SELECT to_regclass('gradebook_policies') AS table_name")).rows[0].table_name).toBeNull();
     expect((await f.classrooms.getClassDetail(f.classroom.id)).assignments[0].completedCount).toBe(1);

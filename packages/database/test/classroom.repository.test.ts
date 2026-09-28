@@ -104,7 +104,7 @@ describe('PostgresClassroomRepository', () => {
     const lateLearnerId = await createUser('late-learner');
     const classroom = await repository.createClass({ name: 'Late join class', description: '', actorId: instructorId, reason: 'Late join recipient fixture' });
     await repository.joinClassByCode({ userId: firstLearnerId, code: classroom.joinCode });
-    const assignmentId = await repository.createAssignment({ classId: classroom.id, contentId: versionedActivityId, title: 'Reviewed response', instructions: '', dueOn: null, actorId: instructorId, reason: 'Manual review fixture' });
+    const assignmentId = await repository.createAssignment({ classId: classroom.id, contentId: versionedActivityId, title: 'Reviewed response', instructions: '', dueOn: null, actorId: instructorId, reason: 'Manual review fixture', publishDefaultGradePolicy: false });
     const version = await database.query<{ id: string }>('SELECT id FROM content_versions WHERE content_id = $1 ORDER BY version DESC LIMIT 1', [versionedActivityId]);
     const policyVersionId = randomUUID();
     const gradebook = new PostgresGradebookRepository(database, { role: 'instructor', userId: instructorId });
@@ -128,6 +128,30 @@ describe('PostgresClassroomRepository', () => {
     expect((await database.query('SELECT 1 FROM gradebook_recipients WHERE policy_id = $1 AND learner_id = $2', [policyVersionId, lateLearnerId])).rowCount).toBe(1);
   });
 
+  it('cannot miss a recipient when assignment publication races class enrollment', async () => {
+    const instructorId = await createUser('racing-instructor');
+    const learnerId = await createUser('racing-learner');
+    const classroom = await repository.createClass({ name: 'Concurrent class', description: '', actorId: instructorId, reason: 'Concurrency fixture' });
+    const [assignmentId] = await Promise.all([
+      repository.createAssignment({ classId: classroom.id, contentId: activityId, title: 'Concurrent assignment', instructions: '', dueOn: null, actorId: instructorId, reason: 'Concurrency fixture' }),
+      repository.joinClassByCode({ userId: learnerId, code: classroom.joinCode }),
+    ]);
+    const recipient = await database.query(`SELECT r.id FROM gradebook_recipients r
+      JOIN gradebook_policies p ON p.id = r.policy_id
+      WHERE p.assignment_id = $1 AND r.learner_id = $2`, [assignmentId, learnerId]);
+    expect(recipient.rows).toHaveLength(1);
+  });
+
+  it('publishes a grade policy for an empty class without inventing recipients', async () => {
+    const instructorId = await createUser('empty-instructor');
+    const classroom = await repository.createClass({ name: 'Empty class', description: '', actorId: instructorId, reason: 'Empty class fixture' });
+    const assignmentId = await repository.createAssignment({ classId: classroom.id, contentId: activityId, title: 'Future assignment', instructions: '', dueOn: null, actorId: instructorId, reason: 'Empty class fixture' });
+    const policy = await database.query<{ recipient_count: string }>(`SELECT
+      (SELECT count(*)::text FROM gradebook_recipients r WHERE r.policy_id = p.id) AS recipient_count
+      FROM gradebook_policies p WHERE p.assignment_id = $1`, [assignmentId]);
+    expect(policy.rows).toEqual([{ recipient_count: '0' }]);
+  });
+
   it('assigns published practice and derives progress from verified session status', async () => {
     const administratorId = await createUser('administrator');
     const learnerId = await createUser('learner');
@@ -136,14 +160,23 @@ describe('PostgresClassroomRepository', () => {
       reason: 'New algorithms cohort',
     });
     await repository.joinClassByCode({ userId: learnerId, code: classroom.joinCode });
-    await repository.createAssignment({
+    const assignmentId = await repository.createAssignment({
       classId: classroom.id, contentId: activityId, title: 'Pair With Target',
       instructions: 'Explain the map invariant.', dueOn: '2026-10-01', actorId: administratorId,
       reason: 'Week one practice task', requestId: 'request-assign',
     });
-    expect((await repository.listStudentAssignments(learnerId))[0]).toMatchObject({
+    const studentAssignment = (await repository.listStudentAssignments(learnerId))[0];
+    expect(studentAssignment).toMatchObject({
       className: 'Algorithms 101', activitySlug: 'pair-with-target-v1', completed: false,
+      recipientId: expect.any(String), policyVersionId: expect.any(String),
     });
+    const storedPolicy = await database.query<{ assignment_id: string; closes_at: Date | null; policy: { maxUnits: number; scoring: { mode: string; criteria: { maxUnits: number }[] } }; recipient_count: string }>(`
+      SELECT p.assignment_id, p.closes_at, p.policy,
+        (SELECT count(*)::text FROM gradebook_recipients r WHERE r.policy_id = p.id) AS recipient_count
+      FROM gradebook_policies p WHERE p.assignment_id = $1`, [assignmentId]);
+    expect(storedPolicy.rows[0]).toMatchObject({ assignment_id: assignmentId, closes_at: null, recipient_count: '1' });
+    expect(storedPolicy.rows[0].policy.scoring.mode).toBe('reviewed_rubric');
+    expect(storedPolicy.rows[0].policy.scoring.criteria.reduce((total, criterion) => total + criterion.maxUnits, 0)).toBe(storedPolicy.rows[0].policy.maxUnits);
     await database.query(`
       INSERT INTO practice_sessions
         (user_id, content_id, content_version, current_stage, status, session_metadata, revision)

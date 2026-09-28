@@ -181,6 +181,67 @@ describe('PostgresGradebookRepository', () => {
     expect((await f.learner.readRecipient(f.recipientId)).grades).toEqual([]);
   });
 
+  it('rejects a draft for an attempt superseded by a learner resubmission', async () => {
+    const f = await fixture();
+    const first = await f.learner.submitAttempt(submission(f));
+    await f.learner.submitAttempt(submission(f));
+    await expect(f.instructor.appendGrade({
+      recipientId: f.recipientId,
+      attemptId: first.id,
+      expectedGradeRevisionId: null,
+      kind: 'scored',
+      criterionScores: { approach: 500, explanation: 300 },
+      learnerFeedback: 'Good direction.',
+      privateNote: 'Review the newer response.',
+      reason: 'Stale review fixture',
+      requestKey: randomUUID(),
+    })).rejects.toBeInstanceOf(GradebookConflictError);
+    expect((await f.instructor.readRecipient(f.recipientId)).grades).toEqual([]);
+  });
+
+  it('keeps private notes instructor-only and learner feedback hidden until publication', async () => {
+    const f = await fixture();
+    const attempt = await f.learner.submitAttempt(submission(f));
+    const input = {
+      recipientId: f.recipientId,
+      attemptId: attempt.id,
+      expectedGradeRevisionId: null,
+      kind: 'scored' as const,
+      criterionScores: { approach: 500, explanation: 300 },
+      learnerFeedback: 'Explain why the map lookup is constant time.',
+      privateNote: 'Strong solution; explanation needs precision.',
+      reason: 'Manual rubric review',
+      requestKey: randomUUID(),
+    };
+    const grade = await f.instructor.appendGrade(input);
+    expect((await f.instructor.readRecipient(f.recipientId)).grades[0]).toMatchObject({
+      learnerFeedback: input.learnerFeedback,
+      privateNote: input.privateNote,
+      criterionScores: input.criterionScores,
+    });
+    expect((await f.learner.readRecipient(f.recipientId)).grades).toEqual([]);
+    await expect(f.instructor.appendGrade({ ...input, privateNote: 'Changed note' })).rejects.toBeInstanceOf(GradebookConflictError);
+    await f.instructor.publishGrade({ recipientId: f.recipientId, gradeRevisionId: grade.id, expectedPublicationSequence: 0, reason: 'Publish reviewed grade', requestKey: randomUUID() });
+    const visible = (await f.learner.readRecipient(f.recipientId)).grades[0];
+    expect(visible).toMatchObject({ learnerFeedback: input.learnerFeedback });
+    expect(visible).not.toHaveProperty('privateNote');
+  });
+
+  it('derives the manual review inbox state and scopes it to the class owner', async () => {
+    const f = await fixture();
+    const attempt = await f.learner.submitAttempt(submission(f));
+    expect(await f.instructor.listManualReviewInbox({ classId: f.classroom.id })).toMatchObject({
+      items: [expect.objectContaining({ recipientId: f.recipientId, status: 'awaiting_review', latestAttempt: expect.objectContaining({ id: attempt.id }) })],
+      nextCursor: null,
+    });
+    const grade = await f.instructor.appendGrade({ recipientId: f.recipientId, attemptId: attempt.id, expectedGradeRevisionId: null, kind: 'scored', criterionScores: { approach: 500, explanation: 300 }, learnerFeedback: '', privateNote: '', reason: 'Manual review', requestKey: randomUUID() });
+    expect((await f.instructor.listManualReviewInbox({ classId: f.classroom.id, status: 'draft' })).items[0]?.latestGrade?.id).toBe(grade.id);
+    await f.instructor.publishGrade({ recipientId: f.recipientId, gradeRevisionId: grade.id, expectedPublicationSequence: 0, reason: 'Publish grade', requestKey: randomUUID() });
+    expect((await f.instructor.listManualReviewInbox({ classId: f.classroom.id, status: 'published' })).items[0]?.status).toBe('published');
+    const other = await fixture();
+    await expect(other.instructor.listManualReviewInbox({ classId: f.classroom.id })).rejects.toBeInstanceOf(GradebookAccessError);
+  });
+
   it('records attributable missing-work zero only after close and when no submission exists', async () => {
     const f = await fixture('2000-01-01T00:00:00Z');
     const input = { recipientId: f.recipientId, attemptId: null, expectedGradeRevisionId: null, kind: 'missing_zero' as const, criterionScores: {}, reason: 'Instructor explicitly finalized missing work', requestKey: randomUUID() };
@@ -290,7 +351,7 @@ describe('PostgresGradebookRepository', () => {
   it('upgrades legacy class data and can reverse only the additive migration', async () => {
     const f = await fixture(null, false);
     await database.query("INSERT INTO practice_sessions (user_id, content_id, content_version, current_stage, status, session_metadata, revision) VALUES ($1, $2, 1, 'evaluate', 'completed', '{}', 1)", [f.learnerId, contentId]);
-    const options = { databaseUrl: `postgresql://test:test@${migrationConfig.host}:${migrationConfig.port}/testdb`, dir: 'migrations', migrationsTable: 'pgmigrations', count: 2 };
+    const options = { databaseUrl: `postgresql://test:test@${migrationConfig.host}:${migrationConfig.port}/testdb`, dir: 'migrations', migrationsTable: 'pgmigrations', count: 3 };
     await runner({ ...options, direction: 'down' });
     expect((await database.query("SELECT to_regclass('gradebook_policies') AS table_name")).rows[0].table_name).toBeNull();
     expect((await f.classrooms.getClassDetail(f.classroom.id)).assignments[0].completedCount).toBe(1);

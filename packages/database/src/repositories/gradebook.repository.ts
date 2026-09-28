@@ -25,13 +25,24 @@ function validPinnedTests(value: unknown): boolean {
 
 export type GradebookPrincipal = Readonly<{ role: 'instructor' | 'learner'; userId: string }>;
 export type AssignmentResponse = Readonly<{ text: string; language?: string }>;
-export type StoredGradebookAttempt = { id: string; responseRevisionId: string; sequence: number; response: AssignmentResponse; verificationJobId?: string; verificationStatus?: string };
-export type StoredGradebookGrade = { id: string; sequence: number; earnedUnits: number; kind: 'scored' | 'missing_zero'; attemptId: string | null };
-export type StoredGradebookPublication = { id: string; sequence: number; gradeRevisionId: string };
+export type StoredGradebookAttempt = { id: string; responseRevisionId: string; sequence: number; response: AssignmentResponse; submittedAt: string; verificationJobId?: string; verificationStatus?: string };
+export type StoredGradebookGrade = { id: string; sequence: number; earnedUnits: number; kind: 'scored' | 'missing_zero'; attemptId: string | null; criterionScores: Record<string, number>; learnerFeedback: string; privateNote?: string; createdAt: string };
+export type StoredGradebookPublication = { id: string; sequence: number; gradeRevisionId: string; publishedAt: string };
 export type GradebookRecipientHistory = {
   recipientId: string; learnerId: string; policy: AssignmentGradePolicy;
   attempts: StoredGradebookAttempt[]; grades: StoredGradebookGrade[]; publications: StoredGradebookPublication[];
 };
+export type ManualReviewStatus = 'awaiting_review' | 'draft' | 'published';
+export type ManualReviewInboxItem = {
+  recipientId: string;
+  learner: { id: string; displayName: string };
+  assignment: { id: string; title: string; dueOn: string | null };
+  latestAttempt: StoredGradebookAttempt;
+  status: ManualReviewStatus;
+  latestGrade: StoredGradebookGrade | null;
+  latestPublication: StoredGradebookPublication | null;
+};
+export type ManualReviewInboxPage = { items: ManualReviewInboxItem[]; nextCursor: string | null };
 
 type Recipient = {
   id: string; learner_id: string; policy_id: string; policy: AssignmentGradePolicy;
@@ -40,9 +51,19 @@ type Recipient = {
 type GradeRow = {
   id: string; sequence: number; earned_units: string; kind: 'scored' | 'missing_zero';
   attempt_id: string | null; supersedes_id: string | null; criterion_scores: Record<string, number>; reason: string;
+  learner_feedback: string; private_note: string; created_at: Date;
 };
-type PublicationRow = { id: string; sequence: number; grade_revision_id: string; reason: string };
-type AttemptRow = { id: string; response_revision_id: string; sequence: number; response: AssignmentResponse };
+type PublicationRow = { id: string; sequence: number; grade_revision_id: string; reason: string; created_at: Date };
+type AttemptRow = { id: string; response_revision_id: string; sequence: number; response: AssignmentResponse; submitted_at: Date };
+type InboxRow = {
+  recipient_id: string; learner_id: string; display_name: string; assignment_id: string; assignment_title: string;
+  due_on: string | null; review_status: ManualReviewStatus;
+  attempt_id: string; response_revision_id: string; attempt_sequence: number; response: AssignmentResponse; submitted_at: Date;
+  grade_id: string | null; grade_sequence: number | null; earned_units: string | null; grade_kind: 'scored' | 'missing_zero' | null;
+  grade_attempt_id: string | null; criterion_scores: Record<string, number> | null; learner_feedback: string | null;
+  private_note: string | null; grade_created_at: Date | null;
+  publication_id: string | null; publication_sequence: number | null; published_grade_revision_id: string | null; published_at: Date | null;
+};
 
 const uuid = (value: string): void => {
   if (typeof value !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)) throw new Error('A UUID is required');
@@ -56,9 +77,20 @@ const canonical = (value: unknown): string => {
   return JSON.stringify(value);
 };
 const same = (left: unknown, right: unknown): boolean => canonical(left) === canonical(right);
-const mapAttempt = (row: AttemptRow): StoredGradebookAttempt => ({ id: row.id, responseRevisionId: row.response_revision_id, sequence: row.sequence, response: row.response });
-const mapGrade = (row: GradeRow): StoredGradebookGrade => ({ id: row.id, sequence: row.sequence, earnedUnits: Number(row.earned_units), kind: row.kind, attemptId: row.attempt_id });
-const mapPublication = (row: PublicationRow): StoredGradebookPublication => ({ id: row.id, sequence: row.sequence, gradeRevisionId: row.grade_revision_id });
+const mapAttempt = (row: AttemptRow): StoredGradebookAttempt => ({ id: row.id, responseRevisionId: row.response_revision_id, sequence: row.sequence, response: row.response, submittedAt: row.submitted_at.toISOString() });
+const mapGrade = (row: GradeRow, includePrivate = true): StoredGradebookGrade => ({ id: row.id, sequence: row.sequence, earnedUnits: Number(row.earned_units), kind: row.kind, attemptId: row.attempt_id, criterionScores: row.criterion_scores, learnerFeedback: row.learner_feedback, ...(includePrivate ? { privateNote: row.private_note } : {}), createdAt: row.created_at.toISOString() });
+const mapPublication = (row: PublicationRow): StoredGradebookPublication => ({ id: row.id, sequence: row.sequence, gradeRevisionId: row.grade_revision_id, publishedAt: row.created_at.toISOString() });
+const inboxCursor = (submittedAt: string, recipientId: string): string => Buffer.from(JSON.stringify({ v: 1, submittedAt, recipientId })).toString('base64url');
+const parseInboxCursor = (cursor: string | undefined): { submittedAt: Date; recipientId: string } | null => {
+  if (cursor === undefined) return null;
+  try {
+    const value = JSON.parse(Buffer.from(cursor, 'base64url').toString('utf8')) as Record<string, unknown>;
+    if (value.v !== 1 || typeof value.submittedAt !== 'string' || typeof value.recipientId !== 'string') throw new Error();
+    const submittedAt = new Date(value.submittedAt); uuid(value.recipientId);
+    if (!Number.isFinite(submittedAt.getTime())) throw new Error();
+    return { submittedAt, recipientId: value.recipientId };
+  } catch { throw new Error('Invalid inbox cursor'); }
+};
 
 /** Server-only persistence. The caller must supply a verified user identity, never request-body identity. */
 export class PostgresGradebookRepository {
@@ -191,9 +223,13 @@ export class PostgresGradebookRepository {
 
   async appendGrade(input: {
     recipientId: string; attemptId: string | null; expectedGradeRevisionId: string | null;
-    kind: 'scored' | 'missing_zero'; criterionScores: Record<string, number>; reason: string; requestKey: string;
+    kind: 'scored' | 'missing_zero'; criterionScores: Record<string, number>; learnerFeedback?: string; privateNote?: string;
+    reason: string; requestKey: string;
   }): Promise<StoredGradebookGrade> {
     this.requireRole('instructor'); nonblank(input.reason, 4000); nonblank(input.requestKey, 128);
+    const learnerFeedback = input.learnerFeedback ?? '';
+    const privateNote = input.privateNote ?? '';
+    if (typeof learnerFeedback !== 'string' || learnerFeedback.length > 10_000 || typeof privateNote !== 'string' || privateNote.length > 10_000) throw new Error('Grade feedback is too long');
     if (input.attemptId !== null) uuid(input.attemptId);
     if (input.expectedGradeRevisionId !== null) uuid(input.expectedGradeRevisionId);
     return this.db.transaction(async client => {
@@ -202,7 +238,8 @@ export class PostgresGradebookRepository {
       if (retry.rows[0]) {
         const row = retry.rows[0];
         if (row.attempt_id !== input.attemptId || row.supersedes_id !== input.expectedGradeRevisionId || row.kind !== input.kind
-          || row.reason !== input.reason || !same(row.criterion_scores, input.criterionScores)) throw new GradebookConflictError();
+          || row.reason !== input.reason || row.learner_feedback !== learnerFeedback || row.private_note !== privateNote
+          || !same(row.criterion_scores, input.criterionScores)) throw new GradebookConflictError();
         return mapGrade(row);
       }
       if (recipient.archived_at) throw new GradebookAccessError();
@@ -214,8 +251,9 @@ export class PostgresGradebookRepository {
       if (input.kind === 'scored') {
         const scoring = recipient.policy.scoring;
         if (scoring.mode !== 'reviewed_rubric') throw new Error('Verified-completion grades require the trusted verifier adapter');
-        const attempt = await client.query('SELECT id FROM gradebook_attempts WHERE id = $1 AND recipient_id = $2', [input.attemptId, recipient.id]);
-        if (!attempt.rows.length) throw new GradebookAccessError();
+        const attempt = await client.query<{ id: string }>('SELECT id FROM gradebook_attempts WHERE recipient_id = $1 ORDER BY sequence DESC LIMIT 1', [recipient.id]);
+        if (!attempt.rows[0]) throw new GradebookAccessError();
+        if (attempt.rows[0].id !== input.attemptId) throw new GradebookConflictError();
         if (!same(Object.keys(input.criterionScores).sort(), scoring.criteria.map(c => c.id).sort())) throw new Error('Score every published criterion exactly once');
         for (const criterion of scoring.criteria) {
           const score = input.criterionScores[criterion.id];
@@ -231,10 +269,10 @@ export class PostgresGradebookRepository {
         if (attempts.rows.length) throw new GradebookConflictError();
       } else throw new Error('Unsupported grade kind');
       const result = await client.query<GradeRow>(`INSERT INTO gradebook_grade_revisions
-        (recipient_id,policy_id,attempt_id,supersedes_id,sequence,kind,earned_units,evaluator_version_id,criterion_scores,reason,authored_by,request_key)
-        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING *`,
+        (recipient_id,policy_id,attempt_id,supersedes_id,sequence,kind,earned_units,evaluator_version_id,criterion_scores,reason,authored_by,request_key,learner_feedback,private_note)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING *`,
       [recipient.id, recipient.policy_id, input.attemptId, input.expectedGradeRevisionId, (previous.rows[0]?.sequence ?? 0) + 1,
-        input.kind, earned, evaluator, input.criterionScores, input.reason, this.principal.userId, input.requestKey]);
+        input.kind, earned, evaluator, input.criterionScores, input.reason, this.principal.userId, input.requestKey, learnerFeedback, privateNote]);
       await this.audit(client, 'gradebook.grade.append', result.rows[0].id, input.reason);
       return mapGrade(result.rows[0]);
     });
@@ -278,7 +316,54 @@ export class PostgresGradebookRepository {
         AND ($2 = 'instructor' OR EXISTS (SELECT 1 FROM gradebook_publications p WHERE p.grade_revision_id = g.id)) ORDER BY g.sequence`, [recipient.id, this.principal.role]);
       const publications = await client.query<PublicationRow>('SELECT * FROM gradebook_publications WHERE recipient_id = $1 ORDER BY sequence', [recipient.id]);
       return { recipientId, learnerId: recipient.learner_id, policy: recipient.policy, attempts: attempts.rows.map(mapAttempt),
-        grades: grades.rows.map(mapGrade), publications: publications.rows.map(mapPublication) };
+        grades: grades.rows.map(row => mapGrade(row, this.principal.role === 'instructor')), publications: publications.rows.map(mapPublication) };
+    });
+  }
+
+  async listManualReviewInbox(input: { classId: string; status?: ManualReviewStatus; limit?: number; cursor?: string }): Promise<ManualReviewInboxPage> {
+    this.requireRole('instructor'); uuid(input.classId);
+    if (input.status !== undefined && !['awaiting_review', 'draft', 'published'].includes(input.status)) throw new Error('Invalid review status');
+    const limit = input.limit ?? 25;
+    if (!Number.isSafeInteger(limit) || limit < 1 || limit > 100) throw new Error('Invalid inbox limit');
+    const cursor = parseInboxCursor(input.cursor);
+    return this.db.transaction(async client => {
+      await client.query('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY');
+      const owned = await client.query('SELECT 1 FROM classrooms WHERE id = $1 AND created_by = $2', [input.classId, this.principal.userId]);
+      if (!owned.rows.length) throw new GradebookAccessError();
+      const result = await client.query<InboxRow>(`
+        SELECT r.id AS recipient_id, r.learner_id, u.display_name, a.id AS assignment_id, a.title AS assignment_title,
+          a.due_on, la.id AS attempt_id, la.response_revision_id, la.sequence AS attempt_sequence, la.response, la.submitted_at,
+          lg.id AS grade_id, lg.sequence AS grade_sequence, lg.earned_units, lg.kind AS grade_kind,
+          lg.attempt_id AS grade_attempt_id, lg.criterion_scores, lg.learner_feedback, lg.private_note, lg.created_at AS grade_created_at,
+          lp.id AS publication_id, lp.sequence AS publication_sequence, lp.grade_revision_id AS published_grade_revision_id,
+          lp.created_at AS published_at,
+          CASE WHEN lg.attempt_id IS DISTINCT FROM la.id THEN 'awaiting_review'
+            WHEN lp.grade_revision_id = lg.id THEN 'published' ELSE 'draft' END AS review_status
+        FROM gradebook_recipients r
+        JOIN gradebook_policies p ON p.id = r.policy_id
+        JOIN class_assignments a ON a.id = p.assignment_id AND a.class_id = $1
+        JOIN users u ON u.id = r.learner_id
+        JOIN LATERAL (SELECT * FROM gradebook_attempts x WHERE x.recipient_id = r.id ORDER BY x.sequence DESC LIMIT 1) la ON true
+        LEFT JOIN LATERAL (SELECT * FROM gradebook_grade_revisions x WHERE x.recipient_id = r.id ORDER BY x.sequence DESC LIMIT 1) lg ON true
+        LEFT JOIN LATERAL (SELECT * FROM gradebook_publications x WHERE x.recipient_id = r.id ORDER BY x.sequence DESC LIMIT 1) lp ON true
+        WHERE p.policy->'scoring'->>'mode' = 'reviewed_rubric'
+          AND ($2::text IS NULL OR CASE WHEN lg.attempt_id IS DISTINCT FROM la.id THEN 'awaiting_review'
+            WHEN lp.grade_revision_id = lg.id THEN 'published' ELSE 'draft' END = $2)
+          AND ($3::timestamptz IS NULL OR (la.submitted_at, r.id) < ($3::timestamptz, $4::uuid))
+        ORDER BY la.submitted_at DESC, r.id DESC LIMIT $5
+      `, [input.classId, input.status ?? null, cursor?.submittedAt ?? null, cursor?.recipientId ?? null, limit + 1]);
+      const page = result.rows.slice(0, limit);
+      const items = page.map((row): ManualReviewInboxItem => ({
+        recipientId: row.recipient_id,
+        learner: { id: row.learner_id, displayName: row.display_name },
+        assignment: { id: row.assignment_id, title: row.assignment_title, dueOn: row.due_on },
+        latestAttempt: mapAttempt({ id: row.attempt_id, response_revision_id: row.response_revision_id, sequence: row.attempt_sequence, response: row.response, submitted_at: row.submitted_at }),
+        status: row.review_status,
+        latestGrade: row.grade_id === null ? null : mapGrade({ id: row.grade_id, sequence: row.grade_sequence!, earned_units: row.earned_units!, kind: row.grade_kind!, attempt_id: row.grade_attempt_id, supersedes_id: null, criterion_scores: row.criterion_scores!, reason: '', learner_feedback: row.learner_feedback!, private_note: row.private_note!, created_at: row.grade_created_at! }),
+        latestPublication: row.publication_id === null ? null : mapPublication({ id: row.publication_id, sequence: row.publication_sequence!, grade_revision_id: row.published_grade_revision_id!, reason: '', created_at: row.published_at! }),
+      }));
+      const last = page.at(-1);
+      return { items, nextCursor: result.rows.length > limit && last ? inboxCursor(last.submitted_at.toISOString(), last.recipient_id) : null };
     });
   }
 }

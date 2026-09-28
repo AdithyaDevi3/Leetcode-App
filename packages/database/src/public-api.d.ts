@@ -5,7 +5,7 @@ export type { DatabaseClient, DatabaseConfig } from './client.js';
 export { createDatabaseClient, databaseConfigFromEnv } from './client.js';
 
 export { ASSIGNMENT_VERIFIER_VERSION, GradebookAccessError, GradebookConflictError, GradebookRateLimitError } from './repositories/gradebook.repository.js';
-export type { GradebookPrincipal, AssignmentResponse, StoredGradebookAttempt, StoredGradebookGrade, StoredGradebookPublication, GradebookRecipientHistory, ManualReviewStatus, ManualReviewInboxItem, ManualReviewInboxPage, ClassGradebookCell, ClassGradebookLearner, ClassGradebook } from './repositories/gradebook.repository.js';
+export type { GradebookPrincipal, AssignmentResponse, StoredGradebookAttempt, StoredGradebookGrade, StoredGradebookPublication, GradebookRecipientHistory, ManualReviewStatus, ManualReviewInboxItem, ManualReviewInboxPage, ClassGradebookCell, ClassGradebookLearner, ClassGradebook, LearnerClassGradeAssignment, LearnerClassGrades } from './repositories/gradebook.repository.js';
 export { PostgresGradebookVerificationRepository } from './repositories/gradebook-verification.repository.js';
 export type { GradebookVerificationJob, GradebookVerificationSummary } from './repositories/gradebook-verification.repository.js';
 
@@ -17,6 +17,7 @@ export class PostgresGradebookRepository {
   publishGrade: GradebookRepository['publishGrade'];
   readRecipient: GradebookRepository['readRecipient'];
   readClassGradebook: GradebookRepository['readClassGradebook'];
+  readLearnerClassGrades: GradebookRepository['readLearnerClassGrades'];
   listManualReviewInbox: GradebookRepository['listManualReviewInbox'];
 }
 

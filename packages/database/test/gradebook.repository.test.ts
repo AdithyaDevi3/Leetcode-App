@@ -287,6 +287,71 @@ describe('PostgresGradebookRepository', () => {
     expect(stale.rows.find(item => item.learnerId === f.learnerId)).toMatchObject({ rank: null, exclusions: ['awaiting_grade'] });
   });
 
+  it('returns only the authenticated learner published class grades and public feedback', async () => {
+    const f = await fixture();
+    const attempt = await f.learner.submitAttempt(submission(f));
+    const grade = await f.instructor.appendGrade({ recipientId: f.recipientId, attemptId: attempt.id,
+      expectedGradeRevisionId: null, kind: 'scored', criterionScores: { approach: 500, explanation: 300 },
+      learnerFeedback: 'Focus on explaining the lookup invariant.', privateNote: 'Instructor-only calibration note',
+      reason: 'Reviewed against published rubric', requestKey: randomUUID() });
+
+    const draft = await f.learner.readLearnerClassGrades(f.classroom.id);
+    expect(draft).toMatchObject({
+      classroom: { id: f.classroom.id, name: 'Gradebook tests' },
+      assignments: [{ id: f.policy.assignmentId, recipientId: f.recipientId, state: 'awaiting_publication', publishedGrade: null }],
+      summary: { publishedTotal: { earnedUnits: 0, possibleUnits: 0, percentage: null }, coverage: { published: 0, applicable: 1, comparison: 1 } },
+      calculationVersion: 'points-v1',
+    });
+    expect(JSON.stringify(draft)).not.toContain('Instructor-only calibration note');
+    expect(JSON.stringify(draft)).not.toContain('Use a map');
+    expect(JSON.stringify(draft)).not.toContain(grade.id);
+    expect(JSON.stringify(draft)).not.toContain(attempt.id);
+
+    await f.instructor.publishGrade({ recipientId: f.recipientId, gradeRevisionId: grade.id,
+      expectedPublicationSequence: 0, reason: 'Publish score', requestKey: randomUUID() });
+    const visible = await f.learner.readLearnerClassGrades(f.classroom.id);
+    expect(visible.assignments[0]).toMatchObject({ state: 'published', publishedGrade: {
+      earnedUnits: 800, criterionScores: { approach: 500, explanation: 300 },
+      learnerFeedback: 'Focus on explaining the lookup invariant.', publishedAt: expect.any(String),
+    } });
+    expect(visible.summary).toEqual({ publishedTotal: { earnedUnits: 800, possibleUnits: 1000, percentage: '80.00' },
+      coverage: { published: 1, applicable: 1, comparison: 1 } });
+    expect(JSON.stringify(visible)).not.toContain('Instructor-only calibration note');
+    expect(JSON.stringify(visible)).not.toContain(f.otherLearnerId);
+    expect(visible).not.toHaveProperty('rank');
+  });
+
+  it('suppresses stale publications after a correction or resubmission', async () => {
+    const f = await fixture();
+    const { grade } = await scored(f);
+    await f.instructor.publishGrade({ recipientId: f.recipientId, gradeRevisionId: grade.id,
+      expectedPublicationSequence: 0, reason: 'Publish score', requestKey: randomUUID() });
+    const correction = await f.instructor.appendGrade({ recipientId: f.recipientId, attemptId: grade.attemptId,
+      expectedGradeRevisionId: grade.id, kind: 'scored', criterionScores: { approach: 600, explanation: 300 },
+      learnerFeedback: 'Corrected but not published', privateNote: 'Do not expose', reason: 'Correct score', requestKey: randomUUID() });
+    const corrected = await f.learner.readLearnerClassGrades(f.classroom.id);
+    expect(corrected.assignments[0]).toMatchObject({ state: 'awaiting_publication', publishedGrade: null });
+    expect(corrected.summary.publishedTotal).toEqual({ earnedUnits: 0, possibleUnits: 0, percentage: null });
+    expect(JSON.stringify(corrected)).not.toContain(correction.id);
+    expect(JSON.stringify(corrected)).not.toContain('Corrected but not published');
+
+    await f.instructor.publishGrade({ recipientId: f.recipientId, gradeRevisionId: correction.id,
+      expectedPublicationSequence: 1, reason: 'Publish correction', requestKey: randomUUID() });
+    await f.learner.submitAttempt(submission(f));
+    const resubmitted = await f.learner.readLearnerClassGrades(f.classroom.id);
+    expect(resubmitted.assignments[0]).toMatchObject({ state: 'needs_review', publishedGrade: null });
+    expect(resubmitted.summary.publishedTotal).toEqual({ earnedUnits: 0, possibleUnits: 0, percentage: null });
+  });
+
+  it('scopes learner class grades to active enrollment and rejects other roles', async () => {
+    const f = await fixture();
+    await expect(f.instructor.readLearnerClassGrades(f.classroom.id)).rejects.toBeInstanceOf(GradebookAccessError);
+    const outsider = await fixture();
+    await expect(outsider.learner.readLearnerClassGrades(f.classroom.id)).rejects.toBeInstanceOf(GradebookAccessError);
+    await database.query('UPDATE classrooms SET archived_at = now() WHERE id = $1', [f.classroom.id]);
+    await expect(f.learner.readLearnerClassGrades(f.classroom.id)).rejects.toBeInstanceOf(GradebookAccessError);
+  });
+
   it('records attributable missing-work zero only after close and when no submission exists', async () => {
     const f = await fixture('2000-01-01T00:00:00Z');
     const input = { recipientId: f.recipientId, attemptId: null, expectedGradeRevisionId: null, kind: 'missing_zero' as const, criterionScores: {}, reason: 'Instructor explicitly finalized missing work', requestKey: randomUUID() };

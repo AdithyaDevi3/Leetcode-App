@@ -256,19 +256,29 @@ export class PostgresClassroomRepository {
   }
 
   async joinClassByCode(input: { userId: string; code: string }): Promise<{ id: string; name: string; alreadyJoined: boolean }> {
-    const classResult = await this.db.query<{ id: string; name: string }>(
-      'SELECT id, name FROM classrooms WHERE join_code = $1 AND archived_at IS NULL',
-      [input.code],
-    );
-    const classroom = classResult.rows[0];
-    if (!classroom) throw new ClassCodeNotFoundError();
-    const joined = await this.db.query<{ class_id: string }>(`
-      INSERT INTO class_enrollments (class_id, user_id)
-      VALUES ($1, $2)
-      ON CONFLICT (class_id, user_id) DO NOTHING
-      RETURNING class_id
-    `, [classroom.id, input.userId]);
-    return { id: classroom.id, name: classroom.name, alreadyJoined: joined.rows.length === 0 };
+    return this.db.transaction(async client => {
+      const classResult = await client.query<{ id: string; name: string }>(
+        'SELECT id, name FROM classrooms WHERE join_code = $1 AND archived_at IS NULL FOR SHARE',
+        [input.code],
+      );
+      const classroom = classResult.rows[0];
+      if (!classroom) throw new ClassCodeNotFoundError();
+      const joined = await client.query<{ class_id: string }>(`
+        INSERT INTO class_enrollments (class_id, user_id)
+        VALUES ($1, $2)
+        ON CONFLICT (class_id, user_id) DO NOTHING
+        RETURNING class_id
+      `, [classroom.id, input.userId]);
+      await client.query(`
+        INSERT INTO gradebook_recipients (policy_id, learner_id)
+        SELECT p.id, $2
+        FROM gradebook_policies p
+        JOIN class_assignments a ON a.id = p.assignment_id
+        WHERE a.class_id = $1
+        ON CONFLICT (policy_id, learner_id) DO NOTHING
+      `, [classroom.id, input.userId]);
+      return { id: classroom.id, name: classroom.name, alreadyJoined: joined.rows.length === 0 };
+    });
   }
 
   async listStudentClasses(userId: string): Promise<StudentClassroom[]> {

@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { GenericContainer, type StartedTestContainer } from 'testcontainers';
 import { createDatabaseClient, type DatabaseClient, type DatabaseConfig } from '../src/client.js';
@@ -5,6 +6,7 @@ import {
   ClassCodeNotFoundError, ClassroomNotFoundError, DuplicateClassAssignmentError, InvalidClassActivityError, PostgresClassroomRepository,
 } from '../src/repositories/classroom.repository.js';
 import { runMigrations } from '../src/migrations/index.js';
+import { PostgresGradebookRepository } from '../src/repositories/gradebook.repository.js';
 import { prepareSupabaseTestDatabase } from './support/supabase.js';
 
 let container: StartedTestContainer;
@@ -41,6 +43,7 @@ async function createUser(name: string): Promise<string> {
 }
 
 const activityId = '20000000-0000-0000-0000-000000000001';
+const versionedActivityId = '00000000-0000-0000-0000-000000000001';
 
 describe('PostgresClassroomRepository', () => {
   it('isolates instructor class lists, join codes, learners, and assignment writes by owner', async () => {
@@ -93,6 +96,36 @@ describe('PostgresClassroomRepository', () => {
     expect(await repository.listStudentClasses(learnerId)).toHaveLength(1);
     expect(await repository.listStudentClasses(otherId)).toEqual([]);
     expect((await repository.getClassDetail(classroom.id)).learners).toHaveLength(1);
+  });
+
+  it('provisions recipients for published assignment policies when a learner joins later', async () => {
+    const instructorId = await createUser('late-join-instructor');
+    const firstLearnerId = await createUser('first-learner');
+    const lateLearnerId = await createUser('late-learner');
+    const classroom = await repository.createClass({ name: 'Late join class', description: '', actorId: instructorId, reason: 'Late join recipient fixture' });
+    await repository.joinClassByCode({ userId: firstLearnerId, code: classroom.joinCode });
+    const assignmentId = await repository.createAssignment({ classId: classroom.id, contentId: versionedActivityId, title: 'Reviewed response', instructions: '', dueOn: null, actorId: instructorId, reason: 'Manual review fixture' });
+    const version = await database.query<{ id: string }>('SELECT id FROM content_versions WHERE content_id = $1 ORDER BY version DESC LIMIT 1', [versionedActivityId]);
+    const policyVersionId = randomUUID();
+    const gradebook = new PostgresGradebookRepository(database, { role: 'instructor', userId: instructorId });
+    await gradebook.publishPolicy({
+      policy: {
+        assignmentId,
+        versionId: policyVersionId,
+        contentVersionId: version.rows[0].id,
+        maxUnits: 100,
+        attemptPolicy: 'latest',
+        scoring: { mode: 'reviewed_rubric', rubricVersionId: randomUUID(), criteria: [{ id: 'correctness', label: 'Correctness', maxUnits: 100 }] },
+      },
+      learnerIds: [firstLearnerId],
+      closesAt: null,
+      reason: 'Publish manual review policy',
+    });
+    await repository.joinClassByCode({ userId: lateLearnerId, code: classroom.joinCode });
+    const recipients = await database.query<{ learner_id: string }>('SELECT learner_id FROM gradebook_recipients WHERE policy_id = $1 ORDER BY learner_id', [policyVersionId]);
+    expect(recipients.rows.map(row => row.learner_id).sort()).toEqual([firstLearnerId, lateLearnerId].sort());
+    await repository.joinClassByCode({ userId: lateLearnerId, code: classroom.joinCode });
+    expect((await database.query('SELECT 1 FROM gradebook_recipients WHERE policy_id = $1 AND learner_id = $2', [policyVersionId, lateLearnerId])).rowCount).toBe(1);
   });
 
   it('assigns published practice and derives progress from verified session status', async () => {

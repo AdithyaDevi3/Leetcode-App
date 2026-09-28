@@ -1,5 +1,6 @@
-import { randomBytes } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
 import type { QueryResultRow } from 'pg';
+import { freezeAssignmentGradePolicy } from '@leetcode-app/domain';
 import type { DatabaseClient } from '../client.js';
 
 const codeAlphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -89,6 +90,8 @@ export type StudentAssignment = {
   activitySlug: string;
   dueOn: string | null;
   completed: boolean;
+  recipientId: string | null;
+  policyVersionId: string | null;
 };
 
 type ClassroomRow = QueryResultRow & {
@@ -226,21 +229,57 @@ export class PostgresClassroomRepository {
 
   async createAssignment(input: {
     classId: string; contentId: string; title: string; instructions: string;
-    dueOn: string | null; actorId: string; reason: string; requestId?: string | null;
+    dueOn: string | null; actorId: string; reason: string; requestId?: string | null; publishDefaultGradePolicy?: boolean;
   }): Promise<string> {
     if (this.ownerId && input.actorId !== this.ownerId) throw new ClassroomNotFoundError();
     try {
       return await this.db.transaction(async (client) => {
+        const source = await client.query<{ class_id: string; content_id: string; content_version_id: string; content_snapshot: Record<string, unknown> }>(`
+          SELECT c.id AS class_id, ci.id AS content_id, cv.id AS content_version_id, to_jsonb(cv) AS content_snapshot
+          FROM classrooms c CROSS JOIN content_items ci
+          JOIN LATERAL (SELECT * FROM content_versions v WHERE v.content_id = ci.id ORDER BY v.version DESC LIMIT 1) cv ON true
+          WHERE c.id = $1 AND c.archived_at IS NULL
+            AND ($3::uuid IS NULL OR c.created_by = $3)
+            AND ci.id = $2 AND ci.status = 'published' AND ci.type = 'problem'
+          FOR SHARE OF c, ci, cv
+        `, [input.classId, input.contentId, this.ownerId ?? null]);
+        if (!source.rows[0]) throw new InvalidClassActivityError();
+        await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [input.classId]);
         const result = await client.query<{ id: string }>(`
           INSERT INTO class_assignments (class_id, content_id, title, instructions, due_on, created_by)
-          SELECT c.id, ci.id, $3, $4, $5::date, $6
-          FROM classrooms c CROSS JOIN content_items ci
-          WHERE c.id = $1 AND c.archived_at IS NULL
-            AND ($7::uuid IS NULL OR c.created_by = $7)
-            AND ci.id = $2 AND ci.status = 'published' AND ci.type = 'problem'
+          VALUES ($1, $2, $3, $4, $5::date, $6)
           RETURNING id
-        `, [input.classId, input.contentId, input.title, input.instructions, input.dueOn, input.actorId, this.ownerId ?? null]);
-        if (!result.rows[0]) throw new InvalidClassActivityError();
+        `, [input.classId, input.contentId, input.title, input.instructions, input.dueOn, input.actorId]);
+        if (input.publishDefaultGradePolicy !== false) {
+          const policyVersionId = randomUUID();
+          const policy = freezeAssignmentGradePolicy({
+          assignmentId: result.rows[0].id,
+          versionId: policyVersionId,
+          contentVersionId: source.rows[0].content_version_id,
+          maxUnits: 10_000,
+          attemptPolicy: 'latest',
+          scoring: {
+            mode: 'reviewed_rubric',
+            rubricVersionId: randomUUID(),
+            criteria: [
+              { id: 'approach', label: 'Approach and reasoning', maxUnits: 4_000 },
+              { id: 'correctness', label: 'Correctness', maxUnits: 4_000 },
+              { id: 'communication', label: 'Communication', maxUnits: 2_000 },
+            ],
+          },
+        });
+          await client.query(`INSERT INTO gradebook_policies
+            (id, assignment_id, content_version_id, policy, content_snapshot, closes_at, created_by, reason)
+            VALUES ($1,$2,$3,$4,$5,NULL,$6,$7)`, [policyVersionId, result.rows[0].id, source.rows[0].content_version_id,
+            policy, source.rows[0].content_snapshot, input.actorId, input.reason]);
+          await client.query(`INSERT INTO gradebook_recipients (policy_id, learner_id)
+            SELECT $1, user_id FROM class_enrollments WHERE class_id = $2`, [policyVersionId, input.classId]);
+          await client.query(`INSERT INTO administration_audit_events
+            (actor_id, action, target_type, target_id, reason, request_id, metadata)
+            VALUES ($1, 'gradebook.policy.publish', 'gradebook', $2, $3, $4,
+              jsonb_build_object('assignmentId', $5::text, 'classId', $6::text))`,
+          [input.actorId, policyVersionId, input.reason, input.requestId ?? null, result.rows[0].id, input.classId]);
+        }
         await client.query(`
           INSERT INTO administration_audit_events
             (actor_id, action, target_type, target_id, reason, request_id, metadata)
@@ -263,6 +302,7 @@ export class PostgresClassroomRepository {
       );
       const classroom = classResult.rows[0];
       if (!classroom) throw new ClassCodeNotFoundError();
+      await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [classroom.id]);
       const joined = await client.query<{ class_id: string }>(`
         INSERT INTO class_enrollments (class_id, user_id)
         VALUES ($1, $2)
@@ -310,10 +350,10 @@ export class PostgresClassroomRepository {
   async listStudentAssignments(userId: string): Promise<StudentAssignment[]> {
     const result = await this.db.query<{
       id: string; class_id: string; class_name: string; title: string; instructions: string;
-      slug: string; due_on: string | null; completed: boolean;
+      slug: string; due_on: string | null; completed: boolean; recipient_id: string | null; policy_version_id: string | null;
     }>(`
       SELECT a.id, a.class_id, c.name AS class_name, a.title, a.instructions,
-        ci.slug, to_char(a.due_on, 'YYYY-MM-DD') AS due_on,
+        ci.slug, to_char(a.due_on, 'YYYY-MM-DD') AS due_on, r.id AS recipient_id, p.id AS policy_version_id,
         EXISTS (
           SELECT 1 FROM practice_sessions p
           WHERE p.user_id = e.user_id AND p.content_id = a.content_id AND p.status = 'completed'
@@ -322,6 +362,8 @@ export class PostgresClassroomRepository {
       JOIN classrooms c ON c.id = e.class_id
       JOIN class_assignments a ON a.class_id = c.id
       JOIN content_items ci ON ci.id = a.content_id
+      LEFT JOIN gradebook_policies p ON p.assignment_id = a.id
+      LEFT JOIN gradebook_recipients r ON r.policy_id = p.id AND r.learner_id = e.user_id
       WHERE e.user_id = $1
       ORDER BY a.due_on ASC NULLS LAST, a.created_at DESC
     `, [userId]);
@@ -334,6 +376,8 @@ export class PostgresClassroomRepository {
       activitySlug: row.slug,
       dueOn: row.due_on,
       completed: row.completed,
+      recipientId: row.recipient_id,
+      policyVersionId: row.policy_version_id,
     }));
   }
 }

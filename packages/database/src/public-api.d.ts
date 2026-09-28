@@ -82,6 +82,8 @@ export interface StudentAssignment {
   activitySlug: string;
   dueOn: string | null;
   completed: boolean;
+  recipientId: string | null;
+  policyVersionId: string | null;
 }
 
 export class PostgresClassroomRepository {
@@ -93,7 +95,7 @@ export class PostgresClassroomRepository {
   getClassDetail(classId: string): Promise<ClassroomDetail>;
   createAssignment(input: {
     classId: string; contentId: string; title: string; instructions: string;
-    dueOn: string | null; actorId: string; reason: string; requestId?: string | null;
+    dueOn: string | null; actorId: string; reason: string; requestId?: string | null; publishDefaultGradePolicy?: boolean;
   }): Promise<string>;
   joinClassByCode(input: { userId: string; code: string }): Promise<{ id: string; name: string; alreadyJoined: boolean }>;
   listStudentClasses(userId: string): Promise<StudentClassroom[]>;

@@ -40,7 +40,7 @@ export type StoredGradebookPublication = { id: string; sequence: number; gradeRe
 export type GradebookRecipientHistory = {
   recipientId: string; learnerId: string; policy: AssignmentGradePolicy;
   learner: { id: string; displayName: string; email: string | null };
-  assignment: { id: string; classId: string; title: string; instructions: string; dueOn: string | null };
+  assignment: { id: string; classId: string; title: string; instructions: string; dueOn: string | null; closesAt: string | null; isClosed: boolean };
   attempts: StoredGradebookAttempt[]; grades: StoredGradebookGrade[]; publications: StoredGradebookPublication[];
 };
 export type ManualReviewStatus = 'awaiting_review' | 'draft' | 'published';
@@ -86,7 +86,7 @@ export type LearnerClassGrades = {
 
 type Recipient = {
   id: string; learner_id: string; policy_id: string; policy: AssignmentGradePolicy;
-  content_snapshot: { test_cases?: unknown }; closes_at: Date | null; archived_at: Date | null; enrolled: boolean;
+  content_snapshot: { test_cases?: unknown }; closes_at: Date | null; closed: boolean; archived_at: Date | null; enrolled: boolean;
   learner_name: string; learner_email: string | null; assignment_id: string; class_id: string;
   assignment_title: string; assignment_instructions: string; due_on: string | null;
 };
@@ -172,7 +172,8 @@ export class PostgresGradebookRepository {
   private async recipient(client: PoolClient, recipientId: string, lock: boolean): Promise<Recipient> {
     uuid(recipientId);
     const result = await client.query<Recipient>(`
-      SELECT r.id, r.learner_id, r.policy_id, p.policy, p.content_snapshot, p.closes_at, c.archived_at,
+      SELECT r.id, r.learner_id, r.policy_id, p.policy, p.content_snapshot, p.closes_at,
+        (p.closes_at IS NOT NULL AND clock_timestamp() > p.closes_at) AS closed, c.archived_at,
         u.display_name AS learner_name, u.email AS learner_email, a.id AS assignment_id, a.class_id,
         a.title AS assignment_title, a.instructions AS assignment_instructions, to_char(a.due_on, 'YYYY-MM-DD') AS due_on,
         EXISTS (SELECT 1 FROM class_enrollments e WHERE e.class_id = c.id AND e.user_id = r.learner_id) AS enrolled
@@ -385,7 +386,8 @@ export class PostgresGradebookRepository {
       return { recipientId, learnerId: recipient.learner_id, policy: recipient.policy,
         learner: { id: recipient.learner_id, displayName: recipient.learner_name, email: recipient.learner_email },
         assignment: { id: recipient.assignment_id, classId: recipient.class_id, title: recipient.assignment_title,
-          instructions: recipient.assignment_instructions, dueOn: recipient.due_on }, attempts: attempts.rows.map(mapAttempt),
+          instructions: recipient.assignment_instructions, dueOn: recipient.due_on,
+          closesAt: recipient.closes_at?.toISOString() ?? null, isClosed: recipient.closed }, attempts: attempts.rows.map(mapAttempt),
         grades: grades.rows.map(row => mapGrade(row, this.principal.role === 'instructor')), publications: publications.rows.map(mapPublication) };
     });
   }

@@ -14,7 +14,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ reci
       recipientId,
       expectedApplicabilityRevisionId: requiredString(body.expectedApplicabilityRevisionId, 36),
       applicability,
-      reason: requiredString(body.reason, 500),
+      reason: requiredString(body.reason, 4000),
       requestKey: requiredString(body.requestKey, 128),
     }));
     return NextResponse.json({ applicability: revision });

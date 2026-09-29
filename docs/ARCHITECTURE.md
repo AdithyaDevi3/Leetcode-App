@@ -26,7 +26,7 @@ flowchart LR
 | Personalization | Explainable deterministic ranking using profile, practice history, review age, and local mastery evidence |
 | Offline behavior | Network-first navigation with a self-contained cached fallback; application drafts also use guarded browser storage |
 | Administration | `/admin` uses Supabase sessions plus database role assignments for least-privilege server authorization; read-only operational views, audited role management, and administrator-managed classes are available, while appeal resolution still uses the legacy reviewer token |
-| Classes | Server-generated codes link signed-in learners to classes; instructors manage their own classes, submissions, and gradebooks at `/teach`, learners see published grades at `/classes/[classId]/grades`, and platform administrators manage all classes at `/admin/classes` |
+| Classes | Server-generated codes link signed-in learners to classes; instructors manage their own classes, submissions, recipient excusals, and gradebooks at `/teach`, learners see published grades and applicability at `/classes/[classId]/grades`, and platform administrators manage all classes at `/admin/classes` |
 
 Instructor opt-in updates only the verified user's learner role to instructor
 and records an audit event in the same transaction. It never grants platform
@@ -75,16 +75,17 @@ in a new comparison snapshot.
 
 The server-only `PostgresGradebookRepository` stores one immutable published
 policy and content snapshot per assignment, explicit recipient snapshots,
-assignment-specific response revisions, reviewed grade revisions, and publication
-history. It does not backfill grades from private practice. It is wired to
+assignment-specific response revisions, reviewed grade revisions, immutable
+applicability revisions, and publication history. It does not backfill grades
+from private practice. It is wired to
 recipient-scoped learner submissions, the
 leased assignment-verification worker, instructor review/publication routes,
 the instructor matrix, and the learner published-grade view.
 
 Every instance requires a verified learner or instructor identity. Instructor
 queries enforce class ownership; learner queries enforce recipient ownership.
-There is no implicit global administrator scope. All five tables enable RLS and
-revoke browser-role privileges; authorization still runs in server SQL because
+There is no implicit global administrator scope. All gradebook tables enable RLS
+and revoke browser-role privileges; authorization still runs in server SQL because
 the server connection is privileged. Composite foreign keys prevent attempts,
 grades, and publications from crossing recipients or policies.
 
@@ -94,6 +95,13 @@ corrections and publication also require the expected prior revision. History
 reads use a repeatable-read transaction. Policies, responses, and published
 evidence cannot be updated in place. Content is copied at policy publication,
 so editing source content does not rewrite an existing assignment's evidence.
+
+Applicability follows the same append-only model. Every recipient begins with a
+system-authored `assigned` revision. Only the owning instructor can append a
+reasoned `excused` or restored `assigned` revision, using the expected prior
+revision and a request key. Excusing preserves attempts, grades, publications,
+and the complete applicability chain, supersedes active verification jobs, and
+blocks new submissions, grades, and publications until assignment is restored.
 
 The first persistence adapter accepts latest-attempt policies. Human rubric
 scores must cover every criterion and stay within its maximum. Verified-completion
@@ -110,8 +118,11 @@ projection: consumers must represent the new pending attempt explicitly, never
 reuse an old published score as a current finalized outcome. Unpublished
 corrections remain instructor-only. The live instructor projection calculates
 published totals, coverage, and comparable ranks without persisting a snapshot.
-Durable ranking snapshots, disputes, accommodations, excusals, policy
-replacement, and best-attempt selection remain separate workflows.
+Current excusals appear as an explicit nonnumeric state, remove that assignment
+from the learner's denominator, and exclude the learner from comparisons that
+require a common assignment set. Durable ranking snapshots, disputes, broader
+accommodations, policy replacement, and best-attempt selection remain separate
+workflows.
 
 Verified-completion submissions use a dedicated assignment queue. The learner
 submission transaction creates the immutable attempt and queue record together,

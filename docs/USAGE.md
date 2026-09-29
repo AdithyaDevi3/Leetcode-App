@@ -33,7 +33,7 @@ network or a permitted VPN. Changing application redirects cannot repair DNS.
 | Persistence | Supabase Postgres stores guest identities, sessions, revisions, evaluations, history, profiles, requests, notes, bookmarks, and queue records | `packages/database/migrations`, `apps/web/src/lib/practice-api.ts` |
 | Authentication | Supabase email/password signup, confirmation, sign-in, sign-out, server session refresh, and guest-progress merge are implemented | `apps/web/src/app/auth`, `apps/web/src/lib/auth/session.ts`, `apps/web/src/middleware.ts` |
 | Administration | A server-authorized portal exposes role-scoped overview, people, classes, content, operations, feedback, privacy, and audit views; role and class changes are audited | `apps/web/src/app/admin`, `apps/web/src/lib/admin`, `packages/database/src/repositories/administration.repository.ts` |
-| Classes, submissions, and grades | Instructors create owner-scoped classes and assignments, review submissions, save private rubric drafts, publish grades, and inspect a published-only gradebook; learners join by code and see only their published scores, rubric breakdowns, and feedback | `apps/web/src/app/classes`, `apps/web/src/app/teach`, `packages/database/src/repositories/classroom.repository.ts`, `packages/database/src/repositories/gradebook.repository.ts` |
+| Classes, submissions, and grades | Instructors create owner-scoped classes and assignments, review submissions, save private rubric drafts, publish grades, excuse or restore individual recipients with a reason, and inspect a published-only gradebook; learners join by code and see only their published scores, rubric breakdowns, feedback, and applicability | `apps/web/src/app/classes`, `apps/web/src/app/teach`, `packages/database/src/repositories/classroom.repository.ts`, `packages/database/src/repositories/gradebook.repository.ts` |
 | Personalization | A deterministic policy ranks activities using goals, experience, weekly time, preferred language, history, review age, and concept mastery; no neural network is required | `apps/web/src/lib/local-learner.ts`, `apps/web/src/lib/local-mastery.ts` |
 | Resilience | Health endpoints, request IDs, queue recovery foundations, CI/security scans, browser tests, and a build-independent offline fallback exist | `apps/web/src/app/api/health`, `apps/web/public/sw.js`, `.github/workflows` |
 
@@ -172,6 +172,16 @@ the authenticated learner and pinned policy, generates the immutable response
 revision, and returns `202` when verification is queued. Client-supplied owner,
 policy, test, and evaluator identifiers are rejected.
 
+Migration `1790971200000_gradebook-recipient-applicability.ts` adds immutable
+assignment-applicability history. Each existing and new recipient starts with a
+system-authored `assigned` revision. The class owner can append a reasoned
+`excused` or restored `assigned` revision through the server boundary; retries
+are idempotent and stale revisions conflict. Excusing a recipient supersedes any
+queued or running verification job, blocks submissions and grading while the
+excusal is current, and preserves attempts, grades, publications, and prior
+applicability revisions for audit. Excused work is shown explicitly and omitted
+from the learner's denominator, total, and comparable ranking set.
+
 ### Change authentication or administration
 
 The active user-facing authentication path is Supabase Auth. Do not revive the
@@ -205,9 +215,12 @@ reason. Instructor-owned classes also support a manual-grading workflow at
 `/teach/{classId}/submissions`:
 reviewed-rubric scores and feedback are saved as private drafts, then published
 explicitly. `/teach/{classId}/gradebook` calculates published totals, coverage,
-and comparable ranks. Learners use `/classes/{classId}/grades` to see only
-published scores, rubric breakdowns, and feedback. Class editing, code rotation,
-archiving, and individual assignment remain future work.
+and comparable ranks. The class owner can excuse or restore an individual
+recipient with a required reason; the gradebook excludes excused work from totals
+and ranking while preserving all prior evidence. Learners use
+`/classes/{classId}/grades` to see only published scores, rubric breakdowns,
+feedback, and current applicability. Class editing, code rotation, archiving,
+and individual assignment remain future work.
 
 Before enabling this release in staging or production, apply migration
 `1789932382585_classrooms-and-assignments.ts` to that environment's database and

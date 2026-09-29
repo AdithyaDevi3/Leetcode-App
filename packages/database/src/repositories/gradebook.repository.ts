@@ -37,10 +37,12 @@ export type AssignmentResponse = Readonly<{ text: string; language?: string }>;
 export type StoredGradebookAttempt = { id: string; responseRevisionId: string; sequence: number; response: AssignmentResponse; submittedAt: string; verificationJobId?: string; verificationStatus?: string };
 export type StoredGradebookGrade = { id: string; sequence: number; earnedUnits: number; kind: 'scored' | 'missing_zero'; attemptId: string | null; criterionScores: Record<string, number>; learnerFeedback: string; privateNote?: string; createdAt: string };
 export type StoredGradebookPublication = { id: string; sequence: number; gradeRevisionId: string; publishedAt: string };
+export type StoredGradebookApplicability = { id: string; sequence: number; applicability: 'assigned' | 'excused'; reason?: string; createdAt: string };
 export type GradebookRecipientHistory = {
   recipientId: string; learnerId: string; policy: AssignmentGradePolicy;
   learner: { id: string; displayName: string; email: string | null };
   assignment: { id: string; classId: string; title: string; instructions: string; dueOn: string | null; closesAt: string | null; isClosed: boolean };
+  applicability: StoredGradebookApplicability;
   attempts: StoredGradebookAttempt[]; grades: StoredGradebookGrade[]; publications: StoredGradebookPublication[];
 };
 export type ManualReviewStatus = 'awaiting_review' | 'draft' | 'published';
@@ -56,7 +58,7 @@ export type ManualReviewInboxItem = {
 export type ManualReviewInboxPage = { items: ManualReviewInboxItem[]; nextCursor: string | null };
 export type ClassGradebookCell = {
   assignmentId: string; recipientId: string | null;
-  state: 'not_assigned' | 'unsubmitted' | 'queued' | 'running' | 'needs_review' | 'unavailable' | 'draft' | 'published';
+  state: 'not_assigned' | 'excused' | 'unsubmitted' | 'queued' | 'running' | 'needs_review' | 'unavailable' | 'draft' | 'published';
   earnedUnits: number | null; maxUnits: number;
 };
 export type ClassGradebookLearner = {
@@ -72,7 +74,7 @@ export type ClassGradebook = {
 };
 export type LearnerClassGradeAssignment = {
   id: string; title: string; dueOn: string | null; maxUnits: number; recipientId: string;
-  state: 'unsubmitted' | 'queued' | 'running' | 'needs_review' | 'unavailable' | 'awaiting_publication' | 'published';
+  state: 'excused' | 'unsubmitted' | 'queued' | 'running' | 'needs_review' | 'unavailable' | 'awaiting_publication' | 'published';
   publishedGrade: null | {
     earnedUnits: number; criterionScores: Record<string, number>; learnerFeedback: string; publishedAt: string;
   };
@@ -89,6 +91,7 @@ type Recipient = {
   content_snapshot: { test_cases?: unknown }; closes_at: Date | null; closed: boolean; archived_at: Date | null; enrolled: boolean;
   learner_name: string; learner_email: string | null; assignment_id: string; class_id: string;
   assignment_title: string; assignment_instructions: string; due_on: string | null;
+  applicability_id: string; applicability_sequence: number; applicability: 'assigned' | 'excused'; applicability_reason: string; applicability_created_at: Date;
 };
 type GradeRow = {
   id: string; sequence: number; earned_units: string; kind: 'scored' | 'missing_zero';
@@ -119,6 +122,7 @@ type ClassOutcomeRow = {
   grade_id: string | null; grade_kind: 'scored' | 'missing_zero' | null; earned_units: string | null;
   grade_attempt_id: string | null; evaluator_version_id: string | null; authored_by: string | null; grade_reason: string | null;
   published_grade_revision_id: string | null; verification_status: string | null;
+  applicability: 'assigned' | 'excused';
 };
 type LearnerClassGradeRow = {
   assignment_id: string; title: string; due_on: string | null; policy_id: string; policy: AssignmentGradePolicy;
@@ -127,6 +131,7 @@ type LearnerClassGradeRow = {
   grade_attempt_id: string | null; evaluator_version_id: string | null; authored_by: string | null; grade_reason: string | null;
   criterion_scores: Record<string, number> | null; learner_feedback: string | null;
   published_grade_revision_id: string | null; published_at: Date | null; verification_status: string | null;
+  applicability: 'assigned' | 'excused';
 };
 
 const uuid = (value: string): void => {
@@ -144,6 +149,8 @@ const same = (left: unknown, right: unknown): boolean => canonical(left) === can
 const mapAttempt = (row: AttemptRow): StoredGradebookAttempt => ({ id: row.id, responseRevisionId: row.response_revision_id, sequence: row.sequence, response: row.response, submittedAt: row.submitted_at.toISOString() });
 const mapGrade = (row: GradeRow, includePrivate = true): StoredGradebookGrade => ({ id: row.id, sequence: row.sequence, earnedUnits: Number(row.earned_units), kind: row.kind, attemptId: row.attempt_id, criterionScores: row.criterion_scores, learnerFeedback: row.learner_feedback, ...(includePrivate ? { privateNote: row.private_note } : {}), createdAt: row.created_at.toISOString() });
 const mapPublication = (row: PublicationRow): StoredGradebookPublication => ({ id: row.id, sequence: row.sequence, gradeRevisionId: row.grade_revision_id, publishedAt: row.created_at.toISOString() });
+const mapApplicability = (row: Recipient, includeReason = true): StoredGradebookApplicability => ({ id: row.applicability_id, sequence: row.applicability_sequence,
+  applicability: row.applicability, ...(includeReason ? { reason: row.applicability_reason } : {}), createdAt: row.applicability_created_at.toISOString() });
 const inboxCursor = (submittedAt: string, recipientId: string): string => Buffer.from(JSON.stringify({ v: 1, submittedAt, recipientId })).toString('base64url');
 const parseInboxCursor = (cursor: string | undefined): { submittedAt: Date; recipientId: string } | null => {
   if (cursor === undefined) return null;
@@ -176,12 +183,15 @@ export class PostgresGradebookRepository {
         (p.closes_at IS NOT NULL AND clock_timestamp() > p.closes_at) AS closed, c.archived_at,
         u.display_name AS learner_name, u.email AS learner_email, a.id AS assignment_id, a.class_id,
         a.title AS assignment_title, a.instructions AS assignment_instructions, to_char(a.due_on, 'YYYY-MM-DD') AS due_on,
+        ar.id AS applicability_id, ar.sequence AS applicability_sequence, ar.applicability,
+        ar.reason AS applicability_reason, ar.created_at AS applicability_created_at,
         EXISTS (SELECT 1 FROM class_enrollments e WHERE e.class_id = c.id AND e.user_id = r.learner_id) AS enrolled
       FROM gradebook_recipients r
       JOIN gradebook_policies p ON p.id = r.policy_id
       JOIN class_assignments a ON a.id = p.assignment_id
       JOIN classrooms c ON c.id = a.class_id
       JOIN users u ON u.id = r.learner_id
+      JOIN LATERAL (SELECT x.* FROM gradebook_applicability_revisions x WHERE x.recipient_id = r.id ORDER BY x.sequence DESC LIMIT 1) ar ON true
       WHERE r.id = $1 AND CASE WHEN $2 = 'instructor' THEN c.created_by = $3::uuid ELSE r.learner_id = $3::uuid END
       ${lock ? 'FOR UPDATE OF r FOR SHARE OF c' : ''}
     `, [recipientId, this.principal.role, this.principal.userId]);
@@ -257,6 +267,7 @@ export class PostgresGradebookRepository {
         const job = await client.query<{ id: string; status: string }>('SELECT id,status FROM gradebook_verification_jobs WHERE attempt_id = $1', [retry.rows[0].id]);
         return { ...mapAttempt(retry.rows[0]), ...(job.rows[0] ? { verificationJobId: job.rows[0].id, verificationStatus: job.rows[0].status } : {}) };
       }
+      if (recipient.applicability !== 'assigned') throw new GradebookAccessError();
       await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [this.principal.userId]);
       const recent = await client.query<{ count: string }>(`SELECT COUNT(*)::text AS count FROM gradebook_attempts a
         JOIN gradebook_recipients r ON r.id = a.recipient_id
@@ -310,6 +321,7 @@ export class PostgresGradebookRepository {
           || !same(row.criterion_scores, input.criterionScores)) throw new GradebookConflictError();
         return mapGrade(row);
       }
+      if (recipient.applicability !== 'assigned') throw new GradebookAccessError();
       if (recipient.archived_at) throw new GradebookAccessError();
       const previous = await client.query<GradeRow>('SELECT * FROM gradebook_grade_revisions WHERE recipient_id = $1 ORDER BY sequence DESC LIMIT 1', [recipient.id]);
       if ((previous.rows[0]?.id ?? null) !== input.expectedGradeRevisionId) throw new GradebookConflictError();
@@ -359,6 +371,7 @@ export class PostgresGradebookRepository {
         if (row.grade_revision_id !== input.gradeRevisionId || row.sequence !== input.expectedPublicationSequence + 1 || row.reason !== input.reason) throw new GradebookConflictError();
         return mapPublication(row);
       }
+      if (recipient.applicability !== 'assigned') throw new GradebookAccessError();
       if (recipient.archived_at) throw new GradebookAccessError();
       const latest = await client.query<PublicationRow>('SELECT * FROM gradebook_publications WHERE recipient_id = $1 ORDER BY sequence DESC LIMIT 1', [recipient.id]);
       if ((latest.rows[0]?.sequence ?? 0) !== input.expectedPublicationSequence) throw new GradebookConflictError();
@@ -387,8 +400,52 @@ export class PostgresGradebookRepository {
         learner: { id: recipient.learner_id, displayName: recipient.learner_name, email: recipient.learner_email },
         assignment: { id: recipient.assignment_id, classId: recipient.class_id, title: recipient.assignment_title,
           instructions: recipient.assignment_instructions, dueOn: recipient.due_on,
-          closesAt: recipient.closes_at?.toISOString() ?? null, isClosed: recipient.closed }, attempts: attempts.rows.map(mapAttempt),
+          closesAt: recipient.closes_at?.toISOString() ?? null, isClosed: recipient.closed }, applicability: mapApplicability(recipient, this.principal.role === 'instructor'), attempts: attempts.rows.map(mapAttempt),
         grades: grades.rows.map(row => mapGrade(row, this.principal.role === 'instructor')), publications: publications.rows.map(mapPublication) };
+    });
+  }
+
+  async setRecipientApplicability(input: { recipientId: string; applicability: 'assigned' | 'excused';
+    expectedApplicabilityRevisionId: string; reason: string; requestKey: string }): Promise<StoredGradebookApplicability> {
+    this.requireRole('instructor'); uuid(input.expectedApplicabilityRevisionId); nonblank(input.reason, 4000); nonblank(input.requestKey, 128);
+    if (!['assigned', 'excused'].includes(input.applicability)) throw new Error('Invalid assignment applicability');
+    return this.db.transaction(async client => {
+      const recipient = await this.recipient(client, input.recipientId, true);
+      const retry = await client.query<{ id: string; sequence: number; applicability: 'assigned' | 'excused'; supersedes_id: string | null;
+        reason: string; request_key: string; created_at: Date }>(
+        'SELECT * FROM gradebook_applicability_revisions WHERE recipient_id = $1 AND request_key = $2',
+        [recipient.id, input.requestKey],
+      );
+      if (retry.rows[0]) {
+        const row = retry.rows[0];
+        if (row.applicability !== input.applicability || row.supersedes_id !== input.expectedApplicabilityRevisionId || row.reason !== input.reason) {
+          throw new GradebookConflictError();
+        }
+        return { id: row.id, sequence: row.sequence, applicability: row.applicability, reason: row.reason, createdAt: row.created_at.toISOString() };
+      }
+      if (recipient.applicability_id !== input.expectedApplicabilityRevisionId) throw new GradebookConflictError();
+      if (recipient.applicability === input.applicability) throw new GradebookConflictError();
+      if (recipient.archived_at) throw new GradebookAccessError();
+      const id = randomUUID();
+      const result = await client.query<{ id: string; sequence: number; applicability: 'assigned' | 'excused'; reason: string; created_at: Date }>(`
+        INSERT INTO gradebook_applicability_revisions
+          (id, recipient_id, policy_id, sequence, applicability, supersedes_id, reason, authored_by, request_key)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+        RETURNING id, sequence, applicability, reason, created_at
+      `, [id, recipient.id, recipient.policy_id, recipient.applicability_sequence + 1, input.applicability,
+        recipient.applicability_id, input.reason, this.principal.userId, input.requestKey]);
+      if (input.applicability === 'excused') {
+        const jobs = await client.query<{ id: string }>(`UPDATE gradebook_verification_jobs
+          SET status='superseded', lease_token=NULL, lease_expires_at=NULL, completed_at=clock_timestamp(), error_code='recipient-excused'
+          WHERE recipient_id=$1 AND status IN ('queued','running') RETURNING id`, [recipient.id]);
+        for (const job of jobs.rows) {
+          await client.query(`INSERT INTO gradebook_verification_events (verification_job_id,status,reason)
+            VALUES ($1,'superseded','recipient-excused')`, [job.id]);
+        }
+      }
+      await this.audit(client, `gradebook.recipient.${input.applicability}`, id, input.reason);
+      const row = result.rows[0];
+      return { id: row.id, sequence: row.sequence, applicability: row.applicability, reason: row.reason, createdAt: row.created_at.toISOString() };
     });
   }
 
@@ -440,7 +497,7 @@ export class PostgresGradebookRepository {
       `, [classId]);
 
       const outcomeResult = await client.query<ClassOutcomeRow>(`
-        SELECT r.id AS recipient_id, r.learner_id, a.id AS assignment_id,
+        SELECT r.id AS recipient_id, r.learner_id, a.id AS assignment_id, ar.applicability,
           la.id AS attempt_id, la.response_revision_id,
           lg.id AS grade_id, lg.kind AS grade_kind, lg.earned_units, lg.attempt_id AS grade_attempt_id,
           lg.evaluator_version_id, lg.authored_by, lg.reason AS grade_reason,
@@ -448,6 +505,8 @@ export class PostgresGradebookRepository {
         FROM gradebook_recipients r
         JOIN gradebook_policies p ON p.id = r.policy_id
         JOIN class_assignments a ON a.id = p.assignment_id AND a.class_id = $1
+        JOIN LATERAL (SELECT x.applicability FROM gradebook_applicability_revisions x
+          WHERE x.recipient_id = r.id ORDER BY x.sequence DESC LIMIT 1) ar ON true
         LEFT JOIN LATERAL (
           SELECT x.id, x.response_revision_id FROM gradebook_attempts x
           WHERE x.recipient_id = r.id ORDER BY x.sequence DESC LIMIT 1
@@ -484,6 +543,11 @@ export class PostgresGradebookRepository {
             if (membership === 'included') throw new Error('Gradebook integrity check failed: current learner recipient is missing');
             cells.push({ assignmentId, recipientId: null, state: 'not_assigned', earnedUnits: null, maxUnits: policy.maxUnits });
             domainCells.push({ assignmentId, policyVersionId: policy.versionId, applicability: 'not_assigned' });
+            continue;
+          }
+          if (outcome.applicability === 'excused') {
+            cells.push({ assignmentId, recipientId: outcome.recipient_id, state: 'excused', earnedUnits: null, maxUnits: policy.maxUnits });
+            domainCells.push({ assignmentId, policyVersionId: policy.versionId, applicability: 'excused' });
             continue;
           }
 
@@ -554,6 +618,7 @@ export class PostgresGradebookRepository {
       const result = await client.query<LearnerClassGradeRow>(`
         SELECT a.id AS assignment_id, a.title, to_char(a.due_on, 'YYYY-MM-DD') AS due_on,
           p.id AS policy_id, p.policy, r.id AS recipient_id,
+          ar.applicability,
           la.id AS attempt_id, la.response_revision_id,
           lg.id AS grade_id, lg.kind AS grade_kind, lg.earned_units, lg.attempt_id AS grade_attempt_id,
           lg.evaluator_version_id, lg.authored_by, lg.reason AS grade_reason,
@@ -563,6 +628,8 @@ export class PostgresGradebookRepository {
         FROM class_assignments a
         JOIN gradebook_policies p ON p.assignment_id = a.id
         LEFT JOIN gradebook_recipients r ON r.policy_id = p.id AND r.learner_id = $2
+        LEFT JOIN LATERAL (SELECT x.applicability FROM gradebook_applicability_revisions x
+          WHERE x.recipient_id = r.id ORDER BY x.sequence DESC LIMIT 1) ar ON true
         LEFT JOIN LATERAL (
           SELECT x.id, x.response_revision_id FROM gradebook_attempts x
           WHERE x.recipient_id = r.id ORDER BY x.sequence DESC LIMIT 1
@@ -591,6 +658,13 @@ export class PostgresGradebookRepository {
           throw new Error('Gradebook integrity check failed: assignment policy identity does not match');
         }
         policies.push(policy);
+
+        if (row.applicability === 'excused') {
+          assignments.push({ id: row.assignment_id, title: row.title, dueOn: row.due_on, maxUnits: policy.maxUnits,
+            recipientId: row.recipient_id, state: 'excused', publishedGrade: null });
+          cells.push({ assignmentId: row.assignment_id, policyVersionId: policy.versionId, applicability: 'excused' });
+          continue;
+        }
 
         let gradeResult: AssignmentGradeResult;
         if (row.grade_kind === 'missing_zero' && row.grade_id !== null) {
@@ -662,11 +736,13 @@ export class PostgresGradebookRepository {
         FROM gradebook_recipients r
         JOIN gradebook_policies p ON p.id = r.policy_id
         JOIN class_assignments a ON a.id = p.assignment_id AND a.class_id = $1
+        JOIN LATERAL (SELECT x.applicability FROM gradebook_applicability_revisions x
+          WHERE x.recipient_id = r.id ORDER BY x.sequence DESC LIMIT 1) ar ON true
         JOIN users u ON u.id = r.learner_id
         JOIN LATERAL (SELECT * FROM gradebook_attempts x WHERE x.recipient_id = r.id ORDER BY x.sequence DESC LIMIT 1) la ON true
         LEFT JOIN LATERAL (SELECT * FROM gradebook_grade_revisions x WHERE x.recipient_id = r.id ORDER BY x.sequence DESC LIMIT 1) lg ON true
         LEFT JOIN LATERAL (SELECT * FROM gradebook_publications x WHERE x.recipient_id = r.id ORDER BY x.sequence DESC LIMIT 1) lp ON true
-        WHERE p.policy->'scoring'->>'mode' = 'reviewed_rubric'
+        WHERE p.policy->'scoring'->>'mode' = 'reviewed_rubric' AND ar.applicability = 'assigned'
           AND ($2::text IS NULL OR CASE WHEN lg.attempt_id IS DISTINCT FROM la.id THEN 'awaiting_review'
             WHEN lp.grade_revision_id = lg.id THEN 'published' ELSE 'draft' END = $2)
           AND ($3::timestamptz IS NULL OR (la.submitted_at, r.id) < ($3::timestamptz, $4::uuid))

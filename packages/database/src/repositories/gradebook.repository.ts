@@ -81,8 +81,10 @@ export type LearnerClassGradeAssignment = {
   id: string; title: string; dueOn: string | null; maxUnits: number; recipientId: string;
   state: 'excused' | 'unsubmitted' | 'queued' | 'running' | 'needs_review' | 'unavailable' | 'awaiting_publication' | 'published';
   publishedGrade: null | {
-    earnedUnits: number; criterionScores: Record<string, number>; learnerFeedback: string; publishedAt: string;
+    gradeRevisionId: string; earnedUnits: number; criterionScores: Record<string, number>; learnerFeedback: string; publishedAt: string;
   };
+  dispute: null | { latestEventId: string; gradeRevisionId: string; status: GradebookDisputeStatus; requestMessage: string;
+    resolutionMessage: string | null; outcome: 'upheld' | 'changed' | null };
 };
 export type LearnerClassGrades = {
   classroom: { id: string; name: string };
@@ -143,6 +145,10 @@ type LearnerClassGradeRow = {
   published_grade_revision_id: string | null; published_at: Date | null; verification_status: string | null;
   applicability: 'assigned' | 'excused';
   dispute_status: GradebookDisputeStatus | null;
+  publication_id: string | null; dispute_event_id: string | null; dispute_publication_id: string | null;
+  dispute_grade_revision_id: string | null;
+  dispute_replacement_grade_revision_id: string | null; dispute_outcome: 'upheld' | 'changed' | null;
+  dispute_message: string | null; dispute_request_message: string | null;
 };
 
 const uuid = (value: string): void => {
@@ -750,20 +756,27 @@ export class PostgresGradebookRepository {
       const result = await client.query<LearnerClassGradeRow>(`
         SELECT a.id AS assignment_id, a.title, to_char(a.due_on, 'YYYY-MM-DD') AS due_on,
           p.id AS policy_id, p.policy, r.id AS recipient_id,
-          ar.applicability, de.status AS dispute_status,
+          ar.applicability, de.status AS dispute_status, de.id AS dispute_event_id,
+          de.publication_id AS dispute_publication_id, de.grade_revision_id AS dispute_grade_revision_id,
+          de.replacement_grade_revision_id AS dispute_replacement_grade_revision_id,
+          de.outcome AS dispute_outcome, de.message AS dispute_message, di.message AS dispute_request_message,
           la.id AS attempt_id, la.response_revision_id,
           lg.id AS grade_id, lg.kind AS grade_kind, lg.earned_units, lg.attempt_id AS grade_attempt_id,
           lg.evaluator_version_id, lg.authored_by, lg.reason AS grade_reason,
           lg.criterion_scores, lg.learner_feedback,
-          lp.grade_revision_id AS published_grade_revision_id, lp.created_at AS published_at,
+          lp.id AS publication_id, lp.grade_revision_id AS published_grade_revision_id, lp.created_at AS published_at,
           v.status AS verification_status
         FROM class_assignments a
         JOIN gradebook_policies p ON p.assignment_id = a.id
         LEFT JOIN gradebook_recipients r ON r.policy_id = p.id AND r.learner_id = $2
         LEFT JOIN LATERAL (SELECT x.applicability FROM gradebook_applicability_revisions x
           WHERE x.recipient_id = r.id ORDER BY x.sequence DESC LIMIT 1) ar ON true
-        LEFT JOIN LATERAL (SELECT x.status FROM gradebook_dispute_events x
+        LEFT JOIN LATERAL (SELECT x.id,x.status,x.publication_id,x.grade_revision_id,x.replacement_grade_revision_id,x.outcome,x.message
+          FROM gradebook_dispute_events x
           WHERE x.recipient_id = r.id ORDER BY x.sequence DESC LIMIT 1) de ON true
+        LEFT JOIN LATERAL (SELECT x.message FROM gradebook_dispute_events x
+          WHERE x.recipient_id=r.id AND x.publication_id=de.publication_id AND x.status='submitted'
+          ORDER BY x.sequence LIMIT 1) di ON true
         LEFT JOIN LATERAL (
           SELECT x.id, x.response_revision_id FROM gradebook_attempts x
           WHERE x.recipient_id = r.id ORDER BY x.sequence DESC LIMIT 1
@@ -774,7 +787,7 @@ export class PostgresGradebookRepository {
           FROM gradebook_grade_revisions x WHERE x.recipient_id = r.id ORDER BY x.sequence DESC LIMIT 1
         ) lg ON true
         LEFT JOIN LATERAL (
-          SELECT x.grade_revision_id, x.created_at FROM gradebook_publications x
+          SELECT x.id, x.grade_revision_id, x.created_at FROM gradebook_publications x
           WHERE x.recipient_id = r.id ORDER BY x.sequence DESC LIMIT 1
         ) lp ON true
         LEFT JOIN gradebook_verification_jobs v ON v.attempt_id = la.id
@@ -795,7 +808,7 @@ export class PostgresGradebookRepository {
 
         if (row.applicability === 'excused') {
           assignments.push({ id: row.assignment_id, title: row.title, dueOn: row.due_on, maxUnits: policy.maxUnits,
-            recipientId: row.recipient_id, state: 'excused', publishedGrade: null });
+            recipientId: row.recipient_id, state: 'excused', publishedGrade: null, dispute: null });
           cells.push({ assignmentId: row.assignment_id, policyVersionId: policy.versionId, applicability: 'excused' });
           continue;
         }
@@ -832,13 +845,20 @@ export class PostgresGradebookRepository {
           && gradeResult.publication === 'published';
         const state: LearnerClassGradeAssignment['state'] = published ? 'published'
           : gradeResult.status === 'scored' || gradeResult.status === 'missing_zero' ? 'awaiting_publication' : gradeResult.status;
+        const showDispute = row.dispute_event_id !== null && (row.dispute_publication_id === row.publication_id
+          || ['submitted', 'in_review'].includes(row.dispute_status ?? '')
+          || (row.dispute_status === 'resolved' && row.dispute_replacement_grade_revision_id === row.published_grade_revision_id));
         assignments.push({ id: row.assignment_id, title: row.title, dueOn: row.due_on, maxUnits: policy.maxUnits,
           recipientId: row.recipient_id, state,
           publishedGrade: published ? {
-            earnedUnits: gradeResult.status === 'scored' ? gradeResult.earnedUnits : 0,
+            gradeRevisionId: row.grade_id!, earnedUnits: gradeResult.status === 'scored' ? gradeResult.earnedUnits : 0,
             criterionScores: row.criterion_scores ?? {}, learnerFeedback: row.learner_feedback ?? '',
             publishedAt: row.published_at!.toISOString(),
-          } : null });
+          } : null,
+          dispute: showDispute ? { latestEventId: row.dispute_event_id!, status: row.dispute_status!,
+            gradeRevisionId: row.dispute_grade_revision_id!,
+            requestMessage: row.dispute_request_message ?? '', resolutionMessage: row.dispute_status === 'resolved' ? row.dispute_message : null,
+            outcome: row.dispute_outcome } : null });
         cells.push({ assignmentId: row.assignment_id, policyVersionId: policy.versionId, applicability: 'assigned', result: gradeResult });
       }
       const summary = calculateGradebook(policies, [{ learnerId: this.principal.userId, membership: 'included', cells }])[0];

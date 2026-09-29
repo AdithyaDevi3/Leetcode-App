@@ -50,8 +50,11 @@ The first deployable product slice lives in [apps/web](apps/web). It includes:
 - Instructor signup and owner-scoped classes with join codes, learner enrollment,
   assigned practice activities, due dates, a manual-grading inbox, and a
   published-only class gradebook. Learners can review published scores, rubric
-  breakdowns, and instructor feedback without seeing draft grades. Platform
-  administrators retain separate access to manage all classes.
+  breakdowns, and instructor feedback without seeing draft grades. Instructors
+  can excuse or restore an assignment for an individual learner with a required
+  reason; excused work is excluded from that learner's totals and class ranking
+  while the immutable applicability history is retained. Platform administrators
+  retain separate access to manage all classes.
 - Unit tests, CI, a health endpoint, and a non-root production container.
 
 Run it locally from the repository root:

@@ -7,12 +7,12 @@ import { SiteNavigation } from '@/components/site-navigation';
 import { getSession } from '@/lib/auth/session';
 
 const labels: Record<LearnerClassGradeAssignment['state'], string> = {
-  unsubmitted: 'Not submitted', queued: 'Verification queued', running: 'Verification running',
+  excused: 'Excused', unsubmitted: 'Not submitted', queued: 'Verification queued', running: 'Verification running',
   needs_review: 'Awaiting instructor review', unavailable: 'Verification unavailable',
   awaiting_publication: 'Grade being finalized', published: 'Published',
 };
 const badge: Record<LearnerClassGradeAssignment['state'], string> = {
-  published: 'bg-[var(--moss-soft)] text-[var(--moss)]', queued: 'bg-[var(--sky)] text-slate-800',
+  excused: 'bg-slate-100 text-slate-700', published: 'bg-[var(--moss-soft)] text-[var(--moss)]', queued: 'bg-[var(--sky)] text-slate-800',
   running: 'bg-amber-100 text-amber-900', needs_review: 'bg-amber-100 text-amber-900',
   awaiting_publication: 'bg-amber-100 text-amber-900', unsubmitted: 'bg-slate-100 text-slate-700',
   unavailable: 'bg-[var(--coral-soft)] text-red-900',
@@ -52,7 +52,7 @@ export default async function LearnerClassGradesPage({ params }: { params: Promi
           {assignment.publishedGrade ? <div className="mt-5 grid gap-5 border-t border-[var(--line)] pt-5 lg:grid-cols-[12rem_1fr]">
             <div><p className="text-xs font-bold uppercase tracking-wide text-[var(--muted)]">Score</p><p className="mt-2 font-mono text-2xl font-bold tabular-nums">{points(assignment.publishedGrade.earnedUnits)} / {points(assignment.maxUnits)}</p></div>
             <div className="space-y-4">{Object.keys(assignment.publishedGrade.criterionScores).length ? <div><h4 className="mb-2 text-sm font-bold">Rubric breakdown</h4><dl className="grid gap-2 sm:grid-cols-2">{Object.entries(assignment.publishedGrade.criterionScores).map(([criterion, score]) => <div key={criterion} className="flex justify-between gap-4 rounded-md bg-[#f5f3ed] px-3 py-2 text-sm"><dt>{criterionLabel(criterion)}</dt><dd className="font-mono font-bold tabular-nums">{points(score)}</dd></div>)}</dl></div> : null}<div><h4 className="mb-1 text-sm font-bold">Instructor feedback</h4><p className="mb-0 whitespace-pre-wrap text-sm leading-6 text-[var(--muted)]">{assignment.publishedGrade.learnerFeedback || 'No written feedback was included.'}</p></div></div>
-          </div> : <p className="mb-0 mt-4 text-sm leading-6 text-[var(--muted)]">{assignment.state === 'unsubmitted' ? 'Submit this assignment when you are ready.' : 'Your displayed total will update after the current grade is published.'}</p>}
+          </div> : <p className="mb-0 mt-4 text-sm leading-6 text-[var(--muted)]">{assignment.state === 'excused' ? 'Your instructor excused this assignment. It does not count toward your total or completion coverage.' : assignment.state === 'unsubmitted' ? 'Submit this assignment when you are ready.' : 'Your displayed total will update after the current grade is published.'}</p>}
         </article>)}
       </div>}
     </section>

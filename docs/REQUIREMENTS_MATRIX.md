@@ -120,6 +120,7 @@ This matrix tracks the functional and operational requirements defined in [PRODU
 | GRADE-005 | Published-only totals, coverage, and comparable class ranking | Implemented | Current | Domain and repository tests cover exact totals, incomplete coverage, ties, exclusions, and draft-safe ranking |
 | GRADE-006 | Learner published score, rubric, and feedback view | Prototype | Current | Owner-scoped learner read-model tests and `/classes/[classId]/grades` exist; browser and accessibility evidence remains required |
 | GRADE-007 | Auditable per-recipient assignment excusals | Implemented | Current | Immutable applicability revisions require class ownership, reasons, idempotency keys, and optimistic concurrency; repository and migration tests cover preserved history, blocked writes, superseded jobs, and exclusion from totals and ranking |
+| GRADE-008 | Auditable learner grade disputes and instructor resolution | Prototype | Current | Immutable recipient-scoped events cover submit, review, withdraw, explicit resolve, idempotent retries, correction validation, automatic supersession, privacy, and dispute-aware totals/ranking; learner and instructor web workflows remain required |
 
 ## Mobile and notifications
 

@@ -182,6 +182,19 @@ excusal is current, and preserves attempts, grades, publications, and prior
 applicability revisions for audit. Excused work is shown explicitly and omitted
 from the learner's denominator, total, and comparable ranking set.
 
+Migration `1791061200000_gradebook-dispute-events.ts` adds an immutable dispute
+event chain for each assignment recipient. Repository callers can let the owning
+learner submit or withdraw a review request and let the class owner mark it in
+review or resolve it as upheld or changed. Every transition requires the expected
+prior event and an idempotency key. A changed resolution must reference a newly
+published replacement grade; the correction remains open until that explicit
+resolution is appended. A new submission or recipient excusal automatically
+supersedes an active dispute. While a dispute is active, projections preserve the
+published score in the learner's total and coverage but exclude the learner from
+comparable ranking. Learner reads remain recipient-scoped and expose public
+messages without request keys, internal reasons, actor identities, or private
+instructor notes. The learner and instructor web workflows are still pending.
+
 ### Change authentication or administration
 
 The active user-facing authentication path is Supabase Auth. Do not revive the
@@ -217,7 +230,9 @@ reviewed-rubric scores and feedback are saved as private drafts, then published
 explicitly. `/teach/{classId}/gradebook` calculates published totals, coverage,
 and comparable ranks. The class owner can excuse or restore an individual
 recipient with a required reason; the gradebook excludes excused work from totals
-and ranking while preserving all prior evidence. Learners use
+and ranking while preserving all prior evidence. Active grade disputes preserve
+the published total but temporarily exclude the learner from comparable ranking;
+their web submission and review controls remain future work. Learners use
 `/classes/{classId}/grades` to see only published scores, rubric breakdowns,
 feedback, and current applicability. Class editing, code rotation, archiving,
 and individual assignment remain future work.

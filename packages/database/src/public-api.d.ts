@@ -5,7 +5,7 @@ export type { DatabaseClient, DatabaseConfig } from './client.js';
 export { createDatabaseClient, databaseConfigFromEnv } from './client.js';
 
 export { ASSIGNMENT_VERIFIER_VERSION, GradebookAccessError, GradebookConflictError, GradebookRateLimitError } from './repositories/gradebook.repository.js';
-export type { GradebookPrincipal, AssignmentResponse, StoredGradebookAttempt, StoredGradebookGrade, StoredGradebookPublication, StoredGradebookApplicability, GradebookRecipientHistory, ManualReviewStatus, ManualReviewInboxItem, ManualReviewInboxPage, ClassGradebookCell, ClassGradebookLearner, ClassGradebook, LearnerClassGradeAssignment, LearnerClassGrades } from './repositories/gradebook.repository.js';
+export type { GradebookPrincipal, AssignmentResponse, StoredGradebookAttempt, StoredGradebookGrade, StoredGradebookPublication, StoredGradebookApplicability, GradebookDisputeStatus, StoredGradebookDisputeEvent, GradebookRecipientHistory, ManualReviewStatus, ManualReviewInboxItem, ManualReviewInboxPage, ClassGradebookCell, ClassGradebookLearner, ClassGradebook, LearnerClassGradeAssignment, LearnerClassGrades } from './repositories/gradebook.repository.js';
 export { PostgresGradebookVerificationRepository } from './repositories/gradebook-verification.repository.js';
 export type { GradebookVerificationJob, GradebookVerificationSummary } from './repositories/gradebook-verification.repository.js';
 
@@ -16,6 +16,10 @@ export class PostgresGradebookRepository {
   appendGrade: GradebookRepository['appendGrade'];
   publishGrade: GradebookRepository['publishGrade'];
   setRecipientApplicability: GradebookRepository['setRecipientApplicability'];
+  openGradeDispute: GradebookRepository['openGradeDispute'];
+  markGradeDisputeInReview: GradebookRepository['markGradeDisputeInReview'];
+  resolveGradeDispute: GradebookRepository['resolveGradeDispute'];
+  withdrawGradeDispute: GradebookRepository['withdrawGradeDispute'];
   readRecipient: GradebookRepository['readRecipient'];
   readClassGradebook: GradebookRepository['readClassGradebook'];
   readLearnerClassGrades: GradebookRepository['readLearnerClassGrades'];

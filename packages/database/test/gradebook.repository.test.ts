@@ -411,6 +411,75 @@ describe('PostgresGradebookRepository', () => {
     await expect(f.learner.setRecipientApplicability(input)).rejects.toBeInstanceOf(GradebookAccessError);
   });
 
+  it('keeps disputed published scores visible while excluding them from ranking until resolution', async () => {
+    const f = await fixture();
+    const { grade } = await scored(f);
+    await f.instructor.publishGrade({ recipientId: f.recipientId, gradeRevisionId: grade.id,
+      expectedPublicationSequence: 0, reason: 'Publish reviewed score', requestKey: randomUUID() });
+    const opened = await f.learner.openGradeDispute({ recipientId: f.recipientId, expectedDisputeEventId: null,
+      gradeRevisionId: grade.id, reason: 'The explanation criterion does not match the rubric feedback.', requestKey: randomUUID() });
+    expect(opened).toMatchObject({ sequence: 1, status: 'submitted', gradeRevisionId: grade.id });
+    const disputed = await f.instructor.readClassGradebook(f.classroom.id);
+    expect(disputed.rows.find(row => row.learnerId === f.learnerId)).toMatchObject({
+      publishedTotal: { earnedUnits: 800, possibleUnits: 1000, percentage: '80.00' },
+      rank: null, exclusions: ['disputed_grade'],
+    });
+    expect((await f.learner.readLearnerClassGrades(f.classroom.id)).assignments[0]).toMatchObject({
+      state: 'published', publishedGrade: { earnedUnits: 800 },
+    });
+    const reviewing = await f.instructor.markGradeDisputeInReview({ recipientId: f.recipientId,
+      expectedDisputeEventId: opened.id, reason: 'Instructor began rubric review', requestKey: randomUUID() });
+    expect(reviewing).toMatchObject({ sequence: 2, status: 'in_review' });
+    const resolved = await f.instructor.resolveGradeDispute({ recipientId: f.recipientId,
+      expectedDisputeEventId: reviewing.id, outcome: 'upheld', replacementGradeRevisionId: null,
+      reason: 'The published rubric score is supported by the submitted response.', requestKey: randomUUID() });
+    expect(resolved).toMatchObject({ sequence: 3, status: 'resolved', outcome: 'upheld' });
+    expect((await f.instructor.readClassGradebook(f.classroom.id)).rows.find(row => row.learnerId === f.learnerId))
+      .toMatchObject({ rank: 1, exclusions: [] });
+    await expect(f.learner.openGradeDispute({ recipientId: f.recipientId, expectedDisputeEventId: resolved.id,
+      gradeRevisionId: grade.id, reason: 'Duplicate review request', requestKey: randomUUID() })).rejects.toBeInstanceOf(GradebookConflictError);
+    expect((await f.instructor.readRecipient(f.recipientId)).disputes).toHaveLength(3);
+  });
+
+  it('enforces dispute ownership, idempotency, and automatic supersession on a newer submission', async () => {
+    const f = await fixture(), other = await fixture();
+    const { grade } = await scored(f);
+    await f.instructor.publishGrade({ recipientId: f.recipientId, gradeRevisionId: grade.id,
+      expectedPublicationSequence: 0, reason: 'Publish reviewed score', requestKey: randomUUID() });
+    const input = { recipientId: f.recipientId, expectedDisputeEventId: null, gradeRevisionId: grade.id,
+      reason: 'Please review this published score.', requestKey: randomUUID() };
+    const opened = await f.learner.openGradeDispute(input);
+    expect(await f.learner.openGradeDispute(input)).toEqual(opened);
+    await expect(f.learner.openGradeDispute({ ...input, reason: 'Changed retry payload' })).rejects.toBeInstanceOf(GradebookConflictError);
+    await expect(f.otherLearner.openGradeDispute({ ...input, requestKey: randomUUID() })).rejects.toBeInstanceOf(GradebookAccessError);
+    await expect(other.instructor.markGradeDisputeInReview({ recipientId: f.recipientId, expectedDisputeEventId: opened.id,
+      reason: 'Forged review', requestKey: randomUUID() })).rejects.toBeInstanceOf(GradebookAccessError);
+    await f.learner.submitAttempt(submission(f));
+    const history = await f.instructor.readRecipient(f.recipientId);
+    expect(history.disputes.at(-1)).toMatchObject({ status: 'superseded', sequence: 2 });
+    expect((await f.instructor.readClassGradebook(f.classroom.id)).rows.find(row => row.learnerId === f.learnerId)?.exclusions)
+      .toEqual(['awaiting_grade']);
+  });
+
+  it('keeps a correction disputed until it is explicitly resolved as changed', async () => {
+    const f = await fixture();
+    const { grade, input } = await scored(f);
+    await f.instructor.publishGrade({ recipientId: f.recipientId, gradeRevisionId: grade.id,
+      expectedPublicationSequence: 0, reason: 'Publish original score', requestKey: randomUUID() });
+    const opened = await f.learner.openGradeDispute({ recipientId: f.recipientId, expectedDisputeEventId: null,
+      gradeRevisionId: grade.id, reason: 'Please recheck the explanation criterion.', requestKey: randomUUID() });
+    const correction = await f.instructor.appendGrade({ ...input, expectedGradeRevisionId: grade.id,
+      criterionScores: { approach: 600, explanation: 400 }, reason: 'Correct score after review', requestKey: randomUUID() });
+    await f.instructor.publishGrade({ recipientId: f.recipientId, gradeRevisionId: correction.id,
+      expectedPublicationSequence: 1, reason: 'Publish corrected score', requestKey: randomUUID() });
+    expect((await f.instructor.readClassGradebook(f.classroom.id)).rows.find(row => row.learnerId === f.learnerId))
+      .toMatchObject({ publishedTotal: { percentage: '100.00' }, rank: null, exclusions: ['disputed_grade'] });
+    await f.instructor.resolveGradeDispute({ recipientId: f.recipientId, expectedDisputeEventId: opened.id,
+      outcome: 'changed', replacementGradeRevisionId: correction.id, reason: 'The corrected published grade addresses the review.', requestKey: randomUUID() });
+    expect((await f.instructor.readClassGradebook(f.classroom.id)).rows.find(row => row.learnerId === f.learnerId))
+      .toMatchObject({ publishedTotal: { percentage: '100.00' }, rank: 1, exclusions: [] });
+  });
+
   it('records attributable missing-work zero only after close and when no submission exists', async () => {
     const f = await fixture('2000-01-01T00:00:00Z');
     const input = { recipientId: f.recipientId, attemptId: null, expectedGradeRevisionId: null, kind: 'missing_zero' as const, criterionScores: {}, reason: 'Instructor explicitly finalized missing work', requestKey: randomUUID() };
@@ -540,7 +609,7 @@ describe('PostgresGradebookRepository', () => {
   it('upgrades legacy class data and can reverse only the additive migration', async () => {
     const f = await fixture(null, false);
     await database.query("INSERT INTO practice_sessions (user_id, content_id, content_version, current_stage, status, session_metadata, revision) VALUES ($1, $2, 1, 'evaluate', 'completed', '{}', 1)", [f.learnerId, contentId]);
-    const options = { databaseUrl: `postgresql://test:test@${migrationConfig.host}:${migrationConfig.port}/testdb`, dir: 'migrations', migrationsTable: 'pgmigrations', count: 6 };
+    const options = { databaseUrl: `postgresql://test:test@${migrationConfig.host}:${migrationConfig.port}/testdb`, dir: 'migrations', migrationsTable: 'pgmigrations', count: 7 };
     await runner({ ...options, direction: 'down' });
     expect((await database.query("SELECT to_regclass('gradebook_policies') AS table_name")).rows[0].table_name).toBeNull();
     expect((await f.classrooms.getClassDetail(f.classroom.id)).assignments[0].completedCount).toBe(1);
@@ -554,8 +623,8 @@ describe('PostgresGradebookRepository', () => {
     const result = await database.query<{ name: string; rls: boolean; anon: boolean; authenticated: boolean }>(`SELECT relname AS name, relrowsecurity AS rls,
       has_table_privilege('anon', 'public.' || relname, 'select,insert,update,delete') AS anon,
       has_table_privilege('authenticated', 'public.' || relname, 'select,insert,update,delete') AS authenticated
-      FROM pg_class WHERE relname IN ('gradebook_policies', 'gradebook_recipients', 'gradebook_attempts', 'gradebook_grade_revisions', 'gradebook_publications', 'gradebook_applicability_revisions')`);
-    expect(result.rows).toHaveLength(6);
+      FROM pg_class WHERE relname IN ('gradebook_policies', 'gradebook_recipients', 'gradebook_attempts', 'gradebook_grade_revisions', 'gradebook_publications', 'gradebook_applicability_revisions', 'gradebook_dispute_events')`);
+    expect(result.rows).toHaveLength(7);
     for (const row of result.rows) expect(row).toMatchObject({ rls: true, anon: false, authenticated: false });
   });
 
@@ -563,7 +632,9 @@ describe('PostgresGradebookRepository', () => {
     const f = await fixture(), { attempt, grade } = await scored(f);
     const publication = await f.instructor.publishGrade({ recipientId: f.recipientId, gradeRevisionId: grade.id, expectedPublicationSequence: 0, reason: 'Publish', requestKey: randomUUID() });
     const applicability = (await f.instructor.readRecipient(f.recipientId)).applicability;
-    for (const [table, id] of [['gradebook_policies', f.policy.versionId], ['gradebook_attempts', attempt.id], ['gradebook_grade_revisions', grade.id], ['gradebook_publications', publication.id], ['gradebook_applicability_revisions', applicability.id]]) {
+    const dispute = await f.learner.openGradeDispute({ recipientId: f.recipientId, expectedDisputeEventId: null,
+      gradeRevisionId: grade.id, reason: 'Immutable dispute fixture', requestKey: randomUUID() });
+    for (const [table, id] of [['gradebook_policies', f.policy.versionId], ['gradebook_attempts', attempt.id], ['gradebook_grade_revisions', grade.id], ['gradebook_publications', publication.id], ['gradebook_applicability_revisions', applicability.id], ['gradebook_dispute_events', dispute.id]]) {
       await expect(database.query(`UPDATE ${table} SET id = id WHERE id = $1`, [id])).rejects.toThrow();
     }
   });

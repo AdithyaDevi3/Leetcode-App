@@ -53,8 +53,13 @@ The first deployable product slice lives in [apps/web](apps/web). It includes:
   breakdowns, and instructor feedback without seeing draft grades. Instructors
   can excuse or restore an assignment for an individual learner with a required
   reason; excused work is excluded from that learner's totals and class ranking
-  while the immutable applicability history is retained. Platform administrators
-  retain separate access to manage all classes.
+  while the immutable applicability history is retained. The gradebook storage
+  boundary also preserves an immutable, recipient-scoped grade-dispute lifecycle:
+  an active dispute keeps the published score visible in totals but removes the
+  learner from comparable ranking until explicit resolution, withdrawal, or
+  automatic supersession by a new submission or excusal. Learner and instructor
+  dispute screens remain to be built. Platform administrators retain separate
+  access to manage all classes.
 - Unit tests, CI, a health endpoint, and a non-root production container.
 
 Run it locally from the repository root:

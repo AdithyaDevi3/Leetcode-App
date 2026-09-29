@@ -76,7 +76,7 @@ in a new comparison snapshot.
 The server-only `PostgresGradebookRepository` stores one immutable published
 policy and content snapshot per assignment, explicit recipient snapshots,
 assignment-specific response revisions, reviewed grade revisions, immutable
-applicability revisions, and publication history. It does not backfill grades
+applicability and dispute events, and publication history. It does not backfill grades
 from private practice. It is wired to
 recipient-scoped learner submissions, the
 leased assignment-verification worker, instructor review/publication routes,
@@ -103,6 +103,17 @@ revision and a request key. Excusing preserves attempts, grades, publications,
 and the complete applicability chain, supersedes active verification jobs, and
 blocks new submissions, grades, and publications until assignment is restored.
 
+Grade disputes are an append-only chain tied to the exact published grade under
+review. The owning learner can submit one active dispute and later withdraw it;
+the class owner can mark it in review and resolve it as upheld or changed. A
+changed outcome requires a separately created and published replacement grade,
+and publishing that correction does not silently close the dispute: the
+instructor must append the explicit resolution event. Expected-event identifiers
+provide optimistic concurrency, recipient locks serialize changes, and request
+keys make identical retries idempotent while rejecting changed retry payloads.
+Submitting a newer attempt or excusing the assignment appends a system-authored
+supersession event so stale disputes cannot remain active.
+
 The first persistence adapter accepts latest-attempt policies. Human rubric
 scores must cover every criterion and stay within its maximum. Verified-completion
 scores are written only by the trusted assignment worker from the policy's
@@ -120,9 +131,15 @@ corrections remain instructor-only. The live instructor projection calculates
 published totals, coverage, and comparable ranks without persisting a snapshot.
 Current excusals appear as an explicit nonnumeric state, remove that assignment
 from the learner's denominator, and exclude the learner from comparisons that
-require a common assignment set. Durable ranking snapshots, disputes, broader
-accommodations, policy replacement, and best-attempt selection remain separate
-workflows.
+require a common assignment set. An active dispute leaves the already published
+score in the learner's displayed total and coverage while excluding that learner
+from comparable ranking; resolution restores comparability against the current
+published outcome. Recipient history exposes only the public dispute message and
+status fields, never request keys, audit reasons, actor identities, or instructor
+private grade notes. Learners remain restricted to their own recipient and
+instructors to classes they own. Durable ranking snapshots, broader
+accommodations, policy replacement, best-attempt selection, class-wide
+publication, and learner/instructor dispute screens remain separate workflows.
 
 Verified-completion submissions use a dedicated assignment queue. The learner
 submission transaction creates the immutable attempt and queue record together,

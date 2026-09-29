@@ -137,9 +137,14 @@ from comparable ranking; resolution restores comparability against the current
 published outcome. Recipient history exposes only the public dispute message and
 status fields, never request keys, audit reasons, actor identities, or instructor
 private grade notes. Learners remain restricted to their own recipient and
-instructors to classes they own. Durable ranking snapshots, broader
+instructors to classes they own. Authenticated learner routes expose only open
+and withdraw transitions. They require exact request bodies, a trimmed 20–4,000
+character reason when opening, the expected dispute event for optimistic
+concurrency, and a request key; stale transitions fail with a conflict. The
+published grade card presents an accessible inline form plus the learner-visible
+request, status, and response history. Durable ranking snapshots, broader
 accommodations, policy replacement, best-attempt selection, class-wide
-publication, and learner/instructor dispute screens remain separate workflows.
+publication, and the instructor dispute screen remain separate workflows.
 
 Verified-completion submissions use a dedicated assignment queue. The learner
 submission transaction creates the immutable attempt and queue record together,

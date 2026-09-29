@@ -392,7 +392,8 @@ describe('PostgresGradebookRepository', () => {
       expectedApplicabilityRevisionId: excused.id, applicability: 'assigned', reason: 'Accommodation ended', requestKey: randomUUID() });
     expect(assigned).toMatchObject({ sequence: 3, applicability: 'assigned' });
     expect((await f.learner.readLearnerClassGrades(f.classroom.id)).assignments[0]).toMatchObject({
-      state: 'published', publishedGrade: { earnedUnits: 800 },
+      state: 'published', publishedGrade: { gradeRevisionId: grade.id, earnedUnits: 800 },
+      dispute: null,
     });
     const history = await database.query('SELECT applicability, reason FROM gradebook_applicability_revisions WHERE recipient_id=$1 ORDER BY sequence', [f.recipientId]);
     expect(history.rows).toEqual([
@@ -425,7 +426,9 @@ describe('PostgresGradebookRepository', () => {
       rank: null, exclusions: ['disputed_grade'],
     });
     expect((await f.learner.readLearnerClassGrades(f.classroom.id)).assignments[0]).toMatchObject({
-      state: 'published', publishedGrade: { earnedUnits: 800 },
+      state: 'published', publishedGrade: { gradeRevisionId: grade.id, earnedUnits: 800 },
+      dispute: { latestEventId: opened.id, gradeRevisionId: grade.id, status: 'submitted',
+        requestMessage: 'The explanation criterion does not match the rubric feedback.', resolutionMessage: null, outcome: null },
     });
     const reviewing = await f.instructor.markGradeDisputeInReview({ recipientId: f.recipientId,
       expectedDisputeEventId: opened.id, reason: 'Instructor began rubric review', requestKey: randomUUID() });
@@ -434,6 +437,9 @@ describe('PostgresGradebookRepository', () => {
       expectedDisputeEventId: reviewing.id, outcome: 'upheld', replacementGradeRevisionId: null,
       reason: 'The published rubric score is supported by the submitted response.', requestKey: randomUUID() });
     expect(resolved).toMatchObject({ sequence: 3, status: 'resolved', outcome: 'upheld' });
+    expect((await f.learner.readLearnerClassGrades(f.classroom.id)).assignments[0].dispute).toMatchObject({
+      latestEventId: resolved.id, status: 'resolved', outcome: 'upheld', resolutionMessage: 'The published rubric score is supported by the submitted response.',
+    });
     expect((await f.instructor.readClassGradebook(f.classroom.id)).rows.find(row => row.learnerId === f.learnerId))
       .toMatchObject({ rank: 1, exclusions: [] });
     await expect(f.learner.openGradeDispute({ recipientId: f.recipientId, expectedDisputeEventId: resolved.id,

@@ -57,9 +57,12 @@ The first deployable product slice lives in [apps/web](apps/web). It includes:
   boundary also preserves an immutable, recipient-scoped grade-dispute lifecycle:
   an active dispute keeps the published score visible in totals but removes the
   learner from comparable ranking until explicit resolution, withdrawal, or
-  automatic supersession by a new submission or excusal. Learner and instructor
-  dispute screens remain to be built. Platform administrators retain separate
-  access to manage all classes.
+  automatic supersession by a new submission or excusal. On each published grade
+  card, the owning learner can submit a 20–4,000 character review reason, inspect
+  the public request, status, and instructor response, or withdraw an active
+  request. Stale concurrent changes return a refresh-and-retry conflict instead
+  of overwriting history. Instructor dispute review and resolution screens remain
+  to be built. Platform administrators retain separate access to manage all classes.
 - Unit tests, CI, a health endpoint, and a non-root production container.
 
 Run it locally from the repository root:

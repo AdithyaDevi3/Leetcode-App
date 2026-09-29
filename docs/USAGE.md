@@ -193,7 +193,13 @@ supersedes an active dispute. While a dispute is active, projections preserve th
 published score in the learner's total and coverage but exclude the learner from
 comparable ranking. Learner reads remain recipient-scoped and expose public
 messages without request keys, internal reasons, actor identities, or private
-instructor notes. The learner and instructor web workflows are still pending.
+instructor notes. Authenticated learners use the published grade card at
+`/classes/{classId}/grades` to open a review request with a trimmed 20–4,000
+character reason, see its public status and response history, and withdraw an
+active request after explicit confirmation. The recipient-scoped routes reject
+unknown or unowned assignments as not found, malformed bodies as invalid, and
+stale expected-event identifiers as a refresh-and-retry conflict. The instructor
+review and resolution web workflow is still pending.
 
 ### Change authentication or administration
 
@@ -232,10 +238,12 @@ and comparable ranks. The class owner can excuse or restore an individual
 recipient with a required reason; the gradebook excludes excused work from totals
 and ranking while preserving all prior evidence. Active grade disputes preserve
 the published total but temporarily exclude the learner from comparable ranking;
-their web submission and review controls remain future work. Learners use
-`/classes/{classId}/grades` to see only published scores, rubric breakdowns,
-feedback, and current applicability. Class editing, code rotation, archiving,
-and individual assignment remain future work.
+learners can open and withdraw those requests inline on the corresponding
+published grade card and see the public request, status, and instructor response.
+Learners use `/classes/{classId}/grades` to see only published scores, rubric
+breakdowns, feedback, current applicability, and their own dispute details.
+Instructor dispute controls, class editing, code rotation, archiving, and
+individual assignment remain future work.
 
 Before enabling this release in staging or production, apply migration
 `1789932382585_classrooms-and-assignments.ts` to that environment's database and

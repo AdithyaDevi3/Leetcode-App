@@ -420,6 +420,16 @@ describe('PostgresGradebookRepository', () => {
     const opened = await f.learner.openGradeDispute({ recipientId: f.recipientId, expectedDisputeEventId: null,
       gradeRevisionId: grade.id, reason: 'The explanation criterion does not match the rubric feedback.', requestKey: randomUUID() });
     expect(opened).toMatchObject({ sequence: 1, status: 'submitted', gradeRevisionId: grade.id });
+    expect(await f.instructor.listOpenGradeDisputes(f.classroom.id)).toEqual([
+      expect.objectContaining({
+        recipientId: f.recipientId,
+        learner: expect.objectContaining({ id: f.learnerId, displayName: 'Synthetic learner' }),
+        assignment: expect.objectContaining({ id: f.policy.assignmentId, title: 'Reviewed activity' }),
+        dispute: expect.objectContaining({ latestEventId: opened.id, status: 'submitted', gradeRevisionId: grade.id,
+          requestMessage: 'The explanation criterion does not match the rubric feedback.' }),
+        publishedGrade: expect.objectContaining({ earnedUnits: 800 }),
+      }),
+    ]);
     const disputed = await f.instructor.readClassGradebook(f.classroom.id);
     expect(disputed.rows.find(row => row.learnerId === f.learnerId)).toMatchObject({
       publishedTotal: { earnedUnits: 800, possibleUnits: 1000, percentage: '80.00' },
@@ -433,6 +443,8 @@ describe('PostgresGradebookRepository', () => {
     const reviewing = await f.instructor.markGradeDisputeInReview({ recipientId: f.recipientId,
       expectedDisputeEventId: opened.id, reason: 'Instructor began rubric review', requestKey: randomUUID() });
     expect(reviewing).toMatchObject({ sequence: 2, status: 'in_review' });
+    expect((await f.instructor.listOpenGradeDisputes(f.classroom.id))[0].dispute)
+      .toMatchObject({ latestEventId: reviewing.id, status: 'in_review' });
     const resolved = await f.instructor.resolveGradeDispute({ recipientId: f.recipientId,
       expectedDisputeEventId: reviewing.id, outcome: 'upheld', replacementGradeRevisionId: null,
       reason: 'The published rubric score is supported by the submitted response.', requestKey: randomUUID() });
@@ -442,6 +454,7 @@ describe('PostgresGradebookRepository', () => {
     });
     expect((await f.instructor.readClassGradebook(f.classroom.id)).rows.find(row => row.learnerId === f.learnerId))
       .toMatchObject({ rank: 1, exclusions: [] });
+    expect(await f.instructor.listOpenGradeDisputes(f.classroom.id)).toEqual([]);
     await expect(f.learner.openGradeDispute({ recipientId: f.recipientId, expectedDisputeEventId: resolved.id,
       gradeRevisionId: grade.id, reason: 'Duplicate review request', requestKey: randomUUID() })).rejects.toBeInstanceOf(GradebookConflictError);
     expect((await f.instructor.readRecipient(f.recipientId)).disputes).toHaveLength(3);
@@ -455,6 +468,8 @@ describe('PostgresGradebookRepository', () => {
     const input = { recipientId: f.recipientId, expectedDisputeEventId: null, gradeRevisionId: grade.id,
       reason: 'Please review this published score.', requestKey: randomUUID() };
     const opened = await f.learner.openGradeDispute(input);
+    await expect(other.instructor.listOpenGradeDisputes(f.classroom.id)).rejects.toBeInstanceOf(GradebookAccessError);
+    await expect(f.learner.listOpenGradeDisputes(f.classroom.id)).rejects.toBeInstanceOf(GradebookAccessError);
     expect(await f.learner.openGradeDispute(input)).toEqual(opened);
     await expect(f.learner.openGradeDispute({ ...input, reason: 'Changed retry payload' })).rejects.toBeInstanceOf(GradebookConflictError);
     await expect(f.otherLearner.openGradeDispute({ ...input, requestKey: randomUUID() })).rejects.toBeInstanceOf(GradebookAccessError);

@@ -61,8 +61,11 @@ The first deployable product slice lives in [apps/web](apps/web). It includes:
   card, the owning learner can submit a 20–4,000 character review reason, inspect
   the public request, status, and instructor response, or withdraw an active
   request. Stale concurrent changes return a refresh-and-retry conflict instead
-  of overwriting history. Instructor dispute review and resolution screens remain
-  to be built. Platform administrators retain separate access to manage all classes.
+  of overwriting history. Class owners receive open requests in a dedicated
+  grade-review inbox, can acknowledge them as in review, and resolve them with a
+  written response by upholding the grade or selecting an already-published
+  replacement grade. Platform administrators retain separate access to manage
+  all classes.
 - Unit tests, CI, a health endpoint, and a non-root production container.
 
 Run it locally from the repository root:

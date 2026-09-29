@@ -35,7 +35,7 @@ export default async function ClassGradebookPage({ params }: { params: Promise<{
 
   return <main><div className="mx-auto max-w-[96rem] space-y-7">
     <Link className="inline-flex text-sm font-bold text-[var(--moss)] underline underline-offset-4" href={`/teach/${classId}`}>← Class workspace</Link>
-    <AdminPageHeader eyebrow="Class gradebook" title={gradebook.classroom.name} description="Published grades determine totals and rank. Draft or incomplete work stays clearly marked." action={<Link className="inline-flex min-h-11 items-center rounded-md border border-[var(--line)] bg-[var(--surface)] px-4 font-bold text-[var(--ink)] no-underline" href={`/teach/${classId}/submissions`}>Review submissions</Link>} />
+    <AdminPageHeader eyebrow="Class gradebook" title={gradebook.classroom.name} description="Published grades determine totals and rank. Draft or incomplete work stays clearly marked." action={<div className="flex flex-wrap gap-2"><Link className="inline-flex min-h-11 items-center rounded-md border border-[var(--line)] bg-[var(--surface)] px-4 font-bold text-[var(--ink)] no-underline" href={`/teach/${classId}/submissions`}>Review submissions</Link><Link className="inline-flex min-h-11 items-center rounded-md border border-[var(--line)] bg-[var(--surface)] px-4 font-bold text-[var(--ink)] no-underline" href={`/teach/${classId}/disputes`}>Grade reviews</Link></div>} />
     <section aria-label="Gradebook summary" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
       <AdminMetric label="Learners" value={included.length} note="Currently enrolled" />
       <AdminMetric label="Assignments" value={gradebook.assignments.length} note="In this comparison set" />

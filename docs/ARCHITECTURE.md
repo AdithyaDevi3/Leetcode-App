@@ -142,9 +142,16 @@ and withdraw transitions. They require exact request bodies, a trimmed 20–4,00
 character reason when opening, the expected dispute event for optimistic
 concurrency, and a request key; stale transitions fail with a conflict. The
 published grade card presents an accessible inline form plus the learner-visible
-request, status, and response history. Durable ranking snapshots, broader
+request, status, and response history. The owner-scoped instructor inbox reads
+only active requests for one class and links to recipient history. Instructor
+transition routes can append an internal `in_review` note or a public `resolved`
+message with an `upheld` or `changed` outcome; `changed` must reference a newer
+grade that was published separately. Exact request shapes, server-derived actors,
+idempotency keys, recipient locks, and expected-event comparison prevent forged
+identity, cross-class access, duplicate effects, and lost concurrent updates.
+Durable ranking snapshots, broader
 accommodations, policy replacement, best-attempt selection, class-wide
-publication, and the instructor dispute screen remain separate workflows.
+publication remain separate workflows.
 
 Verified-completion submissions use a dedicated assignment queue. The learner
 submission transaction creates the immutable attempt and queue record together,

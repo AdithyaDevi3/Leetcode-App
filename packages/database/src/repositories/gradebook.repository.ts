@@ -61,6 +61,14 @@ export type ManualReviewInboxItem = {
   latestPublication: StoredGradebookPublication | null;
 };
 export type ManualReviewInboxPage = { items: ManualReviewInboxItem[]; nextCursor: string | null };
+export type GradeDisputeInboxItem = {
+  recipientId: string;
+  learner: { id: string; displayName: string; email: string | null };
+  assignment: { id: string; title: string; dueOn: string | null };
+  dispute: { latestEventId: string; status: 'submitted' | 'in_review'; requestMessage: string;
+    gradeRevisionId: string; openedAt: string; updatedAt: string };
+  publishedGrade: { earnedUnits: number; publishedAt: string };
+};
 export type ClassGradebookCell = {
   assignmentId: string; recipientId: string | null;
   state: 'not_assigned' | 'excused' | 'unsubmitted' | 'queued' | 'running' | 'needs_review' | 'unavailable' | 'draft' | 'published';
@@ -119,6 +127,12 @@ type InboxRow = {
   grade_attempt_id: string | null; criterion_scores: Record<string, number> | null; learner_feedback: string | null;
   private_note: string | null; grade_created_at: Date | null;
   publication_id: string | null; publication_sequence: number | null; published_grade_revision_id: string | null; published_at: Date | null;
+};
+type DisputeInboxRow = {
+  recipient_id: string; learner_id: string; display_name: string; email: string | null;
+  assignment_id: string; assignment_title: string; due_on: string | null;
+  dispute_event_id: string; dispute_status: 'submitted' | 'in_review'; request_message: string;
+  grade_revision_id: string; opened_at: Date; updated_at: Date; earned_units: string; published_at: Date;
 };
 type ClassPolicyRow = {
   assignment_id: string; title: string; due_on: string | null; policy_id: string | null;
@@ -582,6 +596,50 @@ export class PostgresGradebookRepository {
         input.replacementGradeRevisionId ?? null, this.principal.userId, input.reason, input.status === 'resolved' ? input.reason : null, input.requestKey]);
       await this.audit(client, `gradebook.dispute.${input.status}`, result.rows[0].id, input.reason);
       return mapDispute(result.rows[0]);
+    });
+  }
+
+  async listOpenGradeDisputes(classId: string): Promise<GradeDisputeInboxItem[]> {
+    this.requireRole('instructor'); uuid(classId);
+    return this.db.transaction(async client => {
+      await client.query('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY');
+      const classroom = await client.query<{ id: string }>(
+        'SELECT id FROM classrooms WHERE id=$1 AND created_by=$2', [classId, this.principal.userId],
+      );
+      if (!classroom.rows[0]) throw new GradebookAccessError();
+      const result = await client.query<DisputeInboxRow>(`
+        SELECT r.id AS recipient_id, r.learner_id, u.display_name, u.email,
+          a.id AS assignment_id, a.title AS assignment_title, to_char(a.due_on, 'YYYY-MM-DD') AS due_on,
+          de.id AS dispute_event_id, de.status AS dispute_status, opened.message AS request_message,
+          de.grade_revision_id, opened.created_at AS opened_at, de.created_at AS updated_at,
+          g.earned_units, p.created_at AS published_at
+        FROM gradebook_recipients r
+        JOIN gradebook_policies gp ON gp.id=r.policy_id
+        JOIN class_assignments a ON a.id=gp.assignment_id
+        JOIN users u ON u.id=r.learner_id
+        JOIN LATERAL (
+          SELECT x.* FROM gradebook_dispute_events x WHERE x.recipient_id=r.id ORDER BY x.sequence DESC LIMIT 1
+        ) de ON de.status IN ('submitted','in_review')
+        JOIN LATERAL (
+          SELECT x.message, x.created_at FROM gradebook_dispute_events x
+          WHERE x.recipient_id=r.id AND x.publication_id=de.publication_id
+            AND x.grade_revision_id=de.grade_revision_id AND x.status='submitted'
+          ORDER BY x.sequence LIMIT 1
+        ) opened ON true
+        JOIN gradebook_grade_revisions g ON g.id=de.grade_revision_id
+        JOIN gradebook_publications p ON p.id=de.publication_id
+        WHERE a.class_id=$1
+        ORDER BY opened.created_at, r.id
+      `, [classId]);
+      return result.rows.map(row => ({
+        recipientId: row.recipient_id,
+        learner: { id: row.learner_id, displayName: row.display_name, email: row.email },
+        assignment: { id: row.assignment_id, title: row.assignment_title, dueOn: row.due_on },
+        dispute: { latestEventId: row.dispute_event_id, status: row.dispute_status,
+          requestMessage: row.request_message, gradeRevisionId: row.grade_revision_id,
+          openedAt: row.opened_at.toISOString(), updatedAt: row.updated_at.toISOString() },
+        publishedGrade: { earnedUnits: Number(row.earned_units), publishedAt: row.published_at.toISOString() },
+      }));
     });
   }
 

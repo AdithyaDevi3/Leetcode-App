@@ -199,7 +199,13 @@ character reason, see its public status and response history, and withdraw an
 active request after explicit confirmation. The recipient-scoped routes reject
 unknown or unowned assignments as not found, malformed bodies as invalid, and
 stale expected-event identifiers as a refresh-and-retry conflict. The instructor
-review and resolution web workflow is still pending.
+workflow lists active requests at `/teach/{classId}/disputes` with new and
+in-review filters. Its recipient detail screen lets the owning instructor append
+an internal in-review note, then send the learner a written resolution that
+either upholds the disputed grade or identifies a newer, already-published grade
+as the changed outcome. Instructor routes use the same exact-body validation,
+idempotency keys, and expected-event conflict protection; repository ownership
+checks keep requests private to the class owner.
 
 ### Change authentication or administration
 
@@ -242,8 +248,10 @@ learners can open and withdraw those requests inline on the corresponding
 published grade card and see the public request, status, and instructor response.
 Learners use `/classes/{classId}/grades` to see only published scores, rubric
 breakdowns, feedback, current applicability, and their own dispute details.
-Instructor dispute controls, class editing, code rotation, archiving, and
-individual assignment remain future work.
+Class owners use `/teach/{classId}/disputes` to triage open requests and the
+linked submission detail to mark a request in review or resolve it as upheld or
+changed. Class editing, code rotation, archiving, and individual assignment
+remain future work.
 
 Before enabling this release in staging or production, apply migration
 `1789932382585_classrooms-and-assignments.ts` to that environment's database and

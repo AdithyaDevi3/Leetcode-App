@@ -22,7 +22,7 @@ export default async function SubmissionInboxPage({ params, searchParams }: {
   const items = status ? page.items.filter(item => item.status === status) : page.items;
   return <main><div className="mx-auto max-w-6xl space-y-7">
     <Link className="inline-flex text-sm font-bold text-[var(--moss)] underline underline-offset-4" href={`/teach/${classId}`}>← Class workspace</Link>
-    <AdminPageHeader eyebrow="Manual grading" title="Submission inbox" description="Review the latest learner response, save rubric scores privately, then publish when the grade and feedback are ready." />
+    <AdminPageHeader eyebrow="Manual grading" title="Submission inbox" description="Review the latest learner response, save rubric scores privately, then publish when the grade and feedback are ready." action={<Link className="inline-flex min-h-11 items-center rounded-md border border-[var(--line)] bg-[var(--surface)] px-4 font-bold text-[var(--ink)] no-underline" href={`/teach/${classId}/disputes`}>Grade reviews</Link>} />
     <nav aria-label="Submission filters" className="flex flex-wrap gap-2">
       {[['', 'All'], ['awaiting_review', 'Awaiting review'], ['draft', 'Drafts'], ['published', 'Published']].map(([value, label]) =>
         <Link key={value} href={value ? `?status=${value}` : `?`} className={`rounded-full border px-3 py-2 text-sm font-bold no-underline ${status === (value || undefined) ? 'border-[var(--moss)] bg-[var(--moss-soft)] text-[var(--moss)]' : 'border-[var(--line)] bg-[var(--surface)] text-[var(--ink)]'}`}>{label}{value ? ` (${counts[value as keyof typeof counts]})` : ''}</Link>)}

@@ -13,5 +13,6 @@ cpSync(join(appRoot, '.next', 'static'), join(standaloneRoot, '.next', 'static')
 
 process.env.PORT ??= '3100';
 process.env.HOSTNAME ??= '127.0.0.1';
+process.env.METHOD_E2E_FIXTURES ??= '1';
 
 await import(pathToFileURL(join(standaloneRoot, 'server.js')).href);

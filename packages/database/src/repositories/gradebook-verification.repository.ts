@@ -17,6 +17,16 @@ export type GradebookVerificationSummary = {
   durationMs: number;
 };
 
+export type GradebookVerificationQueueMetrics = {
+  queued: number;
+  running: number;
+  completed: number;
+  unavailable: number;
+  superseded: number;
+  expiredLeases: number;
+  oldestQueuedAgeMs: number;
+};
+
 function validateSummary(value: unknown): GradebookVerificationSummary {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('Invalid verification summary');
   const summary = value as Record<string, unknown>;
@@ -37,6 +47,27 @@ function validateErrorCode(value: string): string {
 
 export class PostgresGradebookVerificationRepository {
   constructor(private readonly db: DatabaseClient) {}
+
+  async metrics(): Promise<GradebookVerificationQueueMetrics> {
+    const result = await this.db.query<{
+      queued: string; running: string; completed: string; unavailable: string; superseded: string;
+      expired_leases: string; oldest_queued_age_ms: string | null;
+    }>(`SELECT
+      COUNT(*) FILTER (WHERE status='queued') AS queued,
+      COUNT(*) FILTER (WHERE status='running') AS running,
+      COUNT(*) FILTER (WHERE status='completed') AS completed,
+      COUNT(*) FILTER (WHERE status='unavailable') AS unavailable,
+      COUNT(*) FILTER (WHERE status='superseded') AS superseded,
+      COUNT(*) FILTER (WHERE status='running' AND lease_expires_at<clock_timestamp()) AS expired_leases,
+      EXTRACT(EPOCH FROM (clock_timestamp()-MIN(queued_at) FILTER (WHERE status='queued'))) * 1000 AS oldest_queued_age_ms
+      FROM gradebook_verification_jobs`);
+    const row = result.rows[0];
+    return {
+      queued: Number(row.queued), running: Number(row.running), completed: Number(row.completed),
+      unavailable: Number(row.unavailable), superseded: Number(row.superseded),
+      expiredLeases: Number(row.expired_leases), oldestQueuedAgeMs: Number(row.oldest_queued_age_ms ?? 0),
+    };
+  }
 
   async claimNext(leaseMs = 120_000): Promise<GradebookVerificationJob | null> {
     if (!Number.isSafeInteger(leaseMs) || leaseMs < 1_000 || leaseMs > 900_000) throw new Error('Invalid lease duration');

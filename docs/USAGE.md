@@ -163,6 +163,12 @@ runs each pinned test through the configured sandbox, and resolves a binary
 pass/fail grade or marks the job unavailable for retry. Trigger it with an
 authenticated `POST /api/internal/workers/verifications` request using
 `VERIFICATION_WORKER_TOKEN`, the same pattern as the evaluation worker route.
+Set `VERIFICATION_QUEUE_MAX_AGE_MS` to the maximum acceptable delay for the
+deployed scheduler cadence. `GET /api/health/verifications` returns aggregate
+queue metrics and HTTP 503 when queued work exceeds that age or a running lease
+has expired; it returns `disabled` without opening a database connection while
+code execution is disabled. Alert on sustained 503 responses without exposing
+the worker token or queue payloads.
 The initial `stdin-stdout-v1` adapter supports one to five pinned cases with
 bounded string `input` and `expected` fields. Any other verifier version or
 malformed suite remains unavailable and cannot create a grade.

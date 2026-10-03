@@ -173,6 +173,11 @@ Unknown adapter versions and malformed suites remain unavailable.
 Submission admission is serialized and counted in PostgreSQL at five new
 attempts per learner per ten minutes, so serverless instance churn cannot reset
 the execution budget. Idempotent retries do not consume another slot.
+The aggregate `/api/health/verifications` probe exposes status counts, oldest
+queued age, and expired-lease count without job identifiers, learner data,
+source, or pinned tests. It reports degraded when queued work exceeds the
+configured age budget or a running lease has expired, allowing the scheduler
+and worker alert to fail independently of learner-facing submission requests.
 
 Database update triggers enforce immutability, while authorized account/class
 deletion cascades can erase learner records. Staff attribution follows existing

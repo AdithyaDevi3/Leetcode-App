@@ -81,6 +81,19 @@ describe('assignment verification persistence', () => {
     expect(events.rows).toEqual([{ status: 'queued', reason: 'assignment-submitted' }]);
   });
 
+  it('reports aggregate queue health without exposing job payloads', async () => {
+    const f = await fixture();
+    await f.submit();
+    const verifier = new PostgresGradebookVerificationRepository(database);
+    await expect(verifier.metrics()).resolves.toMatchObject({
+      queued: 1, running: 0, completed: 0, unavailable: 0, superseded: 0, expiredLeases: 0,
+      oldestQueuedAgeMs: expect.any(Number),
+    });
+    const job = await verifier.claimNext();
+    await database.query("UPDATE gradebook_verification_jobs SET lease_expires_at=clock_timestamp()-interval '1 second' WHERE id=$1", [job!.id]);
+    await expect(verifier.metrics()).resolves.toMatchObject({ queued: 0, running: 1, expiredLeases: 1 });
+  });
+
   it('does not enqueue reviewed-rubric submissions', async () => {
     const f = await fixture('reviewed');
     const attempt = await f.submit();

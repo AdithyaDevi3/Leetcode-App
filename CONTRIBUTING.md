@@ -30,8 +30,8 @@ The repository currently contains these working product areas:
 | Python 3, C++20, and TypeScript verification | `apps/web/src/lib/sandbox`, execution APIs, activity test suites |
 | Learner profiles and recommendations | onboarding, `/learn`, dashboard, mastery and local learner modules |
 | Instructor signup, classes, and assigned practice | `/teach`, `/admin/classes`, `/classes`, owner-scoped classroom repository |
-| Gradebook calculation foundation (not yet connected to classroom screens) | `packages/domain/src/gradebook.ts`, exact points, published coverage, comparable totals and tied ranks |
-| Gradebook storage (server-only; no classroom UI yet) | `packages/database/src/repositories/gradebook.repository.ts`, immutable policies, explicit recipients, submissions, grade revisions and publication history |
+| Instructor and learner gradebooks | `/teach/[classId]/gradebook`, `/teach/[classId]/submissions`, `/teach/[classId]/disputes`, `/classes/[classId]/grades`, exact published totals, comparable ranks, rubric feedback, recipient excusals, learner grade-review requests, instructor resolution, dispute-aware projections, and draft-safe learner views |
+| Gradebook storage and calculation | `packages/database/src/repositories/gradebook.repository.ts`, `packages/domain/src/gradebook.ts`, immutable policies, explicit recipients, submissions, grade, applicability, and dispute events, publication history, and repeatable-read projections |
 | Assignment submission and verification | authenticated recipient-scoped submissions, assignment-only leased jobs, pinned test snapshots, sandbox worker, exact attempt provenance, binary grade revisions |
 | Shared learner navigation and landing page | application shell, responsive sidebar and mobile navigation |
 | Authentication and persistence | Supabase Auth, PostgreSQL repositories and migrations |
@@ -57,9 +57,7 @@ Good next contributions are coherent slices with clear evidence:
   guest progress during account upgrade.
 - Add class editing, code rotation, archiving, and individual assignments with
   authorization and audit coverage.
-- Connect verified assignment results to the calculation foundation and
-  authorized instructor/student views. Add
-  ranking snapshots, excusals and withdrawal history before class-wide publication.
+- Add durable ranking snapshots and class-wide publication semantics.
 - Complete staging evidence for durable evaluation workers, execution limits,
   backups, rate limits, alerts, accessibility, and recovery behavior.
 - Build accessible system-design diagramming and rubric feedback.

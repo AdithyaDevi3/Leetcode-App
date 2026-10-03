@@ -270,8 +270,10 @@ export class PostgresClassroomRepository {
         });
           await client.query(`INSERT INTO gradebook_policies
             (id, assignment_id, content_version_id, policy, content_snapshot, closes_at, created_by, reason)
-            VALUES ($1,$2,$3,$4,$5,NULL,$6,$7)`, [policyVersionId, result.rows[0].id, source.rows[0].content_version_id,
-            policy, source.rows[0].content_snapshot, input.actorId, input.reason]);
+            VALUES ($1,$2,$3,$4,$5,
+              CASE WHEN $8::date IS NULL THEN NULL ELSE (($8::date + 1)::timestamp AT TIME ZONE 'UTC') END,
+              $6,$7)`, [policyVersionId, result.rows[0].id, source.rows[0].content_version_id,
+            policy, source.rows[0].content_snapshot, input.actorId, input.reason, input.dueOn]);
           await client.query(`INSERT INTO gradebook_recipients (policy_id, learner_id)
             SELECT $1, user_id FROM class_enrollments WHERE class_id = $2`, [policyVersionId, input.classId]);
           await client.query(`INSERT INTO administration_audit_events

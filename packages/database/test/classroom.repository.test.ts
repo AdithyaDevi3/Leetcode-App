@@ -174,7 +174,8 @@ describe('PostgresClassroomRepository', () => {
       SELECT p.assignment_id, p.closes_at, p.policy,
         (SELECT count(*)::text FROM gradebook_recipients r WHERE r.policy_id = p.id) AS recipient_count
       FROM gradebook_policies p WHERE p.assignment_id = $1`, [assignmentId]);
-    expect(storedPolicy.rows[0]).toMatchObject({ assignment_id: assignmentId, closes_at: null, recipient_count: '1' });
+    expect(storedPolicy.rows[0]).toMatchObject({ assignment_id: assignmentId, recipient_count: '1' });
+    expect(storedPolicy.rows[0].closes_at?.toISOString()).toBe('2026-10-02T00:00:00.000Z');
     expect(storedPolicy.rows[0].policy.scoring.mode).toBe('reviewed_rubric');
     expect(storedPolicy.rows[0].policy.scoring.criteria.reduce((total, criterion) => total + criterion.maxUnits, 0)).toBe(storedPolicy.rows[0].policy.maxUnits);
     await database.query(`

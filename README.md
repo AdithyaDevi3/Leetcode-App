@@ -48,8 +48,24 @@ The first deployable product slice lives in [apps/web](apps/web). It includes:
 - A role-scoped administration portal with live operational summaries, safe
   queue views, audited operator-role changes, and deny-by-default Supabase RLS.
 - Instructor signup and owner-scoped classes with join codes, learner enrollment,
-  assigned practice activities, due dates, and completion progress. Platform
-  administrators retain separate access to manage all classes.
+  assigned practice activities, due dates, a manual-grading inbox, and a
+  published-only class gradebook. Learners can review published scores, rubric
+  breakdowns, and instructor feedback without seeing draft grades. Instructors
+  can excuse or restore an assignment for an individual learner with a required
+  reason; excused work is excluded from that learner's totals and class ranking
+  while the immutable applicability history is retained. The gradebook storage
+  boundary also preserves an immutable, recipient-scoped grade-dispute lifecycle:
+  an active dispute keeps the published score visible in totals but removes the
+  learner from comparable ranking until explicit resolution, withdrawal, or
+  automatic supersession by a new submission or excusal. On each published grade
+  card, the owning learner can submit a 20–4,000 character review reason, inspect
+  the public request, status, and instructor response, or withdraw an active
+  request. Stale concurrent changes return a refresh-and-retry conflict instead
+  of overwriting history. Class owners receive open requests in a dedicated
+  grade-review inbox, can acknowledge them as in review, and resolve them with a
+  written response by upholding the grade or selecting an already-published
+  replacement grade. Platform administrators retain separate access to manage
+  all classes.
 - Unit tests, CI, a health endpoint, and a non-root production container.
 
 Run it locally from the repository root:

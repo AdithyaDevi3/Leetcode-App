@@ -109,6 +109,19 @@ This matrix tracks the functional and operational requirements defined in [PRODU
 | OPS-009 | Privileged audit log | Planned | 6 | Tamper-evident events with retention/access policy |
 | OPS-010 | Read-only support diagnostics | Planned | 6 | No unrestricted impersonation; access is audited |
 
+## Classroom grading
+
+| ID | Requirement | Status | Phase | Acceptance evidence |
+|---|---|---|---|---|
+| GRADE-001 | Owner-scoped instructor classes and grade access | Implemented | Current | Repository and route tests deny cross-owner access to submissions and class gradebooks |
+| GRADE-002 | Recipient-scoped assignment submission and verification | Prototype | Current, 5 | Immutable attempts, pinned tests, durable leases, rate limits, worker tests, and aggregate queue-health checks exist; staging worker scheduling, alerting, and failure-drill evidence remain required |
+| GRADE-003 | Immutable grade revisions and explicit publication | Implemented | Current | Database constraints and repository tests cover lineage, idempotency, conflicts, and append-only publication history |
+| GRADE-004 | Private manual-rubric drafts and instructor publication | Implemented | Current | Instructor workflow plus repository, route, and browser coverage verify private draft saving, optimistic conflicts, publication, and learner-invisible notes |
+| GRADE-005 | Published-only totals, coverage, and comparable class ranking | Implemented | Current | Domain and repository tests cover exact totals, incomplete coverage, ties, exclusions, and draft-safe ranking |
+| GRADE-006 | Learner published score, rubric, and feedback view | Implemented | Current | Owner-scoped read-model coverage and phone-width browser checks verify published-only totals, rubric feedback, labeled review controls, and overflow-free layout |
+| GRADE-007 | Auditable per-recipient assignment excusals | Implemented | Current | Immutable applicability revisions require class ownership, reasons, idempotency keys, and optimistic concurrency; repository and migration tests cover preserved history, blocked writes, superseded jobs, and exclusion from totals and ranking |
+| GRADE-008 | Auditable learner grade disputes and instructor resolution | Implemented | Current | Immutable recipient-scoped events and repository/route tests cover learner submit/withdraw, instructor inbox/review/resolution, upheld and changed outcomes, idempotent retries, optimistic conflicts, correction validation, automatic supersession, owner/recipient privacy, and dispute-aware totals/ranking; learner grade cards and owner-scoped instructor screens complete both web workflows |
+
 ## Mobile and notifications
 
 | ID | Requirement | Status | Phase | Acceptance evidence |

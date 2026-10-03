@@ -5,9 +5,9 @@ export type { DatabaseClient, DatabaseConfig } from './client.js';
 export { createDatabaseClient, databaseConfigFromEnv } from './client.js';
 
 export { ASSIGNMENT_VERIFIER_VERSION, GradebookAccessError, GradebookConflictError, GradebookRateLimitError } from './repositories/gradebook.repository.js';
-export type { GradebookPrincipal, AssignmentResponse, StoredGradebookAttempt, StoredGradebookGrade, StoredGradebookPublication, GradebookRecipientHistory, ManualReviewStatus, ManualReviewInboxItem, ManualReviewInboxPage, ClassGradebookCell, ClassGradebookLearner, ClassGradebook, LearnerClassGradeAssignment, LearnerClassGrades } from './repositories/gradebook.repository.js';
+export type { GradebookPrincipal, AssignmentResponse, StoredGradebookAttempt, StoredGradebookGrade, StoredGradebookPublication, StoredGradebookApplicability, GradebookDisputeStatus, StoredGradebookDisputeEvent, GradebookRecipientHistory, ManualReviewStatus, ManualReviewInboxItem, ManualReviewInboxPage, GradeDisputeInboxItem, ClassGradebookCell, ClassGradebookLearner, ClassGradebook, LearnerClassGradeAssignment, LearnerClassGrades } from './repositories/gradebook.repository.js';
 export { PostgresGradebookVerificationRepository } from './repositories/gradebook-verification.repository.js';
-export type { GradebookVerificationJob, GradebookVerificationSummary } from './repositories/gradebook-verification.repository.js';
+export type { GradebookVerificationJob, GradebookVerificationQueueMetrics, GradebookVerificationSummary } from './repositories/gradebook-verification.repository.js';
 
 export class PostgresGradebookRepository {
   constructor(db: DatabaseClient, principal: GradebookPrincipal);
@@ -15,10 +15,24 @@ export class PostgresGradebookRepository {
   submitAttempt: GradebookRepository['submitAttempt'];
   appendGrade: GradebookRepository['appendGrade'];
   publishGrade: GradebookRepository['publishGrade'];
+  setRecipientApplicability: GradebookRepository['setRecipientApplicability'];
+  openGradeDispute: GradebookRepository['openGradeDispute'];
+  markGradeDisputeInReview: GradebookRepository['markGradeDisputeInReview'];
+  resolveGradeDispute: GradebookRepository['resolveGradeDispute'];
+  withdrawGradeDispute: GradebookRepository['withdrawGradeDispute'];
   readRecipient: GradebookRepository['readRecipient'];
   readClassGradebook: GradebookRepository['readClassGradebook'];
+  listOpenGradeDisputes: GradebookRepository['listOpenGradeDisputes'];
   readLearnerClassGrades: GradebookRepository['readLearnerClassGrades'];
   listManualReviewInbox: GradebookRepository['listManualReviewInbox'];
+}
+
+export class PostgresGradebookVerificationRepository {
+  constructor(db: DatabaseClient);
+  metrics: import('./repositories/gradebook-verification.repository.js').PostgresGradebookVerificationRepository['metrics'];
+  claimNext: import('./repositories/gradebook-verification.repository.js').PostgresGradebookVerificationRepository['claimNext'];
+  resolve: import('./repositories/gradebook-verification.repository.js').PostgresGradebookVerificationRepository['resolve'];
+  unavailable: import('./repositories/gradebook-verification.repository.js').PostgresGradebookVerificationRepository['unavailable'];
 }
 
 export class LastAdministratorError extends Error {}

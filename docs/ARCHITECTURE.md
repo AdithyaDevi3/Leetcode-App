@@ -26,7 +26,7 @@ flowchart LR
 | Personalization | Explainable deterministic ranking using profile, practice history, review age, and local mastery evidence |
 | Offline behavior | Network-first navigation with a self-contained cached fallback; application drafts also use guarded browser storage |
 | Administration | `/admin` uses Supabase sessions plus database role assignments for least-privilege server authorization; read-only operational views, audited role management, and administrator-managed classes are available, while appeal resolution still uses the legacy reviewer token |
-| Classes | Server-generated codes link signed-in learners to classes; instructors manage their own classes at `/teach`, platform administrators manage all classes at `/admin/classes`, and completed practice sessions provide task progress |
+| Classes | Server-generated codes link signed-in learners to classes; instructors manage their own classes, submissions, recipient excusals, and gradebooks at `/teach`, learners see published grades and applicability at `/classes/[classId]/grades`, and platform administrators manage all classes at `/admin/classes` |
 
 Instructor opt-in updates only the verified user's learner role to instructor
 and records an audit event in the same transaction. It never grants platform
@@ -39,11 +39,12 @@ data and returns 404 in production.
 ### Gradebook calculation boundary
 
 `packages/domain/src/gradebook.ts` provides a pure points-based calculation
-foundation, exported from `@leetcode-app/domain`. It is not yet connected to
-classroom storage or screens. Callers must authorize the class/cohort and read
-a consistent snapshot before calculation; the domain function does not grant
-access or publish grades. Existing content-level completion counters are not
-assignment grades.
+foundation, exported from `@leetcode-app/domain`. The owner-scoped
+`readClassGradebook` projection reads a repeatable snapshot and supplies the
+instructor matrix at `/teach/[classId]/gradebook`; learner projections expose
+only the signed-in learner's published results. The domain function itself does
+not grant access or publish grades. Existing content-level completion counters
+are not assignment grades.
 
 Policies pin assignment, content, rubric/verifier versions, maximum points,
 and attempt selection. `freezeAssignmentGradePolicy` validates and copies them
@@ -74,14 +75,17 @@ in a new comparison snapshot.
 
 The server-only `PostgresGradebookRepository` stores one immutable published
 policy and content snapshot per assignment, explicit recipient snapshots,
-assignment-specific response revisions, reviewed grade revisions, and publication
-history. It does not backfill grades from private practice. It is not yet wired
-to routes, workers, classroom screens, or the calculation projection.
+assignment-specific response revisions, reviewed grade revisions, immutable
+applicability and dispute events, and publication history. It does not backfill grades
+from private practice. It is wired to
+recipient-scoped learner submissions, the
+leased assignment-verification worker, instructor review/publication routes,
+the instructor matrix, and the learner published-grade view.
 
 Every instance requires a verified learner or instructor identity. Instructor
 queries enforce class ownership; learner queries enforce recipient ownership.
-There is no implicit global administrator scope. All five tables enable RLS and
-revoke browser-role privileges; authorization still runs in server SQL because
+There is no implicit global administrator scope. All gradebook tables enable RLS
+and revoke browser-role privileges; authorization still runs in server SQL because
 the server connection is privileged. Composite foreign keys prevent attempts,
 grades, and publications from crossing recipients or policies.
 
@@ -92,10 +96,29 @@ reads use a repeatable-read transaction. Policies, responses, and published
 evidence cannot be updated in place. Content is copied at policy publication,
 so editing source content does not rewrite an existing assignment's evidence.
 
+Applicability follows the same append-only model. Every recipient begins with a
+system-authored `assigned` revision. Only the owning instructor can append a
+reasoned `excused` or restored `assigned` revision, using the expected prior
+revision and a request key. Excusing preserves attempts, grades, publications,
+and the complete applicability chain, supersedes active verification jobs, and
+blocks new submissions, grades, and publications until assignment is restored.
+
+Grade disputes are an append-only chain tied to the exact published grade under
+review. The owning learner can submit one active dispute and later withdraw it;
+the class owner can mark it in review and resolve it as upheld or changed. A
+changed outcome requires a separately created and published replacement grade,
+and publishing that correction does not silently close the dispute: the
+instructor must append the explicit resolution event. Expected-event identifiers
+provide optimistic concurrency, recipient locks serialize changes, and request
+keys make identical retries idempotent while rejecting changed retry payloads.
+Submitting a newer attempt or excusing the assignment appends a system-authored
+supersession event so stale disputes cannot remain active.
+
 The first persistence adapter accepts latest-attempt policies. Human rubric
 scores must cover every criterion and stay within its maximum. Verified-completion
-scores require a future trusted verifier adapter; a caller cannot supply a pass
-flag. Missing-work zero requires no submission, an elapsed explicit closing time,
+scores are written only by the trusted assignment worker from the policy's
+pinned verifier and test snapshot; a caller cannot supply a pass flag.
+Missing-work zero requires no submission, an elapsed explicit closing time,
 and an instructor reason. New submissions use database receipt time and require
 live enrollment and an active class. Withdrawal preserves history. Publishing a
 grade for an older attempt is rejected when a newer submission exists.
@@ -104,9 +127,31 @@ Students see their own attempts and published grade history, including earlier
 publications after a new submission. That history is not the current gradebook
 projection: consumers must represent the new pending attempt explicitly, never
 reuse an old published score as a current finalized outcome. Unpublished
-corrections remain instructor-only. Full-cohort ranking snapshots, disputes,
-accommodations, excusals, policy replacement, and best-attempt selection remain
-separate workflows.
+corrections remain instructor-only. The live instructor projection calculates
+published totals, coverage, and comparable ranks without persisting a snapshot.
+Current excusals appear as an explicit nonnumeric state, remove that assignment
+from the learner's denominator, and exclude the learner from comparisons that
+require a common assignment set. An active dispute leaves the already published
+score in the learner's displayed total and coverage while excluding that learner
+from comparable ranking; resolution restores comparability against the current
+published outcome. Recipient history exposes only the public dispute message and
+status fields, never request keys, audit reasons, actor identities, or instructor
+private grade notes. Learners remain restricted to their own recipient and
+instructors to classes they own. Authenticated learner routes expose only open
+and withdraw transitions. They require exact request bodies, a trimmed 20–4,000
+character reason when opening, the expected dispute event for optimistic
+concurrency, and a request key; stale transitions fail with a conflict. The
+published grade card presents an accessible inline form plus the learner-visible
+request, status, and response history. The owner-scoped instructor inbox reads
+only active requests for one class and links to recipient history. Instructor
+transition routes can append an internal `in_review` note or a public `resolved`
+message with an `upheld` or `changed` outcome; `changed` must reference a newer
+grade that was published separately. Exact request shapes, server-derived actors,
+idempotency keys, recipient locks, and expected-event comparison prevent forged
+identity, cross-class access, duplicate effects, and lost concurrent updates.
+Durable ranking snapshots, broader
+accommodations, policy replacement, best-attempt selection, class-wide
+publication remain separate workflows.
 
 Verified-completion submissions use a dedicated assignment queue. The learner
 submission transaction creates the immutable attempt and queue record together,
@@ -128,6 +173,11 @@ Unknown adapter versions and malformed suites remain unavailable.
 Submission admission is serialized and counted in PostgreSQL at five new
 attempts per learner per ten minutes, so serverless instance churn cannot reset
 the execution budget. Idempotent retries do not consume another slot.
+The aggregate `/api/health/verifications` probe exposes status counts, oldest
+queued age, and expired-lease count without job identifiers, learner data,
+source, or pinned tests. It reports degraded when queued work exceeds the
+configured age budget or a running lease has expired, allowing the scheduler
+and worker alert to fail independently of learner-facing submission requests.
 
 Database update triggers enforce immutability, while authorized account/class
 deletion cascades can erase learner records. Staff attribution follows existing

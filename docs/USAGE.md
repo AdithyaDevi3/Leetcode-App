@@ -1,7 +1,7 @@
 # Maintainer Quick Start
 
 This is the practical starting point for taking over Method. It describes the
-deployed application as of 2026-09-22, where common changes belong, and the
+deployed application as of 2026-09-28, where common changes belong, and the
 shortest safe path to the first administration console.
 
 ## Ten-minute orientation
@@ -33,7 +33,7 @@ network or a permitted VPN. Changing application redirects cannot repair DNS.
 | Persistence | Supabase Postgres stores guest identities, sessions, revisions, evaluations, history, profiles, requests, notes, bookmarks, and queue records | `packages/database/migrations`, `apps/web/src/lib/practice-api.ts` |
 | Authentication | Supabase email/password signup, confirmation, sign-in, sign-out, server session refresh, and guest-progress merge are implemented | `apps/web/src/app/auth`, `apps/web/src/lib/auth/session.ts`, `apps/web/src/middleware.ts` |
 | Administration | A server-authorized portal exposes role-scoped overview, people, classes, content, operations, feedback, privacy, and audit views; role and class changes are audited | `apps/web/src/app/admin`, `apps/web/src/lib/admin`, `packages/database/src/repositories/administration.repository.ts` |
-| Classes and tasks | Administrators create class codes and assign existing practice activities; signed-in learners join classes and see task progress from verified practice completion | `apps/web/src/app/classes`, `apps/web/src/app/admin/classes`, `packages/database/src/repositories/classroom.repository.ts` |
+| Classes, submissions, and grades | Instructors create owner-scoped classes and assignments, review submissions, save private rubric drafts, publish grades, excuse or restore individual recipients with a reason, and inspect a published-only gradebook; learners join by code and see only their published scores, rubric breakdowns, feedback, and applicability | `apps/web/src/app/classes`, `apps/web/src/app/teach`, `packages/database/src/repositories/classroom.repository.ts`, `packages/database/src/repositories/gradebook.repository.ts` |
 | Personalization | A deterministic policy ranks activities using goals, experience, weekly time, preferred language, history, review age, and concept mastery; no neural network is required | `apps/web/src/lib/local-learner.ts`, `apps/web/src/lib/local-mastery.ts` |
 | Resilience | Health endpoints, request IDs, queue recovery foundations, CI/security scans, browser tests, and a build-independent offline fallback exist | `apps/web/src/app/api/health`, `apps/web/public/sw.js`, `.github/workflows` |
 
@@ -143,7 +143,9 @@ Data API and write ownership or permission policies explicitly.
 The gradebook storage foundation adds migration
 `1790363936520_gradebook-storage.ts`. Apply it before enabling any code that calls
 `PostgresGradebookRepository`. It adds five server-only tables and copies no
-legacy practice data. The current classroom screens do not call this repository.
+legacy practice data. Instructor submission, manual-grading, and class-gradebook
+screens call it through owner-scoped server routes; learner submission and grade
+views use recipient-scoped reads that exclude drafts and private notes.
 Verify RLS and revoked browser-role privileges after migration. Roll back an
 application release by leaving the additive tables in place; the migration's
 down operation drops grade history and is only appropriate for disposable test
@@ -161,6 +163,12 @@ runs each pinned test through the configured sandbox, and resolves a binary
 pass/fail grade or marks the job unavailable for retry. Trigger it with an
 authenticated `POST /api/internal/workers/verifications` request using
 `VERIFICATION_WORKER_TOKEN`, the same pattern as the evaluation worker route.
+Set `VERIFICATION_QUEUE_MAX_AGE_MS` to the maximum acceptable delay for the
+deployed scheduler cadence. `GET /api/health/verifications` returns aggregate
+queue metrics and HTTP 503 when queued work exceeds that age or a running lease
+has expired; it returns `disabled` without opening a database connection while
+code execution is disabled. Alert on sustained 503 responses without exposing
+the worker token or queue payloads.
 The initial `stdin-stdout-v1` adapter supports one to five pinned cases with
 bounded string `input` and `expected` fields. Any other verifier version or
 malformed suite remains unavailable and cannot create a grade.
@@ -169,6 +177,41 @@ Learners submit supported source through
 the authenticated learner and pinned policy, generates the immutable response
 revision, and returns `202` when verification is queued. Client-supplied owner,
 policy, test, and evaluator identifiers are rejected.
+
+Migration `1790971200000_gradebook-recipient-applicability.ts` adds immutable
+assignment-applicability history. Each existing and new recipient starts with a
+system-authored `assigned` revision. The class owner can append a reasoned
+`excused` or restored `assigned` revision through the server boundary; retries
+are idempotent and stale revisions conflict. Excusing a recipient supersedes any
+queued or running verification job, blocks submissions and grading while the
+excusal is current, and preserves attempts, grades, publications, and prior
+applicability revisions for audit. Excused work is shown explicitly and omitted
+from the learner's denominator, total, and comparable ranking set.
+
+Migration `1791061200000_gradebook-dispute-events.ts` adds an immutable dispute
+event chain for each assignment recipient. Repository callers can let the owning
+learner submit or withdraw a review request and let the class owner mark it in
+review or resolve it as upheld or changed. Every transition requires the expected
+prior event and an idempotency key. A changed resolution must reference a newly
+published replacement grade; the correction remains open until that explicit
+resolution is appended. A new submission or recipient excusal automatically
+supersedes an active dispute. While a dispute is active, projections preserve the
+published score in the learner's total and coverage but exclude the learner from
+comparable ranking. Learner reads remain recipient-scoped and expose public
+messages without request keys, internal reasons, actor identities, or private
+instructor notes. Authenticated learners use the published grade card at
+`/classes/{classId}/grades` to open a review request with a trimmed 20–4,000
+character reason, see its public status and response history, and withdraw an
+active request after explicit confirmation. The recipient-scoped routes reject
+unknown or unowned assignments as not found, malformed bodies as invalid, and
+stale expected-event identifiers as a refresh-and-retry conflict. The instructor
+workflow lists active requests at `/teach/{classId}/disputes` with new and
+in-review filters. Its recipient detail screen lets the owning instructor append
+an internal in-review note, then send the learner a written resolution that
+either upholds the disputed grade or identifies a newer, already-published grade
+as the changed outcome. Instructor routes use the same exact-body validation,
+idempotency keys, and expected-event conflict protection; repository ownership
+checks keep requests private to the class owner.
 
 ### Change authentication or administration
 
@@ -199,8 +242,22 @@ available without a code. Administrators assign one existing practice activity
 per class task, with an optional due date. A task is complete when the learner
 has passed the activity's verified code tests, including completion achieved
 before joining the class. Class creation and task assignment require an audit
-reason. Class editing, code rotation, individual assignment, and manual grading
-are not part of this release.
+reason. Instructor-owned classes also support a manual-grading workflow at
+`/teach/{classId}/submissions`:
+reviewed-rubric scores and feedback are saved as private drafts, then published
+explicitly. `/teach/{classId}/gradebook` calculates published totals, coverage,
+and comparable ranks. The class owner can excuse or restore an individual
+recipient with a required reason; the gradebook excludes excused work from totals
+and ranking while preserving all prior evidence. Active grade disputes preserve
+the published total but temporarily exclude the learner from comparable ranking;
+learners can open and withdraw those requests inline on the corresponding
+published grade card and see the public request, status, and instructor response.
+Learners use `/classes/{classId}/grades` to see only published scores, rubric
+breakdowns, feedback, current applicability, and their own dispute details.
+Class owners use `/teach/{classId}/disputes` to triage open requests and the
+linked submission detail to mark a request in review or resolve it as upheld or
+changed. Class editing, code rotation, archiving, and individual assignment
+remain future work.
 
 Before enabling this release in staging or production, apply migration
 `1789932382585_classrooms-and-assignments.ts` to that environment's database and
@@ -214,6 +271,10 @@ Choose **Teach** on the account form, create an account, confirm your email,
 and enable your instructor workspace. Existing learners can use **Instructor
 workspace** in navigation to opt in. At `/teach`, instructors create classes
 and join codes, assign practice, and view enrolled learners and completion.
+They can also review the latest assignment submissions, save and publish manual
+rubric grades, and inspect the class gradebook. Learners can open each enrolled
+class's grade view from `/classes`; unpublished scores and private instructor
+notes never appear there.
 Each instructor can access only classes they created; platform administrator
 permissions are granted separately. Instructor setup and class changes are
 audited. This uses the existing user role and classroom ownership columns.

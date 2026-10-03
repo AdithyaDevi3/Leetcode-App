@@ -7,7 +7,7 @@ import { AdminBadge, AdminEmptyState, AdminMetric, AdminPageHeader, AdminSection
 import { withInstructorGradebook } from '@/lib/instructor-gradebook';
 
 const stateLabels: Record<ClassGradebookCell['state'], string> = {
-  not_assigned: 'Not assigned', unsubmitted: 'Not submitted', queued: 'Queued', running: 'Running',
+  not_assigned: 'Not assigned', excused: 'Excused', unsubmitted: 'Not submitted', queued: 'Queued', running: 'Running',
   needs_review: 'Awaiting grade', unavailable: 'Unavailable', draft: 'Draft', published: 'Published',
 };
 const points = (units: number) => (units / 100).toLocaleString('en-US', { maximumFractionDigits: 2 });
@@ -35,7 +35,7 @@ export default async function ClassGradebookPage({ params }: { params: Promise<{
 
   return <main><div className="mx-auto max-w-[96rem] space-y-7">
     <Link className="inline-flex text-sm font-bold text-[var(--moss)] underline underline-offset-4" href={`/teach/${classId}`}>← Class workspace</Link>
-    <AdminPageHeader eyebrow="Class gradebook" title={gradebook.classroom.name} description="Published grades determine totals and rank. Draft or incomplete work stays clearly marked." action={<Link className="inline-flex min-h-11 items-center rounded-md border border-[var(--line)] bg-[var(--surface)] px-4 font-bold text-[var(--ink)] no-underline" href={`/teach/${classId}/submissions`}>Review submissions</Link>} />
+    <AdminPageHeader eyebrow="Class gradebook" title={gradebook.classroom.name} description="Published grades determine totals and rank. Draft or incomplete work stays clearly marked." action={<div className="flex flex-wrap gap-2"><Link className="inline-flex min-h-11 items-center rounded-md border border-[var(--line)] bg-[var(--surface)] px-4 font-bold text-[var(--ink)] no-underline" href={`/teach/${classId}/submissions`}>Review submissions</Link><Link className="inline-flex min-h-11 items-center rounded-md border border-[var(--line)] bg-[var(--surface)] px-4 font-bold text-[var(--ink)] no-underline" href={`/teach/${classId}/disputes`}>Grade reviews</Link></div>} />
     <section aria-label="Gradebook summary" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
       <AdminMetric label="Learners" value={included.length} note="Currently enrolled" />
       <AdminMetric label="Assignments" value={gradebook.assignments.length} note="In this comparison set" />
@@ -62,7 +62,7 @@ export default async function ClassGradebookPage({ params }: { params: Promise<{
               {learner.cells.map(cell => <td key={cell.assignmentId} className="border-b border-r border-[var(--line)] px-4 py-4 align-top">
                 {cell.state === 'published' && cell.earnedUnits !== null ? <span className="block font-mono font-bold tabular-nums">{points(cell.earnedUnits)} / {points(cell.maxUnits)}</span> : <span className="block font-medium">{stateLabels[cell.state]}</span>}
                 <span className="mt-1 block"><AdminBadge value={cell.state} /></span>
-                {cell.recipientId && ['needs_review', 'draft', 'published'].includes(cell.state) ? <Link className="mt-2 block text-xs font-bold text-[var(--moss)] underline underline-offset-2" href={`/teach/${classId}/submissions/${cell.recipientId}`} aria-label={`Review ${learner.displayName}'s ${gradebook.assignments.find(item => item.id === cell.assignmentId)?.title ?? 'assignment'}`}>Review</Link> : null}
+                {cell.recipientId && ['excused', 'unsubmitted', 'needs_review', 'draft', 'published'].includes(cell.state) ? <Link className="mt-2 block text-xs font-bold text-[var(--moss)] underline underline-offset-2" href={`/teach/${classId}/submissions/${cell.recipientId}`} aria-label={`Review ${learner.displayName}'s ${gradebook.assignments.find(item => item.id === cell.assignmentId)?.title ?? 'assignment'}`}>Review</Link> : null}
               </td>)}
               <td className="border-b border-r border-[var(--line)] px-4 py-4 font-mono font-bold tabular-nums">{result.publishedTotal.percentage === null ? '—' : `${points(result.publishedTotal.earnedUnits)} / ${points(result.publishedTotal.possibleUnits)} (${result.publishedTotal.percentage}%)`}</td>
               <td className="border-b border-r border-[var(--line)] px-4 py-4 font-mono tabular-nums">{result.coverage.published} / {result.coverage.applicable}</td>

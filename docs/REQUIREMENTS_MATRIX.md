@@ -114,7 +114,7 @@ This matrix tracks the functional and operational requirements defined in [PRODU
 | ID | Requirement | Status | Phase | Acceptance evidence |
 |---|---|---|---|---|
 | GRADE-001 | Owner-scoped instructor classes and grade access | Implemented | Current | Repository and route tests deny cross-owner access to submissions and class gradebooks |
-| GRADE-002 | Recipient-scoped assignment submission and verification | Prototype | Current, 5 | Immutable attempts, pinned tests, durable leases, rate limits, and worker tests exist; production worker monitoring remains required |
+| GRADE-002 | Recipient-scoped assignment submission and verification | Prototype | Current, 5 | Immutable attempts, pinned tests, durable leases, rate limits, worker tests, and aggregate queue-health checks exist; staging worker scheduling, alerting, and failure-drill evidence remain required |
 | GRADE-003 | Immutable grade revisions and explicit publication | Implemented | Current | Database constraints and repository tests cover lineage, idempotency, conflicts, and append-only publication history |
 | GRADE-004 | Private manual-rubric drafts and instructor publication | Implemented | Current | Instructor workflow plus repository, route, and browser coverage verify private draft saving, optimistic conflicts, publication, and learner-invisible notes |
 | GRADE-005 | Published-only totals, coverage, and comparable class ranking | Implemented | Current | Domain and repository tests cover exact totals, incomplete coverage, ties, exclusions, and draft-safe ranking |

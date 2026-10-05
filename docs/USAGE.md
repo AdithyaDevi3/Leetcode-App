@@ -178,6 +178,20 @@ the authenticated learner and pinned policy, generates the immutable response
 revision, and returns `202` when verification is queued. Client-supplied owner,
 policy, test, and evaluator identifiers are rejected.
 
+The `Staging Verification Operations` GitHub Actions workflow provides the
+free-tier scheduler and queue-health check. Configure a GitHub environment
+named `staging` with `STAGING_APP_URL` and
+`STAGING_VERIFICATION_WORKER_TOKEN` secrets, then set the repository variable
+`STAGING_VERIFICATION_AUTOMATION_ENABLED=true`. The URL must be an HTTPS
+hostname containing `staging`; the workflow refuses any other target so it
+cannot fall back to production. Scheduled runs claim at most one job and then
+require the aggregate health endpoint to return `status: ok`. A failed worker
+request, unhealthy queue, missing secret, or malformed response fails the run
+and supplies alert evidence in GitHub Actions. Keep the variable disabled until
+the staging deployment uses a distinct database and the assignment-verification
+migration has been applied. Use the manual `health-only` operation to validate
+the alert path without invoking the worker.
+
 Migration `1790971200000_gradebook-recipient-applicability.ts` adds immutable
 assignment-applicability history. Each existing and new recipient starts with a
 system-authored `assigned` revision. The class owner can append a reasoned

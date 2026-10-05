@@ -2,7 +2,10 @@ name: Staging Verification Operations
 
 on:
   schedule:
+    # Remote staging operations stay frequent once an isolated target exists.
     - cron: '*/5 * * * *'
+    # The interim contract check does not need to consume runner minutes every five minutes.
+    - cron: '17 */6 * * *'
   workflow_dispatch:
     inputs:
       operation:
@@ -22,9 +25,32 @@ permissions:
   contents: read
 
 jobs:
+  verification-contract:
+    name: Isolated verification contract
+    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '17 */6 * * *'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @leetcode-app/domain build
+      - run: pnpm --filter @leetcode-app/database build
+      - name: Verify migrations and queue persistence
+        run: pnpm --filter @leetcode-app/database exec vitest run test/gradebook-verification.repository.test.ts
+      - name: Verify worker and health contracts
+        run: pnpm --filter web exec vitest run src/workers/verification-worker.test.ts src/app/api/internal/workers/verifications/route.test.ts src/app/api/health/verifications/route.test.ts
+
   verification-operations:
     name: Verification worker and queue health
-    if: vars.STAGING_VERIFICATION_AUTOMATION_ENABLED == 'true'
+    if: vars.STAGING_VERIFICATION_AUTOMATION_ENABLED == 'true' && (github.event_name == 'workflow_dispatch' || github.event.schedule == '*/5 * * * *')
     runs-on: ubuntu-latest
     timeout-minutes: 5
     environment: staging

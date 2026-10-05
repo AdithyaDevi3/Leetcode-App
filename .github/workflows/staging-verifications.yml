@@ -1,0 +1,84 @@
+name: Staging Verification Operations
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+    inputs:
+      operation:
+        description: 'Operation to run against staging'
+        required: true
+        default: scheduler-and-health
+        type: choice
+        options:
+          - scheduler-and-health
+          - health-only
+
+concurrency:
+  group: staging-verification-operations
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  verification-operations:
+    name: Verification worker and queue health
+    if: vars.STAGING_VERIFICATION_AUTOMATION_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: staging
+    env:
+      STAGING_APP_URL: ${{ secrets.STAGING_APP_URL }}
+      VERIFICATION_WORKER_TOKEN: ${{ secrets.STAGING_VERIFICATION_WORKER_TOKEN }}
+      OPERATION: ${{ github.event_name == 'schedule' && 'scheduler-and-health' || inputs.operation }}
+    steps:
+      - name: Validate isolated staging target
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "${STAGING_APP_URL}" || -z "${VERIFICATION_WORKER_TOKEN}" ]]; then
+            echo 'Staging URL and verification worker token must be configured.' >&2
+            exit 1
+          fi
+          if [[ ! "${STAGING_APP_URL}" =~ ^https://[^/]*staging[^/]*(/.*)?$ ]]; then
+            echo 'Refusing to target a URL that is not an HTTPS staging hostname.' >&2
+            exit 1
+          fi
+
+      - name: Trigger one verification job
+        if: env.OPERATION == 'scheduler-and-health'
+        shell: bash
+        run: |
+          set -euo pipefail
+          response_file="${RUNNER_TEMP}/verification-worker-response.json"
+          status="$({ curl --silent --show-error \
+            --output "${response_file}" \
+            --write-out '%{http_code}' \
+            --request POST \
+            --header "Authorization: Bearer ${VERIFICATION_WORKER_TOKEN}" \
+            --header 'Content-Type: application/json' \
+            --data '{"limit":1}' \
+            "${STAGING_APP_URL%/}/api/internal/workers/verifications"; } 2>&1)"
+          if [[ "${status}" != '200' ]]; then
+            echo "Verification worker returned HTTP ${status}." >&2
+            exit 1
+          fi
+          jq -e '.processed | type == "array"' "${response_file}" >/dev/null
+          echo "Worker completed; processed $(jq '.processed | length' "${response_file}") job(s)."
+
+      - name: Require healthy verification queue
+        shell: bash
+        run: |
+          set -euo pipefail
+          response_file="${RUNNER_TEMP}/verification-health-response.json"
+          status="$({ curl --silent --show-error \
+            --output "${response_file}" \
+            --write-out '%{http_code}' \
+            "${STAGING_APP_URL%/}/api/health/verifications"; } 2>&1)"
+          if [[ "${status}" != '200' ]]; then
+            echo "Verification queue health returned HTTP ${status}." >&2
+            exit 1
+          fi
+          jq -e '.status == "ok" and .service == "gradebook-verification-queue"' "${response_file}" >/dev/null
+          echo 'Verification queue is healthy.'

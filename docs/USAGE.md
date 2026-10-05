@@ -178,8 +178,21 @@ the authenticated learner and pinned policy, generates the immutable response
 revision, and returns `202` when verification is queued. Client-supplied owner,
 policy, test, and evaluator identifiers are rejected.
 
-The `Staging Verification Operations` GitHub Actions workflow provides the
-free-tier scheduler and queue-health check. Configure a GitHub environment
+The `Staging Verification Operations` GitHub Actions workflow currently runs an
+isolated verification contract check every six hours and on manual dispatch.
+It applies the real migration chain to disposable PostgreSQL, exercises queue
+persistence, and verifies the worker and health-route contracts. This is the
+free-tier interim mode: it catches code and migration regressions without
+sharing production data, but it is not persistent-state, deployment, restore,
+or end-to-end staging evidence.
+
+Provisioning a distinct staging database is deferred until a second Supabase
+project or equivalent isolated managed PostgreSQL target is available. Do not
+point Preview or this workflow at the production database, and do not commit an
+encrypted SQLite snapshot as a substitute: repository history, concurrent
+writes, and ephemeral deployment filesystems make that unsafe and unreliable.
+
+Once the isolated target exists, configure a GitHub environment
 named `staging` with `STAGING_APP_URL` and
 `STAGING_VERIFICATION_WORKER_TOKEN` secrets, then set the repository variable
 `STAGING_VERIFICATION_AUTOMATION_ENABLED=true`. The URL must be an HTTPS
@@ -189,8 +202,8 @@ require the aggregate health endpoint to return `status: ok`. A failed worker
 request, unhealthy queue, missing secret, or malformed response fails the run
 and supplies alert evidence in GitHub Actions. Keep the variable disabled until
 the staging deployment uses a distinct database and the assignment-verification
-migration has been applied. Use the manual `health-only` operation to validate
-the alert path without invoking the worker.
+migration has been applied. After enabling it, use the manual `health-only`
+operation to validate the remote alert path without invoking the worker.
 
 Migration `1790971200000_gradebook-recipient-applicability.ts` adds immutable
 assignment-applicability history. Each existing and new recipient starts with a

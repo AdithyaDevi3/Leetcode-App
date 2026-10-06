@@ -84,6 +84,7 @@ async function expectCleanLayout(page: Page) {
 }
 
 for (const viewport of [
+  { name: 'narrow-phone', width: 320, height: 568 },
   { name: 'phone', width: 390, height: 844 },
   { name: 'desktop', width: 1440, height: 900 },
 ] as const) {
@@ -117,6 +118,36 @@ for (const viewport of [
     }
   });
 }
+
+test('mobile navigation and skip link work with a keyboard', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 568 });
+  await page.goto('/learn');
+
+  const skipLink = page.getByRole('link', { name: 'Skip to content' });
+  await page.keyboard.press('Tab');
+  await expect(skipLink).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(page.locator('#page-content')).toBeFocused();
+
+  await page.reload();
+  await page.keyboard.press('Tab');
+  await page.keyboard.press('Tab');
+  await expect(page.getByRole('link', { name: 'Method' }).first()).toBeFocused();
+  await page.keyboard.press('Tab');
+
+  const menu = page.getByRole('button', { name: 'Menu', exact: true });
+  await expect(menu).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('button', { name: 'Close menu' })).toHaveAttribute('aria-expanded', 'true');
+
+  await page.keyboard.press('Tab');
+  const homeLink = page.getByRole('navigation', { name: 'Primary navigation' }).getByRole('link', { name: 'Home' });
+  await expect(homeLink).toBeFocused();
+  await Promise.all([
+    page.waitForURL(/\/$/),
+    page.keyboard.press('Enter'),
+  ]);
+});
 
 test('instructors can discover signup and previews stay unavailable in production', async ({ page }) => {
   await page.goto('/teach');

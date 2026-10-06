@@ -271,3 +271,90 @@ test('guest sees a conflict when sync reports one', async ({ page }) => {
   await expect(page.getByText('Conflict')).toBeVisible();
   await expect(page.getByText('Resolve conflict')).toBeVisible();
 });
+
+test('queued evaluation cannot be submitted twice', async ({ page }) => {
+  await openHydratedWorkspace(page);
+  await page.getByRole('button', { name: 'Insert example answer' }).click();
+
+  await page.evaluate(() => {
+    window.localStorage.setItem('method:pair-with-target-v1:remote-session', 'session-1');
+    const testWindow = window as typeof window & { evaluationRequests?: number };
+    testWindow.evaluationRequests = 0;
+    const originalFetch = window.fetch.bind(window);
+    window.fetch = async (input, init) => {
+      const url = String(input);
+      if (url.endsWith('/api/practice/sessions/session-1/evaluate') && init?.method === 'POST') {
+        testWindow.evaluationRequests = (testWindow.evaluationRequests ?? 0) + 1;
+        return new Response(JSON.stringify({ jobId: 'job-1', status: 'queued' }), {
+          status: 202,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+      if (url.endsWith('/api/practice/sessions/session-1/evaluate/job-1')) {
+        return new Response(JSON.stringify({ status: 'queued' }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+      return originalFetch(input, init);
+    };
+  });
+
+  const evaluateButton = page.getByRole('button', { name: 'Evaluate reasoning' });
+  await evaluateButton.dblclick();
+
+  await expect(page.getByRole('button', { name: 'Evaluating…' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Cancel evaluation' })).toBeVisible();
+  await expect.poll(() => page.evaluate(() => (window as typeof window & { evaluationRequests?: number }).evaluationRequests)).toBe(1);
+});
+
+test('rate-limited evaluation exposes a retry that recovers', async ({ page }) => {
+  await openHydratedWorkspace(page);
+  await page.getByRole('button', { name: 'Insert example answer' }).click();
+
+  await page.evaluate(() => {
+    window.localStorage.setItem('method:pair-with-target-v1:remote-session', 'session-1');
+    const testWindow = window as typeof window & { evaluationRequests?: number };
+    testWindow.evaluationRequests = 0;
+    const originalFetch = window.fetch.bind(window);
+    window.fetch = async (input, init) => {
+      const url = String(input);
+      if (url.endsWith('/api/practice/sessions/session-1/evaluate') && init?.method === 'POST') {
+        testWindow.evaluationRequests = (testWindow.evaluationRequests ?? 0) + 1;
+        if (testWindow.evaluationRequests === 1) {
+          return new Response(JSON.stringify({ error: 'Too many submissions' }), {
+            status: 429,
+            headers: { 'Content-Type': 'application/json', 'Retry-After': '2' },
+          });
+        }
+        return new Response(JSON.stringify({ jobId: 'job-2', status: 'queued' }), {
+          status: 202,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+      if (url.endsWith('/api/practice/sessions/session-1/evaluate/job-2')) {
+        return new Response(JSON.stringify({
+          status: 'completed',
+          result: {
+            evaluation: {
+              approved: true,
+              score: 95,
+              summary: 'Recovered evaluation completed.',
+              rubricVersion: 'reasoning-v1',
+              findings: [],
+            },
+          },
+        }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      }
+      return originalFetch(input, init);
+    };
+  });
+
+  await page.getByRole('button', { name: 'Evaluate reasoning' }).click();
+
+  await expect(page.getByText('Too many submissions. Try again in 2 seconds. Showing a local evaluation instead.')).toBeVisible();
+  await page.getByRole('button', { name: 'Retry evaluation' }).click();
+
+  await expect(page.getByText('Recovered evaluation completed.')).toBeVisible();
+  await expect.poll(() => page.evaluate(() => (window as typeof window & { evaluationRequests?: number }).evaluationRequests)).toBe(2);
+});

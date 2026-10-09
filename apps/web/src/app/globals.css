@@ -195,7 +195,7 @@ h1 { margin-bottom: 6px; font-size: clamp(26px, 3vw, 38px); line-height: 1.1; }
 .language-switch button { min-width: 112px; padding: 8px 13px; border: 0; border-radius: 6px; background: transparent; color: var(--muted); text-align: left; }
 .language-switch button span, .language-switch button small { display: block; }
 .language-switch button span { font-size: 12px; font-weight: 780; }
-.language-switch button small { margin-top: 2px; color: #89928b; font-family: var(--font-geist-mono); font-size: 9px; }
+.language-switch button small { margin-top: 2px; color: var(--moss); font-family: var(--font-geist-mono); font-size: 9px; }
 .language-switch button.active { background: var(--surface); color: var(--ink); box-shadow: 0 2px 9px rgba(23, 33, 27, .14); }
 .language-switch button.active small { color: var(--moss); }
 .coding-grid { margin-top: 16px; display: grid; grid-template-columns: minmax(0, 1fr) 290px; gap: 18px; }
@@ -339,7 +339,7 @@ h1 { line-height: 1.15; }
 .practice-stage-nav { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 20px; }
 .practice-stage-nav a { padding: 10px 16px; border: 1px solid var(--line); border-radius: 8px; color: var(--moss); background: var(--surface); text-decoration: none; font-size: 13px; font-weight: 600; }
 .practice-stage-nav a:first-child { background: var(--moss); color: white; border-color: var(--moss); }
-.practice-stage-nav span { opacity: .65; margin-right: 8px; }
+.practice-stage-nav span { margin-right: 8px; }
 .button { min-height: 44px; border-radius: 8px; }
 .button.secondary { background: var(--surface); }
 .editor-footer { flex-wrap: wrap; padding-top: 12px; }

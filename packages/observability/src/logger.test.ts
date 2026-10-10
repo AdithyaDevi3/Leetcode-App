@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { logger } from '../src/logger';
+import { TraceFlags, trace, type Span } from '@opentelemetry/api';
+import { activeTraceContext, logger } from '../src/logger';
 
 describe('Logger', () => {
   beforeEach(() => {
@@ -35,5 +36,35 @@ describe('Logger', () => {
     // Logger is already instantiated, so we can't easily test base fields
     // This is more of a smoke test
     expect(logger).toBeDefined();
+  });
+
+  it('adds valid active trace context to structured logs', () => {
+    vi.spyOn(trace, 'getActiveSpan').mockReturnValue({
+      spanContext: () => ({
+        traceId: '1234567890abcdef1234567890abcdef',
+        spanId: '1234567890abcdef',
+        traceFlags: TraceFlags.SAMPLED,
+      }),
+    } as Span);
+
+    expect(activeTraceContext()).toEqual({
+      traceId: '1234567890abcdef1234567890abcdef',
+      spanId: '1234567890abcdef',
+      traceFlags: TraceFlags.SAMPLED,
+    });
+  });
+
+  it('omits absent and invalid trace context', () => {
+    const activeSpan = vi.spyOn(trace, 'getActiveSpan').mockReturnValue(undefined);
+    expect(activeTraceContext()).toEqual({});
+
+    activeSpan.mockReturnValue({
+      spanContext: () => ({
+        traceId: '00000000000000000000000000000000',
+        spanId: '0000000000000000',
+        traceFlags: TraceFlags.NONE,
+      }),
+    } as Span);
+    expect(activeTraceContext()).toEqual({});
   });
 });

@@ -3,7 +3,7 @@ import { getNodeAutoInstrumentations } from '@opentelemetry/auto-instrumentation
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
 import { OTLPMetricExporter } from '@opentelemetry/exporter-metrics-otlp-http';
 import { PeriodicExportingMetricReader } from '@opentelemetry/sdk-metrics';
-import { Resource } from '@opentelemetry/resources';
+import { resourceFromAttributes } from '@opentelemetry/resources';
 import {
   SEMRESATTRS_SERVICE_NAME,
   SEMRESATTRS_SERVICE_VERSION,
@@ -33,7 +33,7 @@ export function initObservability(config: ObservabilityConfig): void {
   } = config;
 
   // Resource describes the service
-  const resource = new Resource({
+  const resource = resourceFromAttributes({
     [SEMRESATTRS_SERVICE_NAME]: serviceName,
     [SEMRESATTRS_SERVICE_VERSION]: serviceVersion,
     [SEMRESATTRS_DEPLOYMENT_ENVIRONMENT]: environment,
@@ -78,14 +78,13 @@ export function initObservability(config: ObservabilityConfig): void {
   });
 
   // Start the SDK
-  sdkInstance
-    .start()
-    .then(() => {
-      console.log(`OpenTelemetry SDK started for ${serviceName}`);
-    })
-    .catch((error) => {
-      console.error('Error starting OpenTelemetry SDK:', error);
-    });
+  try {
+    sdkInstance.start();
+    console.log(`OpenTelemetry SDK started for ${serviceName}`);
+  } catch (error) {
+    sdkInstance = null;
+    console.error('Error starting OpenTelemetry SDK:', error);
+  }
 
   // Graceful shutdown
   process.on('SIGTERM', async () => {

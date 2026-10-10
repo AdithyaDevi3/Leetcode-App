@@ -214,6 +214,86 @@ the staging deployment uses a distinct database and the assignment-verification
 migration has been applied. After enabling it, use the manual `health-only`
 operation to validate the remote alert path without invoking the worker.
 
+### Respond to queue and worker incidents
+
+Use aggregate health responses and request IDs for incident evidence. Never
+copy job payloads, learner source, pseudocode, session data, database rows, or
+worker tokens into tickets or chat. Run these probes against the affected
+deployment; the hostname below is intentionally non-routable:
+
+```bash
+APP_URL=https://staging.example.invalid
+curl --fail-with-body --silent --show-error "$APP_URL/api/health"
+curl --fail-with-body --silent --show-error "$APP_URL/api/health/ready"
+curl --fail-with-body --silent --show-error "$APP_URL/api/health/evaluations"
+curl --fail-with-body --silent --show-error "$APP_URL/api/health/executions"
+curl --fail-with-body --silent --show-error "$APP_URL/api/health/verifications"
+```
+
+Interpret the results in this order:
+
+1. A failed liveness probe indicates deployment, routing, or process failure;
+   stop queue recovery and restore application availability first.
+2. Readiness `missing_configuration` requires deployment configuration repair.
+   Readiness `database: unreachable` requires database/provider triage; do not
+   repeatedly invoke workers while their store is unavailable.
+3. Queue `unavailable` means metrics could not read their store. Queue
+   `degraded` means the oldest queued job exceeded its configured maximum age;
+   verification health also degrades when a lease has expired.
+4. Execution or verification `disabled` is healthy only when
+   `CODE_EXECUTION_ENABLED` is intentionally false. Record the deployment and
+   feature-flag state before changing it.
+
+After liveness and readiness recover, invoke only one job first. Supply tokens
+from the deployment or CI secret store; do not paste literal values into the
+command, shell history, or logs:
+
+```bash
+curl --fail-with-body --silent --show-error \
+  -X POST "$APP_URL/api/internal/workers/evaluations" \
+  -H "Authorization: Bearer $EVALUATION_WORKER_TOKEN" \
+  -H 'Content-Type: application/json' \
+  --data '{"limit":1}'
+
+curl --fail-with-body --silent --show-error \
+  -X POST "$APP_URL/api/internal/workers/executions" \
+  -H "Authorization: Bearer $EXECUTION_WORKER_TOKEN" \
+  -H 'Content-Type: application/json' \
+  --data '{"limit":1}'
+
+curl --fail-with-body --silent --show-error \
+  -X POST "$APP_URL/api/internal/workers/verifications" \
+  -H "Authorization: Bearer $VERIFICATION_WORKER_TOKEN" \
+  -H 'Content-Type: application/json' \
+  --data '{"limit":1}'
+```
+
+The evaluation trigger recovers stale jobs before claiming work and reports
+`recovered` plus `processed`. The execution trigger marks stale running jobs as
+failed because their sandbox outcome is unknown and reports `recoveredFailed`.
+The verification trigger processes at most one job and its claim transaction
+requeues or exhausts expired leases before claiming. Recheck the matching
+health route after each bounded trigger. Stop if readiness regresses, queue age
+keeps increasing, failures repeat, or the returned state is unexpected; do not
+loop workers manually or edit queue rows.
+
+For sandbox/provider faults, set `CODE_EXECUTION_ENABLED=false` and redeploy;
+the execution and verification health routes should then report `disabled`,
+while pseudocode evaluation remains available. For AI-review faults, keep
+`EVALUATION_AI_ENABLED=false` so the deterministic evaluator remains the safe
+path. For a bad application release, roll back to the last known-good Vercel
+deployment and probe liveness, readiness, and queues again. Do not switch a
+production evaluation store to memory, reverse an applied production migration,
+or retry dead-lettered/unavailable jobs by direct database mutation. Preserve
+their audit state and use a reviewed forward fix. Rotate the relevant worker
+token immediately if its confidentiality may have been lost.
+
+An incident handoff should contain UTC start/end times, environment, deployed
+commit, affected service, aggregate before/after metrics, safe request IDs,
+feature-flag changes, worker counts, and the rollback or forward-fix decision.
+Persistent staging failure injection and recovery drills remain deferred until
+the isolated managed database described above exists.
+
 Migration `1790971200000_gradebook-recipient-applicability.ts` adds immutable
 assignment-applicability history. Each existing and new recipient starts with a
 system-authored `assigned` revision. The class owner can append a reasoned

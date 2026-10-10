@@ -41,7 +41,7 @@ Still required before a private beta can be claimed:
 - Configure the Supabase production project and Vercel environment secrets; apply all migrations, including curriculum, guest continuity, and learner requests.
 - Make the durable evaluation path the verified production path; prove retry, recovery, cancellation, and dead-letter behavior against staging infrastructure.
 - Verify learner resilience end-to-end: the UI now exposes evaluation progress, cancellation, retry/backoff, and a labeled local fallback, but needs browser/staging evidence for save conflicts and duplicate submission behavior.
-- Configure and verify structured error export, distributed rate limits, database backups, alerts, and rollback/failed-job runbooks. Correlation IDs, bounded in-process rate limits, queue health, stale-job recovery, and centralized server error records are present in code.
+- Configure and verify structured error export, distributed rate limits, database backups, alerts, and staging failure drills. Correlation IDs, bounded in-process rate limits, queue health, stale-job recovery, centralized server error records, and a queue incident/rollback procedure are present.
 - Run clean-database migration, API, browser, accessibility, queue-failure, backup/restore, and invited-user beta evidence.
 
 ## Work already present from later phases

@@ -125,6 +125,15 @@ and narrow-screen behavior, and add or extend browser coverage for a user
 journey. API routes must validate input and authorize the concrete object, not
 only check that some session exists.
 
+Unhandled server render, route-handler, action, and proxy errors are emitted as
+structured `next.server.error` records. Records include the route template,
+request method, query-free request path, Next.js execution context, and an
+optional error digest; they exclude request headers, bodies, query parameters,
+and error stacks. Set `OTEL_EXPORTER_OTLP_ENDPOINT` to initialize trace and
+metric export in the Node.js runtime. Without it, structured error logging stays
+enabled while telemetry export remains off. Remove the endpoint to roll back
+export without changing application behavior.
+
 ### Change the database
 
 The repository uses imperative `node-pg-migrate` migrations in

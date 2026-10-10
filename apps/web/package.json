@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "prebuild": "pnpm --filter @leetcode-app/domain build && pnpm --filter @leetcode-app/database build",
+    "prebuild": "pnpm --filter @leetcode-app/domain build && pnpm --filter @leetcode-app/database build && pnpm --filter @leetcode-app/observability build",
     "build": "next build --webpack",
     "start": "next start",
     "lint": "eslint",
@@ -16,6 +16,7 @@
   "dependencies": {
     "@leetcode-app/database": "workspace:*",
     "@leetcode-app/domain": "workspace:*",
+    "@leetcode-app/observability": "workspace:*",
     "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.117.2",
     "@vercel/sandbox": "3.5.1",

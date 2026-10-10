@@ -19,7 +19,9 @@
       }
     ],
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@leetcode-app/observability": ["../../packages/observability/src/index.ts"],
+      "@leetcode-app/observability/logger": ["../../packages/observability/src/logger.ts"]
     }
   },
   "include": [

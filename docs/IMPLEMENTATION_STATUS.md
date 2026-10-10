@@ -22,6 +22,7 @@ Implemented foundations:
 - Appeals, second-pass triage, reviewer resolution, and appeal audit records.
 - Evaluation safety boundaries: AI kill switch, redaction, schema validation, timeout, and conservative evidence merge.
 - Request correlation, bounded in-process submission rate limits, evaluation/execution queue health, and stale-worker lease recovery.
+- Privacy-bounded structured server error records with route context and active trace correlation; OTLP export remains deployment-configured.
 - Supabase email/password Auth, server-side session refresh, durable Supabase Postgres persistence, curriculum seeds, guest continuity, notes/bookmarks, learner requests, and the study library are merged into `main`.
 - A 48-question algorithm and system-design roadmap provides three analysis
   levels across 16 topics with search, filters, deterministic feedback, and
@@ -40,7 +41,7 @@ Still required before a private beta can be claimed:
 - Configure the Supabase production project and Vercel environment secrets; apply all migrations, including curriculum, guest continuity, and learner requests.
 - Make the durable evaluation path the verified production path; prove retry, recovery, cancellation, and dead-letter behavior against staging infrastructure.
 - Verify learner resilience end-to-end: the UI now exposes evaluation progress, cancellation, retry/backoff, and a labeled local fallback, but needs browser/staging evidence for save conflicts and duplicate submission behavior.
-- Add and verify structured error tracking, distributed rate limits, database backups, alerts, and rollback/failed-job runbooks. Correlation IDs, bounded in-process rate limits, queue health, and stale-job recovery are present in code.
+- Configure and verify structured error export, distributed rate limits, database backups, alerts, and rollback/failed-job runbooks. Correlation IDs, bounded in-process rate limits, queue health, stale-job recovery, and centralized server error records are present in code.
 - Run clean-database migration, API, browser, accessibility, queue-failure, backup/restore, and invited-user beta evidence.
 
 ## Work already present from later phases

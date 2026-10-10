@@ -68,7 +68,7 @@ AI evaluation, broad content expansion, social features, native mobile apps, and
 
 **Launch blocker 3: verify the UI resilience path.** The workspace is connected to evaluation job polling, exposes queued/running/failed/canceled feedback, supports cancellation, observes server backoff, and labels local deterministic fallback. Verify save conflicts, duplicate submissions, and retry flows through browser/staging tests.
 
-**Launch blocker 4: finish minimum operations.** Request correlation IDs, queue health, stale-job recovery, bounded in-process rate limits, and structured server error records are implemented. Configure telemetry export, add latency/error alerting, distributed rate limits, database backups, and an operator runbook for failed jobs and rollback.
+**Launch blocker 4: finish minimum operations.** Request correlation IDs, queue health, stale-job recovery, bounded in-process rate limits, structured server error records, and a queue incident/rollback procedure are implemented. Configure telemetry export, add latency/error alerting, distributed rate limits, database backups, and verify the procedure with staging failure drills.
 
 **Launch blocker 5: validate the private beta.** Run clean-database migrations, build/type checks, API tests, accessibility checks, browser smoke tests, backup/restore, queue failure injection, and a small invited-user test. Record defects and prioritize only issues that affect data safety, correctness, accessibility, or the core learning loop.
 

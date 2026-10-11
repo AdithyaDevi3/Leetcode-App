@@ -1,0 +1,33 @@
+name: Production Health Monitor
+
+on:
+  schedule:
+    - cron: '23 * * * *'
+  workflow_dispatch: {}
+
+concurrency:
+  group: production-health-monitor
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  monitor:
+    if: github.event_name == 'workflow_dispatch' || vars.PRODUCTION_HEALTH_MONITORING_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      PRODUCTION_APP_URL: ${{ vars.PRODUCTION_APP_URL }}
+      PRODUCTION_APP_HOST: ${{ vars.PRODUCTION_APP_HOST }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Probe production health contracts
+        run: node scripts/check-production-health.mjs

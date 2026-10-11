@@ -50,8 +50,8 @@ Address these in this order:
    administration actions from [ADR-011](adr/011-current-platform-and-admin-console.md).
 3. Replace the in-memory limiter in `apps/web/src/lib/rate-limit.ts` with a
    distributed limiter shared by all Vercel instances.
-4. Configure production error reporting, uptime checks, alerts, database
-   backups, and a restore rehearsal.
+4. Verify scheduled production health checks and configure error reporting,
+   external paging/latency alerts, database backups, and a restore rehearsal.
 5. Persist and reconcile mastery/recommendation outcomes across devices.
 6. Move authored activities and grading specifications toward one versioned
    content source instead of parallel hardcoded definitions.
@@ -293,6 +293,22 @@ commit, affected service, aggregate before/after metrics, safe request IDs,
 feature-flag changes, worker counts, and the rollback or forward-fix decision.
 Persistent staging failure injection and recovery drills remain deferred until
 the isolated managed database described above exists.
+
+The `Production Health Monitor` GitHub Actions workflow performs a read-only
+check of liveness, readiness, and all three queue-health contracts every hour.
+It accepts `disabled` only for execution and verification queues, where that
+state reflects the intentional `CODE_EXECUTION_ENABLED=false` kill switch. It
+fails on unreachable, non-JSON, degraded, unavailable, or misidentified
+responses, leaving a durable Actions failure that can drive repository
+notifications. It sends no credentials and stores no response body artifacts.
+
+Configure repository variables `PRODUCTION_APP_URL` and
+`PRODUCTION_APP_HOST`, where the URL is an HTTPS origin and its hostname exactly
+matches the host variable. Set `PRODUCTION_HEALTH_MONITORING_ENABLED=true` only
+after a manual workflow run succeeds. Disable that variable to pause probes;
+this does not change application traffic or health endpoints. GitHub Actions
+failure evidence is the initial alert channel; an independently managed uptime
+provider and paging policy remain required before private-beta readiness.
 
 Migration `1790971200000_gradebook-recipient-applicability.ts` adds immutable
 assignment-applicability history. Each existing and new recipient starts with a

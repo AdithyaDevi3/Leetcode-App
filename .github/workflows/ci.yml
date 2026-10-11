@@ -46,6 +46,7 @@ jobs:
       - run: pnpm --filter @leetcode-app/database build
       - run: pnpm --filter web lint
       - run: pnpm --filter web typecheck
+      - run: pnpm test:production-health
       - run: pnpm -r test
       - run: pnpm --filter web build
 

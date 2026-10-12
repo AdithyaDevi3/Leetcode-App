@@ -36,7 +36,7 @@ This section supplements the roadmap; it does not replace or reorder the phases 
 - Phase 9 has a release-readiness checklist.
 - Phase 3 now also includes a protected worker trigger, gold-set fixtures, quality metrics, and second-pass appeal triage.
 - Phase 5 now includes a Vercel Sandbox production adapter, a self-hosted Judge0 fallback, and an execution safety policy; durable exploratory-execution queues and sandbox operations remain required.
-- Evaluation and execution queue health endpoints, request correlation IDs, and bounded in-process per-user submission limits are now present; production alerting and distributed enforcement remain required.
+- Evaluation and execution queue health endpoints, request correlation IDs, and an opt-in PostgreSQL distributed submission limiter are now present; production rollout and alerting remain required.
 - Centralized Next.js server error records now include privacy-bounded route context and active trace correlation; production telemetry export and alert verification remain required.
 - Phase 6 now includes lifecycle transition rules for content versions.
 - Phase 7 now includes PWA metadata/offline fallback plus notification preference scheduling.
@@ -68,7 +68,7 @@ AI evaluation, broad content expansion, social features, native mobile apps, and
 
 **Launch blocker 3: verify the UI resilience path.** The workspace is connected to evaluation job polling, exposes queued/running/failed/canceled feedback, supports cancellation, observes server backoff, and labels local deterministic fallback. Verify save conflicts, duplicate submissions, and retry flows through browser/staging tests.
 
-**Launch blocker 4: finish minimum operations.** Request correlation IDs, queue health, stale-job recovery, bounded in-process rate limits, structured server error records, a queue incident/rollback procedure, and scheduled read-only production health checks are implemented. Configure telemetry export, external paging and latency/error alerts, distributed rate limits, database backups, and verify the procedure with staging failure drills.
+**Launch blocker 4: finish minimum operations.** Request correlation IDs, queue health, stale-job recovery, a PostgreSQL distributed submission limiter, structured server error records, a queue incident/rollback procedure, and scheduled read-only production health checks are implemented. Roll out the limiter after migration, configure telemetry export, external paging and latency/error alerts, database backups, and verify the procedure with staging failure drills.
 
 **Launch blocker 5: validate the private beta.** Run clean-database migrations, build/type checks, API tests, accessibility checks, browser smoke tests, backup/restore, queue failure injection, and a small invited-user test. Record defects and prioritize only issues that affect data safety, correctness, accessibility, or the core learning loop.
 

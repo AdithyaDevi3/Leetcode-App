@@ -630,7 +630,10 @@ describe('PostgresGradebookRepository', () => {
   it('upgrades legacy class data and can reverse only the additive migration', async () => {
     const f = await fixture(null, false);
     await database.query("INSERT INTO practice_sessions (user_id, content_id, content_version, current_stage, status, session_metadata, revision) VALUES ($1, $2, 1, 'evaluate', 'completed', '{}', 1)", [f.learnerId, contentId]);
-    const options = { databaseUrl: `postgresql://test:test@${migrationConfig.host}:${migrationConfig.port}/testdb`, dir: 'migrations', migrationsTable: 'pgmigrations', count: 7 };
+    const applied = await database.query<{ count: string }>(
+      "SELECT COUNT(*)::text AS count FROM pgmigrations WHERE name >= '1790363936520_gradebook-storage'",
+    );
+    const options = { databaseUrl: `postgresql://test:test@${migrationConfig.host}:${migrationConfig.port}/testdb`, dir: 'migrations', migrationsTable: 'pgmigrations', count: Number(applied.rows[0].count) };
     await runner({ ...options, direction: 'down' });
     expect((await database.query("SELECT to_regclass('gradebook_policies') AS table_name")).rows[0].table_name).toBeNull();
     expect((await f.classrooms.getClassDetail(f.classroom.id)).assignments[0].completedCount).toBe(1);

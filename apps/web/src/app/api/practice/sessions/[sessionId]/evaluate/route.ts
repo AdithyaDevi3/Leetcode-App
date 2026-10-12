@@ -18,7 +18,7 @@ export async function POST(
     }
     const revisionNumber = body.revisionNumber;
 
-    const rateLimit = takeRateLimit(`evaluation:${session.user.id}`, {
+    const rateLimit = await takeRateLimit(`evaluation:${session.user.id}`, {
       limit: Number(process.env.EVALUATION_SUBMISSIONS_PER_MINUTE ?? 12),
       windowMs: 60_000,
     });

@@ -19,7 +19,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ ses
     const executionRequest: ExecutionRequest = { language: body.language, source: body.source, stdin: body.stdin, limits: executionLimits };
     const errors = [...validateExecutionRequest(executionRequest), ...validateExecutionPolicy(executionRequest)];
     if (errors.length) return NextResponse.json({ error: 'Invalid execution request', details: errors }, { status: 400 });
-    const rateLimit = takeRateLimit(`execution:${session.user.id}`, {
+    const rateLimit = await takeRateLimit(`execution:${session.user.id}`, {
       limit: Number(process.env.EXECUTION_SUBMISSIONS_PER_TEN_MINUTES ?? 10),
       windowMs: 10 * 60_000,
     });

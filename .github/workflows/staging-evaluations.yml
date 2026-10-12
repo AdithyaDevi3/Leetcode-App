@@ -1,0 +1,110 @@
+name: Staging Evaluation Operations
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+    - cron: '11 */6 * * *'
+  workflow_dispatch:
+    inputs:
+      operation:
+        description: 'Operation to run against staging'
+        required: true
+        default: scheduler-and-health
+        type: choice
+        options:
+          - scheduler-and-health
+          - health-only
+
+concurrency:
+  group: staging-evaluation-operations
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  evaluation-contract:
+    name: Isolated evaluation contract
+    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '11 */6 * * *'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @leetcode-app/domain build
+      - run: pnpm --filter @leetcode-app/database build
+      - name: Verify queue persistence
+        run: pnpm --filter @leetcode-app/database exec vitest run test/evaluation.repository.test.ts
+      - name: Verify worker and health contracts
+        run: pnpm --filter web exec vitest run src/lib/evaluation-jobs-postgres.test.ts src/app/api/internal/workers/evaluations/route.test.ts src/app/api/health/evaluations/route.test.ts
+
+  evaluation-operations:
+    name: Evaluation worker and queue health
+    if: vars.STAGING_EVALUATION_AUTOMATION_ENABLED == 'true' && (github.event_name == 'workflow_dispatch' || github.event.schedule == '*/5 * * * *')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: staging
+    env:
+      STAGING_APP_URL: ${{ secrets.STAGING_APP_URL }}
+      EVALUATION_WORKER_TOKEN: ${{ secrets.STAGING_EVALUATION_WORKER_TOKEN }}
+      OPERATION: ${{ github.event_name == 'schedule' && 'scheduler-and-health' || inputs.operation }}
+    steps:
+      - name: Validate isolated staging target
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "${STAGING_APP_URL}" || -z "${EVALUATION_WORKER_TOKEN}" ]]; then
+            echo 'Staging URL and evaluation worker token must be configured.' >&2
+            exit 1
+          fi
+          if [[ ! "${STAGING_APP_URL}" =~ ^https://[^/]*staging[^/]*(/.*)?$ ]]; then
+            echo 'Refusing to target a URL that is not an HTTPS staging hostname.' >&2
+            exit 1
+          fi
+
+      - name: Recover leases and trigger one evaluation job
+        if: env.OPERATION == 'scheduler-and-health'
+        shell: bash
+        run: |
+          set -euo pipefail
+          response_file="${RUNNER_TEMP}/evaluation-worker-response.json"
+          status="$({ curl --silent --show-error \
+            --output "${response_file}" \
+            --write-out '%{http_code}' \
+            --request POST \
+            --header "Authorization: Bearer ${EVALUATION_WORKER_TOKEN}" \
+            --header 'Content-Type: application/json' \
+            --data '{"limit":1}' \
+            "${STAGING_APP_URL%/}/api/internal/workers/evaluations"; } 2>&1)"
+          if [[ "${status}" != '200' ]]; then
+            echo "Evaluation worker returned HTTP ${status}." >&2
+            exit 1
+          fi
+          jq -e '.recovered.retried | type == "number"' "${response_file}" >/dev/null
+          jq -e '.recovered.deadLettered | type == "number"' "${response_file}" >/dev/null
+          jq -e '.processed | type == "array"' "${response_file}" >/dev/null
+          echo "Worker completed; processed $(jq '.processed | length' "${response_file}") job(s)."
+
+      - name: Require healthy evaluation queue
+        shell: bash
+        run: |
+          set -euo pipefail
+          response_file="${RUNNER_TEMP}/evaluation-health-response.json"
+          status="$({ curl --silent --show-error \
+            --output "${response_file}" \
+            --write-out '%{http_code}' \
+            "${STAGING_APP_URL%/}/api/health/evaluations"; } 2>&1)"
+          if [[ "${status}" != '200' ]]; then
+            echo "Evaluation queue health returned HTTP ${status}." >&2
+            exit 1
+          fi
+          jq -e '.status == "ok" and .service == "evaluation-queue"' "${response_file}" >/dev/null
+          echo 'Evaluation queue is healthy.'

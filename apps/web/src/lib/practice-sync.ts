@@ -1,4 +1,4 @@
-import { serializePracticeSession, type PracticeSessionState } from './practice-session';
+import { deserializePracticeSession, serializePracticeSession, type PracticeSessionState } from './practice-session';
 import { readBrowserStorage, removeBrowserStorage, writeBrowserStorage } from './safe-browser-storage';
 
 export type PracticeSyncStatus = 'ready' | 'saving' | 'saved' | 'offline' | 'conflict';
@@ -15,6 +15,14 @@ export type PracticeSyncResult = {
   sessionId: string;
   revisionNumber: number;
   status: PracticeSyncStatus;
+};
+
+export type RemotePracticeSession = {
+  sessionId: string;
+  revision: number;
+  latestRevisionNumber: number | null;
+  state: PracticeSessionState | null;
+  draft: string | null;
 };
 
 const practiceSessionCacheKey = (contentId: string) => `method:${contentId}:remote-session`;
@@ -56,7 +64,7 @@ export async function syncPracticeSession(payload: PracticeSyncPayload): Promise
   const revisionResponse = await fetch(`/api/practice/sessions/${sessionId}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ draft: payload.draft, currentStage: payload.currentStage }),
+    body: JSON.stringify({ draft: payload.draft, currentStage: payload.currentStage, state: payload.state }),
   });
 
   if (revisionResponse.status === 409) {
@@ -79,6 +87,30 @@ export async function syncPracticeSession(payload: PracticeSyncPayload): Promise
     sessionId,
     revisionNumber: revisionBody.revision.revisionNumber,
     status: 'saved',
+  };
+}
+
+export async function loadRemotePracticeSession(contentId: string): Promise<RemotePracticeSession | null> {
+  const response = await fetch(`/api/practice/sessions?contentId=${encodeURIComponent(contentId)}`);
+  if (!response.ok) return null;
+  const body = await response.json() as {
+    session?: { id?: unknown; revision?: unknown; latestRevisionNumber?: unknown; sessionMetadata?: unknown };
+  };
+  if (!body.session || typeof body.session.id !== 'string' || typeof body.session.revision !== 'number') return null;
+  const metadata = body.session.sessionMetadata && typeof body.session.sessionMetadata === 'object'
+    ? body.session.sessionMetadata as Record<string, unknown>
+    : {};
+  const state = metadata.workspaceState === undefined
+    ? null
+    : deserializePracticeSession(JSON.stringify(metadata.workspaceState));
+  const draft = state?.draft ?? (typeof metadata.draft === 'string' ? metadata.draft : null);
+  writeCachedPracticeSessionId(contentId, body.session.id);
+  return {
+    sessionId: body.session.id,
+    revision: body.session.revision,
+    latestRevisionNumber: typeof body.session.latestRevisionNumber === 'number' ? body.session.latestRevisionNumber : null,
+    state,
+    draft,
   };
 }
 

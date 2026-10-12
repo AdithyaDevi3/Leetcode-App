@@ -2,6 +2,7 @@ import { createDatabaseClient, databaseConfigFromEnv } from '@leetcode-app/datab
 import { evaluatePseudocode } from './evaluator';
 import { toPersistedContentId } from './content-id';
 import { fromPersistedContentId } from './content-id';
+import type { PracticeSessionState } from './practice-session';
 
 type PracticeSessionRecord = {
   id: string;
@@ -14,6 +15,7 @@ type PracticeSessionRecord = {
   revision: number;
   created_at: Date;
   updated_at: Date;
+  latest_revision_number?: number | null;
 };
 
 export type StartOrResumePracticeSessionInput = {
@@ -24,16 +26,7 @@ export type StartOrResumePracticeSessionInput = {
 export type PracticeOwner = { kind: 'user' | 'guest'; id: string };
 
 export type StartOrResumePracticeSessionResult = {
-  session: {
-    id: string;
-    contentId: string;
-    currentStage: PracticeSessionRecord['current_stage'];
-    status: PracticeSessionRecord['status'];
-    revision: number;
-    createdAt: string;
-    updatedAt: string;
-    sessionMetadata: Record<string, unknown>;
-  };
+  session: PracticeSessionSummary;
   created: boolean;
 };
 
@@ -43,6 +36,7 @@ export type PracticeSessionSummary = {
   currentStage: PracticeSessionRecord['current_stage'];
   status: PracticeSessionRecord['status'];
   revision: number;
+  latestRevisionNumber: number | null;
   createdAt: string;
   updatedAt: string;
   sessionMetadata: Record<string, unknown>;
@@ -53,6 +47,7 @@ export type AppendPracticeRevisionInput = {
   sessionId: string;
   draft: string;
   currentStage?: PracticeSessionRecord['current_stage'];
+  workspaceState?: PracticeSessionState;
 };
 
 export type AppendPracticeRevisionResult = {
@@ -105,10 +100,11 @@ export type CompletePracticeSessionResult = {
 
 const mapPracticeSession = (session: PracticeSessionRecord): PracticeSessionSummary => ({
   id: session.id,
-  contentId: session.content_id,
+  contentId: fromPersistedContentId(session.content_id),
   currentStage: session.current_stage,
   status: session.status,
   revision: session.revision,
+  latestRevisionNumber: session.latest_revision_number ?? null,
   createdAt: session.created_at.toISOString(),
   updatedAt: session.updated_at.toISOString(),
   sessionMetadata: session.session_metadata,
@@ -128,10 +124,11 @@ export async function startOrResumePracticeSession(
 
   try {
     const existing = await db.query<PracticeSessionRecord>(
-      `SELECT id, user_id, guest_id, content_id, current_stage, status, session_metadata, revision, created_at, updated_at
-       FROM practice_sessions
+      `SELECT s.id, s.user_id, s.guest_id, s.content_id, s.current_stage, s.status, s.session_metadata, s.revision, s.created_at, s.updated_at,
+              (SELECT MAX(r.revision_number) FROM pseudocode_revisions r WHERE r.session_id = s.id) AS latest_revision_number
+       FROM practice_sessions s
        WHERE ${ownerColumn(input.owner)} = $1 AND content_id = $2
-       ORDER BY updated_at DESC
+       ORDER BY s.updated_at DESC
        LIMIT 1`,
       [input.owner.id, persistedContentId],
     );
@@ -154,7 +151,7 @@ export async function startOrResumePracticeSession(
          revision
        )
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-       RETURNING id, user_id, guest_id, content_id, current_stage, status, session_metadata, revision, created_at, updated_at`,
+       RETURNING id, user_id, guest_id, content_id, current_stage, status, session_metadata, revision, created_at, updated_at, NULL::integer AS latest_revision_number`,
       [input.owner.kind === 'user' ? input.owner.id : null, input.owner.kind === 'guest' ? input.owner.id : null, 1, persistedContentId, 'understand', 'not_started', {}, 1],
     );
 
@@ -200,17 +197,20 @@ export async function appendPracticeRevision(
     const result = await db.transaction(async (client) => {
       await client.query(
         `UPDATE practice_sessions
-         SET session_metadata = jsonb_set(
-               jsonb_set(session_metadata, '{draft}', $2::jsonb, true),
-               '{currentStage}', to_jsonb($3::text),
-               true
-             ),
+         SET session_metadata = CASE WHEN $5::jsonb IS NULL THEN
+               jsonb_set(jsonb_set(session_metadata, '{draft}', $2::jsonb, true), '{currentStage}', to_jsonb($3::text), true)
+             ELSE
+               jsonb_set(
+                 jsonb_set(jsonb_set(session_metadata, '{draft}', $2::jsonb, true), '{currentStage}', to_jsonb($3::text), true),
+                 '{workspaceState}', $5::jsonb, true
+               )
+             END,
              current_stage = $3,
              status = CASE WHEN status = 'not_started' THEN 'in_progress' ELSE status END,
              revision = revision + 1,
              updated_at = NOW()
          WHERE id = $1 AND ${ownerColumn(input.owner)} = $4`,
-        [session.id, JSON.stringify(normalizedDraft), stage, input.owner.id],
+        [session.id, JSON.stringify(normalizedDraft), stage, input.owner.id, input.workspaceState ? JSON.stringify(input.workspaceState) : null],
       );
 
       await client.query(

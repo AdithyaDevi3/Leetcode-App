@@ -32,7 +32,11 @@ export async function signUpWithPassword(formData: FormData) {
   const next = formData.get('accountType') === 'instructor' ? '/teach/start' : destination(formData);
   const { data, error } = await supabase.auth.signUp({ email, password, options: { emailRedirectTo: `${applicationUrl()}/auth/confirm?next=${encodeURIComponent(next)}` } });
   if (error) redirect(authNotice(formData, 'error', error.message));
-  if (data.session) redirect(next);
+  if (data.session && data.user) {
+    await ensureApplicationUser({ id: data.user.id, email: data.user.email, displayName: data.user.user_metadata.display_name ?? null });
+    await mergeGuestProgressIntoUser(data.user.id);
+    redirect(next);
+  }
   redirect(authNotice(formData, 'message', 'Check your email to confirm your account, then sign in to continue.', next));
 }
 

@@ -19,7 +19,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { defaultPracticeItem, getPracticeItem, practiceItems } from "@/lib/content";
 import type { CodeGrade } from '@/lib/code-grading';
@@ -47,6 +47,7 @@ import {
 } from "@/lib/practice-session";
 import {
   clearCachedPracticeSessionId,
+  loadRemotePracticeSession,
   readCachedPracticeSessionId,
   syncPracticeSession,
   type PracticeSyncStatus,
@@ -87,6 +88,9 @@ export function PracticeWorkspace() {
   const [libraryStatus, setLibraryStatus] = useState<string | null>(null);
   const [showReferenceAnswer, setShowReferenceAnswer] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [localRestoreComplete, setLocalRestoreComplete] = useState(false);
+  const restoredSource = useRef<'local' | 'account' | null>(null);
+  const remoteRestoreAttempts = useRef(new Set<string>());
   const viewer = useViewer();
   const activePracticeItem = getPracticeItem(activePracticeId);
   const storageKey = sessionStorageKey(activePracticeItem.id);
@@ -119,6 +123,7 @@ export function PracticeWorkspace() {
         setCodingLanguage(preferredLanguage);
         setCode(defaultCode(restoredPracticeItem.codeFunction, restoredPracticeItem.codeSignature, preferredLanguage));
         setSavedAt("Ready");
+        setLocalRestoreComplete(true);
         return;
       }
 
@@ -127,9 +132,11 @@ export function PracticeWorkspace() {
         setCodingLanguage(preferredLanguage);
         setCode(defaultCode(restoredPracticeItem.codeFunction, restoredPracticeItem.codeSignature, preferredLanguage));
         setSavedAt("Ready");
+        setLocalRestoreComplete(true);
         return;
       }
 
+      restoredSource.current = 'local';
       setDraft(restoredSession.draft);
       setMode(restoredSession.mode);
       setCodingLanguage(restoredSession.language);
@@ -140,10 +147,41 @@ export function PracticeWorkspace() {
       setCodeGrade(restoredSession.codeGrade);
       setSavedAt("Restored locally");
       setSyncStatus("offline");
+      setLocalRestoreComplete(true);
     }, 0);
 
     return () => window.clearTimeout(timer);
   }, []);
+
+  useEffect(() => {
+    if (!viewer || !localRestoreComplete || remoteRestoreAttempts.current.has(activePracticeItem.id)) return;
+    remoteRestoreAttempts.current.add(activePracticeItem.id);
+    if (readBrowserStorage(sessionStorageKey(activePracticeItem.id))) return;
+
+    let current = true;
+    void loadRemotePracticeSession(activePracticeItem.id).then((remote) => {
+      if (!current || !remote || (!remote.state && !remote.draft)) return;
+      restoredSource.current = 'account';
+      setRemoteRevision(remote.latestRevisionNumber ?? 1);
+      if (remote.state) {
+        setDraft(remote.state.draft);
+        setMode(remote.state.mode);
+        setCodingLanguage(remote.state.language);
+        setCode(remote.state.code);
+        setCodeChecked(remote.state.codeChecked);
+        setCompleted(remote.state.completed);
+        setEvaluation(remote.state.evaluation);
+        setCodeGrade(remote.state.codeGrade);
+      } else if (remote.draft) {
+        setDraft(remote.draft);
+      }
+      setSavedAt("Restored from account");
+      setSyncStatus("saved");
+    }).catch(() => {
+      // Local practice remains available when remote resume is unavailable.
+    });
+    return () => { current = false; };
+  }, [activePracticeItem.id, localRestoreComplete, viewer]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -173,6 +211,14 @@ export function PracticeWorkspace() {
       setSyncStatus(hasChanges ? "saving" : "ready");
 
       if (!hasChanges) {
+        return;
+      }
+
+      if (restoredSource.current) {
+        const source = restoredSource.current;
+        restoredSource.current = null;
+        setSavedAt(source === 'account' ? "Restored from account" : "Restored locally");
+        setSyncStatus(source === 'account' ? "saved" : "offline");
         return;
       }
 

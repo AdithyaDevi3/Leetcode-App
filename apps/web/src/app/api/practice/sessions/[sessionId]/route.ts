@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getPracticeOwner } from '@/lib/auth/session';
 import { appendPracticeRevision } from '@/lib/practice-api';
+import { deserializePracticeSession } from '@/lib/practice-session';
 
 export async function POST(
   request: Request,
@@ -12,10 +13,20 @@ export async function POST(
     const body = (await request.json().catch(() => null)) as {
       draft?: unknown;
       currentStage?: unknown;
+      state?: unknown;
     } | null;
 
-    if (!body || typeof body.draft !== 'string' || body.draft.trim().length === 0) {
+    if (!body || typeof body.draft !== 'string' || body.draft.trim().length === 0 || body.draft.length > 50_000) {
       return NextResponse.json({ error: 'draft is required' }, { status: 400 });
+    }
+
+    const serializedState = body.state === undefined ? null : JSON.stringify(body.state);
+    if (serializedState && serializedState.length > 250_000) {
+      return NextResponse.json({ error: 'workspace state is too large' }, { status: 400 });
+    }
+    const workspaceState = serializedState ? deserializePracticeSession(serializedState) : undefined;
+    if (body.state !== undefined && !workspaceState) {
+      return NextResponse.json({ error: 'workspace state is invalid' }, { status: 400 });
     }
 
     const currentStage =
@@ -32,6 +43,7 @@ export async function POST(
       sessionId,
       draft: body.draft,
       currentStage,
+      workspaceState: workspaceState ? { ...workspaceState, draft: body.draft.trim() } : undefined,
     });
 
     return NextResponse.json(result, { status: 201 });

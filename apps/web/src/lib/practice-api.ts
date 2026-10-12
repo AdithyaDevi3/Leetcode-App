@@ -3,6 +3,8 @@ import { evaluatePseudocode } from './evaluator';
 import { toPersistedContentId } from './content-id';
 import { fromPersistedContentId } from './content-id';
 import type { PracticeSessionState } from './practice-session';
+import { getPracticeItem } from './content';
+import { createReviewStore } from './review-store';
 
 type PracticeSessionRecord = {
   id: string;
@@ -441,25 +443,37 @@ export async function completePracticeSession(input: {
     const nextStage = input.currentStage ?? session.current_stage;
     const nextStatus = input.completed || session.status === 'completed' ? 'completed' : 'in_progress';
 
-    await db.query(
-      `UPDATE practice_sessions
-       SET current_stage = $2,
-           status = $3,
-           session_metadata = jsonb_set(session_metadata, '{completed}', to_jsonb($4::boolean), true),
-           completed_at = CASE WHEN $4::boolean THEN COALESCE(completed_at, NOW()) ELSE completed_at END,
-           revision = revision + 1,
-           updated_at = NOW()
-       WHERE id = $1 AND ${ownerColumn(input.owner)} = $5`,
-      [input.sessionId, nextStage, nextStatus, nextStatus === 'completed', input.owner.id],
-    );
+    const refreshed = await db.transaction(async (client) => {
+      await client.query(
+        `UPDATE practice_sessions
+         SET current_stage = $2,
+             status = $3,
+             session_metadata = jsonb_set(session_metadata, '{completed}', to_jsonb($4::boolean), true),
+             completed_at = CASE WHEN $4::boolean THEN COALESCE(completed_at, NOW()) ELSE completed_at END,
+             revision = revision + 1,
+             updated_at = NOW()
+         WHERE id = $1 AND ${ownerColumn(input.owner)} = $5`,
+        [input.sessionId, nextStage, nextStatus, nextStatus === 'completed', input.owner.id],
+      );
 
-    const refreshed = await db.query<PracticeSessionRecord>(
-      `SELECT id, user_id, guest_id, content_id, current_stage, status, session_metadata, revision, created_at, updated_at
-       FROM practice_sessions
-       WHERE id = $1 AND ${ownerColumn(input.owner)} = $2
-       LIMIT 1`,
-      [input.sessionId, input.owner.id],
-    );
+      if (input.completed && session.status !== 'completed' && input.owner.kind === 'user') {
+        const practiceItem = getPracticeItem(fromPersistedContentId(session.content_id));
+        await createReviewStore(client).schedule(
+          input.owner.id,
+          practiceItem.conceptIds,
+          100,
+          new Date().toISOString(),
+        );
+      }
+
+      return client.query<PracticeSessionRecord>(
+        `SELECT id, user_id, guest_id, content_id, current_stage, status, session_metadata, revision, created_at, updated_at
+         FROM practice_sessions
+         WHERE id = $1 AND ${ownerColumn(input.owner)} = $2
+         LIMIT 1`,
+        [input.sessionId, input.owner.id],
+      );
+    });
 
     return {
       session: mapPracticeSession(refreshed.rows[0]),

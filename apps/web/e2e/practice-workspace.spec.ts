@@ -94,6 +94,20 @@ test('signed-in learner carries onboarding and completed practice into the dashb
       }] }),
     });
   });
+  await page.route('**/api/learner/reviews', async (route) => {
+    if (route.request().method() === 'POST') {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ review: { id: 'review-1' } }) });
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ reviews: [{
+        id: 'review-1', conceptId: 'hash-maps', dueAt: '2026-10-10T12:00:00.000Z', intervalDays: 2,
+        repetitions: 1, practiceItemId: 'pair-with-target-v1', label: 'Pair With Target',
+      }] }),
+    });
+  });
 
   await page.goto('/onboarding');
   await page.getByLabel('Goal').selectOption('coursework');
@@ -105,6 +119,10 @@ test('signed-in learner carries onboarding and completed practice into the dashb
   await page.goto('/dashboard');
   await expect(page.getByText('Plan synced with your account.')).toBeVisible();
   await expect(page.getByText('Completed').locator('..').getByText('1', { exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: '1 review due' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Review now' })).toHaveAttribute('href', '/practice?problem=pair-with-target-v1');
+  await page.getByRole('button', { name: 'Tomorrow' }).click();
+  await expect(page.getByText('Review moved to tomorrow. Your streak is unchanged.')).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Balanced Brackets' })).toBeVisible();
   await expect(page.getByText('Pair With Target')).toHaveCount(0);
 });

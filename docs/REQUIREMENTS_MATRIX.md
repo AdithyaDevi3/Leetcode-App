@@ -27,7 +27,7 @@ This matrix tracks the functional and operational requirements defined in [PRODU
 | LEARN-012 | Notes and bookmarks | Planned | 4 | Ownership-tested CRUD and export/deletion coverage |
 | LEARN-013 | History with revisions and feedback | Planned | 1, 4 | User can inspect immutable revision/evaluation timeline |
 | LEARN-014 | Diagnostic assessment | Planned | 4 | Optional assessment produces editable explained plan |
-| LEARN-015 | Review mode and spaced repetition | Planned | 4 | Deterministic scheduling tests and due-review UI |
+| LEARN-015 | Review mode and spaced repetition | Prototype | 4 | Verified completions schedule durable concept reviews; the account dashboard lists due reviews, links to practice, and supports a non-punitive one-day snooze; migration, API, policy, and browser tests cover the flow |
 | LEARN-016 | Explain-aloud practice | Decision required | Expansion | Consent, retention, accessibility, and provider review complete |
 | LEARN-017 | Topic roadmap with graduated analysis questions | Prototype | 2, 4, 8 | Algorithm and system-design topics have three levels; analysis checks approach, failure/edge case, and cost/tradeoff; signed-in cross-device progress and a database-authored catalog remain planned |
 | LEARN-018 | Learner-invoked reference pseudocode without automatic draft replacement | Prototype | 2 | Browser tests verify reveal, comparison, explicit draft adoption, and hide behavior across current activities |

@@ -230,6 +230,17 @@ the staging deployment uses a distinct database and the assignment-verification
 migration has been applied. After enabling it, use the manual `health-only`
 operation to validate the remote alert path without invoking the worker.
 
+The `Staging Evaluation Operations` workflow applies the same guarded pattern
+to durable evaluation jobs. Its isolated contract runs every six hours and on
+manual dispatch. Remote scheduling remains disabled until the `staging`
+environment contains `STAGING_APP_URL` and `STAGING_EVALUATION_WORKER_TOKEN`,
+the target uses isolated managed PostgreSQL with current migrations, and the
+repository variable `STAGING_EVALUATION_AUTOMATION_ENABLED=true` is set.
+Scheduled runs recover expired evaluation leases, claim at most one queued job,
+and require `/api/health/evaluations` to report a healthy aggregate queue. The
+workflow rejects non-HTTPS URLs and hostnames without `staging`; use its manual
+`health-only` operation to verify alerting without invoking the worker.
+
 ### Respond to queue and worker incidents
 
 Use aggregate health responses and request IDs for incident evidence. Never

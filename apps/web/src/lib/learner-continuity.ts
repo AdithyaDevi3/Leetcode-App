@@ -11,6 +11,15 @@ import {
 } from './local-practice-history';
 
 export type LearnerProfileSource = 'account' | 'device' | 'none';
+export type LearnerReview = {
+  id: string;
+  conceptId: string;
+  dueAt: string;
+  intervalDays: number;
+  repetitions: number;
+  practiceItemId: string | null;
+  label: string;
+};
 
 const isOneOf = <Value extends string>(value: unknown, options: readonly Value[]): value is Value =>
   typeof value === 'string' && options.includes(value as Value);
@@ -105,5 +114,40 @@ export async function loadLearnerPracticeHistory(): Promise<LocalPracticeHistory
     }, local);
   } catch {
     return local;
+  }
+}
+
+export async function loadLearnerReviews(): Promise<LearnerReview[]> {
+  try {
+    const response = await fetch('/api/learner/reviews');
+    if (!response.ok) return [];
+    const body = await response.json() as { reviews?: unknown };
+    if (!Array.isArray(body.reviews)) return [];
+    return body.reviews.filter((review): review is LearnerReview => {
+      if (!review || typeof review !== 'object') return false;
+      const candidate = review as Partial<LearnerReview>;
+      return typeof candidate.id === 'string'
+        && typeof candidate.conceptId === 'string'
+        && typeof candidate.dueAt === 'string'
+        && typeof candidate.intervalDays === 'number'
+        && typeof candidate.repetitions === 'number'
+        && (typeof candidate.practiceItemId === 'string' || candidate.practiceItemId === null)
+        && typeof candidate.label === 'string';
+    });
+  } catch {
+    return [];
+  }
+}
+
+export async function snoozeLearnerReview(reviewId: string, snoozeDays: 1 | 3 | 7): Promise<boolean> {
+  try {
+    const response = await fetch('/api/learner/reviews', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reviewId, snoozeDays }),
+    });
+    return response.ok;
+  } catch {
+    return false;
   }
 }

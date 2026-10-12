@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   loadLearnerPracticeHistory,
   loadLearnerProfile,
+  loadLearnerReviews,
   parseLearnerProfile,
   saveLearnerProfile,
 } from './learner-continuity';
@@ -71,5 +72,13 @@ describe('learner continuity', () => {
         evaluationScore: 88,
       },
     ]);
+  });
+
+  it('loads only valid durable review records', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({ reviews: [
+      { id: 'review-1', conceptId: 'hash-maps', dueAt: '2026-10-12T12:00:00.000Z', intervalDays: 2, repetitions: 1, practiceItemId: 'pair-with-target-v1', label: 'Pair With Target' },
+      { id: 'invalid' },
+    ] }), { status: 200 })));
+    await expect(loadLearnerReviews()).resolves.toHaveLength(1);
   });
 });

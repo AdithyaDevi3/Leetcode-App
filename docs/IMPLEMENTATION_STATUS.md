@@ -72,9 +72,9 @@ Remaining: staging/production worker operations, trace execution limits with see
 
 ### Phase 4 — learning, mastery, and personalization
 
-Present: concept graph, mastery-update foundation, recommendations, spaced-review scheduling, onboarding-plan/personalization storage, learner-profile API, onboarding UI, and a profile-derived learner-plan API/page.
+Present: concept graph, mastery-update foundation, recommendations, durable spaced-review scheduling from verified completions, account-owned due-review and snooze APIs, dashboard review actions, onboarding-plan/personalization storage, learner-profile API, onboarding UI, and a profile-derived learner-plan API/page.
 
-Remaining: complete onboarding and diagnostic flow, daily home/history/notes/concept-map learner surfaces, stored recommendation outcomes, and pilot evidence for the phase exit criteria.
+Remaining: complete onboarding and diagnostic flow, review completion/history beyond the current rescheduling loop, daily home/history/notes/concept-map learner surfaces, stored recommendation outcomes, and pilot evidence for the phase exit criteria.
 
 ### Phase 5 — safe coding workspace
 

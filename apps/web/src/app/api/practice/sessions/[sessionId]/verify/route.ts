@@ -39,7 +39,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ ses
       return NextResponse.json({ error: 'This practice item has no verified test specification' }, { status: 422 });
     }
 
-    const rateLimit = takeRateLimit(`verified-execution:${owner.kind}:${owner.id}`, {
+    const rateLimit = await takeRateLimit(`verified-execution:${owner.kind}:${owner.id}`, {
       limit: Number(process.env.EXECUTION_SUBMISSIONS_PER_TEN_MINUTES ?? 10),
       windowMs: 10 * 60_000,
     });

@@ -48,9 +48,9 @@ Address these in this order:
    guest-to-account merge journey against production redirect allowlists.
 2. Replace the shared appeal reviewer token with authenticated, reason-required
    administration actions from [ADR-011](adr/011-current-platform-and-admin-console.md).
-3. Replace the in-memory limiter in `apps/web/src/lib/rate-limit.ts` with a
-   distributed limiter shared by all Vercel instances.
-4. Verify scheduled production health checks and configure error reporting,
+3. Apply the distributed rate-limit migration, set `RATE_LIMIT_STORE=postgres`,
+   and verify shared 429/retry behavior before relying on it in production.
+4. Configure error reporting,
    external paging/latency alerts, database backups, and a restore rehearsal.
 5. Persist and reconcile mastery/recommendation outcomes across devices.
 6. Move authored activities and grading specifications toward one versioned
@@ -60,6 +60,22 @@ Address these in this order:
 
 AI evaluation is deliberately disabled by default. System-design drafts remain
 local to one browser. Neither should be presented as a completed hosted feature.
+
+### Distributed submission limits
+
+The evaluation, exploratory-execution, and verified-execution routes can share
+fixed-window counters through PostgreSQL. Apply the current migration set, set
+`RATE_LIMIT_STORE=postgres` on every application instance, and redeploy. Raw
+user and guest identifiers are SHA-256 hashed with the limit namespace before
+storage; counters older than one day past expiry are removed during requests.
+
+Test each protected route until it returns `429` with `Retry-After`, then verify
+another application instance observes the same window. A database or query
+failure returns the route's generic `500` response instead of allowing an
+unmetered expensive action. To roll back, unset `RATE_LIMIT_STORE` or set it to
+`memory`; this restores the weaker per-instance guard without reverting the
+additive table migration. Do not describe the limiter as production-enforced
+until the migration, environment setting, and cross-instance check are complete.
 
 ## Local setup
 

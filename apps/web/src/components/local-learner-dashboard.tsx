@@ -8,6 +8,7 @@ import { buildLocalLearningPlan, readLocalLearnerProfile, type LocalLearnerProfi
 import { readLocalPracticeHistory, type LocalPracticeHistoryEntry } from '@/lib/local-practice-history';
 import { summarizeLearningProgress, type LearningProgressSummary } from '@/lib/learning-progress';
 import { readLocalMastery, type LocalMasteryState } from '@/lib/local-mastery';
+import { loadLearnerPracticeHistory, loadLearnerProfile, type LearnerProfileSource } from '@/lib/learner-continuity';
 
 const practiceHref = (practiceItemId: string) =>
   `/practice?problem=${encodeURIComponent(practiceItemId)}`;
@@ -17,14 +18,25 @@ export function LocalLearnerDashboard() {
   const [history, setHistory] = useState<LocalPracticeHistoryEntry[]>([]);
   const [progress, setProgress] = useState<LearningProgressSummary | null>(null);
   const [mastery, setMastery] = useState<LocalMasteryState>({});
+  const [profileSource, setProfileSource] = useState<LearnerProfileSource>('none');
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
       const localHistory = readLocalPracticeHistory();
-      setProfile(readLocalLearnerProfile());
+      const localProfile = readLocalLearnerProfile();
+      setProfile(localProfile);
+      setProfileSource(localProfile ? 'device' : 'none');
       setHistory(localHistory);
       setProgress(summarizeLearningProgress(localHistory));
       setMastery(readLocalMastery());
+      void Promise.all([loadLearnerProfile(), loadLearnerPracticeHistory()]).then(([profileResult, durableHistory]) => {
+        setProfile(profileResult.profile);
+        setProfileSource(profileResult.source);
+        setHistory(durableHistory);
+        setProgress(summarizeLearningProgress(durableHistory));
+        setLoading(false);
+      });
     }, 0);
     return () => window.clearTimeout(timer);
   }, []);
@@ -34,8 +46,10 @@ export function LocalLearnerDashboard() {
 
   return <main className="min-h-screen bg-[var(--paper)] px-6 py-8 text-[var(--ink)] sm:py-12"><div className="mx-auto max-w-5xl"><SiteNavigation currentPath="/dashboard" /><section className="mx-auto mt-10 max-w-3xl rounded-xl bg-white p-6 shadow-sm sm:p-8">
     <p className="mt-8 text-sm font-semibold uppercase tracking-wide text-[var(--muted)]">Learner dashboard</p><h1 className="mt-2 text-3xl font-bold">Your next learning step</h1>
-    {profile === null ? <div className="mt-6 space-y-3"><p>Set your goals first, and we’ll create a focused learning plan on this device.</p><Link className="inline-block rounded bg-[var(--moss)] px-4 py-2 font-semibold text-white" href="/onboarding">Start onboarding</Link></div> : null}
+    {loading && profile === null ? <p className="mt-6" aria-live="polite">Loading your learning plan…</p> : null}
+    {!loading && profile === null ? <div className="mt-6 space-y-3"><p>Set your goals first, and we’ll create a focused learning plan.</p><Link className="inline-block rounded bg-[var(--moss)] px-4 py-2 font-semibold text-white" href="/onboarding">Start onboarding</Link></div> : null}
     {profile && plan ? <div className="mt-6 space-y-7">
+      <p className="text-sm text-[var(--muted)]" aria-live="polite">{profileSource === 'account' ? 'Plan synced with your account.' : 'Plan saved on this device. Sign in to use it everywhere.'}</p>
       <section aria-labelledby="progress-heading" className="border border-[var(--line)] bg-[var(--paper)] p-5">
         <div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-sm font-semibold uppercase tracking-wide text-[var(--muted)]">Your momentum</p><h2 className="mt-1 text-xl font-bold" id="progress-heading">Progress you can build on</h2></div><Link className="font-semibold underline underline-offset-4" href="/history">View history</Link></div>
         <dl className="mt-5 grid gap-4 sm:grid-cols-4"><div><dt className="text-sm text-[var(--muted)]">Completed</dt><dd className="text-2xl font-bold">{progress?.completedItems ?? 0}</dd></div><div><dt className="text-sm text-[var(--muted)]">Active days</dt><dd className="text-2xl font-bold">{progress?.activeDays ?? 0}</dd></div><div><dt className="text-sm text-[var(--muted)]">Current streak</dt><dd className="text-2xl font-bold">{progress?.currentStreak ?? 0} <span className="text-sm font-medium">days</span></dd></div><div><dt className="text-sm text-[var(--muted)]">Average score</dt><dd className="text-2xl font-bold">{progress?.averageScore === null || progress?.averageScore === undefined ? '—' : `${progress.averageScore}/100`}</dd></div></dl>

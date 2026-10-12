@@ -48,7 +48,7 @@ test('local preferences choose a working personalized algorithm', async ({ page 
   await page.getByLabel('Include an optional diagnostic challenge in my plan').check();
   await page.getByRole('button', { name: 'Save plan' }).click();
 
-  await expect(page.getByText('Saved locally. Your first recommendation is Island Count.')).toBeVisible();
+  await expect(page.getByText('Saved on this device. Your first recommendation is Island Count.')).toBeVisible();
   const recommendation = page.getByRole('link', { name: 'Start recommended practice' });
   await expect(recommendation).toHaveAttribute('href', '/practice?problem=island-count-v1');
 
@@ -68,6 +68,45 @@ test('local preferences choose a working personalized algorithm', async ({ page 
   await expect(page.getByLabel('C++ implementation')).toHaveValue(/int countIslands\(vector<vector<int>> grid\)/);
   await page.getByRole('button', { name: /Python 3 python3/ }).click();
   await expect(page.getByLabel('Python implementation')).toHaveValue(/def count_islands/);
+});
+
+test('signed-in learner carries onboarding and completed practice into the dashboard', async ({ page }) => {
+  let savedProfile: Record<string, unknown> | null = null;
+  await page.route('**/api/learner/profile', async (route) => {
+    if (route.request().method() === 'PUT') {
+      savedProfile = route.request().postDataJSON() as Record<string, unknown>;
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ profile: savedProfile }) });
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ profile: savedProfile }),
+    });
+  });
+  await page.route('**/api/practice/history', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ sessions: [{
+        session: { contentId: 'pair-with-target-v1', status: 'completed', updatedAt: '2026-10-11T12:00:00.000Z' },
+        evaluation: { score: 92 },
+      }] }),
+    });
+  });
+
+  await page.goto('/onboarding');
+  await page.getByLabel('Goal').selectOption('coursework');
+  await page.getByLabel('Weekly minutes').fill('180');
+  await page.getByRole('button', { name: 'Save plan' }).click();
+  await expect(page.getByText(/Saved to your account\. Your first recommendation is/)).toBeVisible();
+  expect(savedProfile).toMatchObject({ goal: 'coursework', weeklyMinutes: 180 });
+
+  await page.goto('/dashboard');
+  await expect(page.getByText('Plan synced with your account.')).toBeVisible();
+  await expect(page.getByText('Completed').locator('..').getByText('1', { exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Balanced Brackets' })).toBeVisible();
+  await expect(page.getByText('Pair With Target')).toHaveCount(0);
 });
 
 test('guest can open the workspace and autosave a draft locally', async ({ page }) => {

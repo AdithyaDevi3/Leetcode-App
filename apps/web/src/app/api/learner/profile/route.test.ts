@@ -17,4 +17,11 @@ describe('/api/learner/profile', () => {
     const response = await PUT(new Request('http://localhost', { method: 'PUT', body: JSON.stringify(profile) }));
     expect(response.status).toBe(200); expect(upsertProfile).toHaveBeenCalledWith('user-1', profile);
   });
+  it('rejects unsupported profile choices before persistence', async () => {
+    requireAuth.mockResolvedValue({ user: { id: 'user-1' } });
+    const { PUT } = await import('./route');
+    const response = await PUT(new Request('http://localhost', { method: 'PUT', body: JSON.stringify({ ...profile, goal: 'admin' }) }));
+    expect(response.status).toBe(400);
+    expect(upsertProfile).not.toHaveBeenCalled();
+  });
 });

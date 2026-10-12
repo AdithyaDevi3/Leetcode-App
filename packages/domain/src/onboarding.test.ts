@@ -14,4 +14,9 @@ describe('learner onboarding', () => {
     expect(validateLearnerProfile({ ...profile, preferredLanguage: 'cpp' })).toEqual([]);
     expect(validateLearnerProfile({ ...profile, preferredLanguage: 'ruby' as 'cpp' })).toContain('Unsupported preferredLanguage');
   });
+  it('rejects unsupported profile choices and oversized optional input', () => {
+    expect(validateLearnerProfile({ ...profile, goal: 'invalid' as 'interview' })).toContain('Unsupported goal');
+    expect(validateLearnerProfile({ ...profile, experience: 'expert' as 'new' })).toContain('Unsupported experience');
+    expect(validateLearnerProfile({ ...profile, accessibilityNotes: 'x'.repeat(2_001) })).toContain('accessibilityNotes must be a string of at most 2000 characters');
+  });
 });

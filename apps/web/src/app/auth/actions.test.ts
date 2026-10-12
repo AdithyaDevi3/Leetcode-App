@@ -23,8 +23,10 @@ describe('instructor signup routing', () => {
     expect(mocks.ensure).not.toHaveBeenCalled();
   });
   it('routes immediate sessions to instructor activation', async () => {
-    mocks.signUp.mockResolvedValue({ data: { session: {} }, error: null });
+    mocks.signUp.mockResolvedValue({ data: { session: {}, user: { id: 'new-user', email: 'instructor@example.test', user_metadata: { display_name: 'Instructor' } } }, error: null });
     await expect(signUpWithPassword(signup('instructor'))).rejects.toThrow('redirect:/teach/start');
+    expect(mocks.ensure).toHaveBeenCalledWith({ id: 'new-user', email: 'instructor@example.test', displayName: 'Instructor' });
+    expect(mocks.merge).toHaveBeenCalledWith('new-user');
   });
   it('does not accept administrator as a public account type', async () => {
     await expect(signUpWithPassword(signup('administrator'))).rejects.toThrow('account=learner');

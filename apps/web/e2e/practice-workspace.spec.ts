@@ -171,6 +171,55 @@ test('guest draft resumes after reload', async ({ page }) => {
   await expect(page.getByText('Restored locally')).toBeVisible();
 });
 
+test('signed-in learner resumes the complete workspace from another device', async ({ page }) => {
+  let revisionWrites = 0;
+  await page.route('**/api/viewer', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ viewer: { id: 'learner-1', email: 'learner@example.com', displayName: 'Learner', canAccessAdministration: false } }),
+    });
+  });
+  await page.route('**/api/practice/sessions**', async (route) => {
+    if (route.request().method() !== 'GET') {
+      revisionWrites += 1;
+      await route.fulfill({ status: 500, body: 'unexpected restore write' });
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        session: {
+          id: 'session-remote',
+          revision: 9,
+          latestRevisionNumber: 7,
+          sessionMetadata: {
+            workspaceState: {
+              draft: 'Restore the complete learner plan.',
+              mode: 'text',
+              language: 'typescript',
+              code: 'function findPair(values: number[], target: number) { return []; }',
+              codeChecked: false,
+              completed: false,
+              evaluation: null,
+              codeGrade: null,
+            },
+          },
+        },
+      }),
+    });
+  });
+
+  await page.goto('/practice');
+
+  await expect(page.getByLabel('Pseudocode draft')).toHaveValue('Restore the complete learner plan.');
+  await expect(page.getByLabel('TypeScript implementation')).toHaveValue(/function findPair/);
+  await expect(page.getByText('Restored from account')).toBeVisible();
+  await page.waitForTimeout(600);
+  expect(revisionWrites).toBe(0);
+});
+
 test('unavailable execution never records an unverified completion', async ({ page }) => {
   await openHydratedWorkspace(page);
 

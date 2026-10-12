@@ -51,7 +51,10 @@ describe('/api/practice/sessions/[sessionId]', () => {
     const response = await POST(
       new Request('http://localhost/api/practice/sessions/session-1', {
         method: 'POST',
-        body: JSON.stringify({ draft: 'Use a map.', currentStage: 'plan' }),
+        body: JSON.stringify({ draft: 'Use a map.', currentStage: 'plan', state: {
+          draft: 'Use a map.', mode: 'text', language: 'python', code: 'pass', codeChecked: false,
+          completed: false, evaluation: null, codeGrade: null,
+        } }),
       }),
       { params: Promise.resolve({ sessionId: 'session-1' }) },
     );
@@ -62,6 +65,20 @@ describe('/api/practice/sessions/[sessionId]', () => {
       sessionId: 'session-1',
       draft: 'Use a map.',
       currentStage: 'plan',
+      workspaceState: {
+        draft: 'Use a map.', mode: 'text', language: 'python', code: 'pass', codeChecked: false,
+        completed: false, evaluation: null, codeGrade: null,
+      },
     });
+  });
+
+  it('rejects malformed or oversized workspace state', async () => {
+    getPracticeOwner.mockResolvedValue({ kind: 'user', id: 'user-1' });
+    const { POST } = await import('./route');
+    const invalid = await POST(new Request('http://localhost', { method: 'POST', body: JSON.stringify({ draft: 'Plan', state: { draft: 'Plan' } }) }), { params: Promise.resolve({ sessionId: 'session-1' }) });
+    const oversized = await POST(new Request('http://localhost', { method: 'POST', body: JSON.stringify({ draft: 'Plan', state: { code: 'x'.repeat(250_001) } }) }), { params: Promise.resolve({ sessionId: 'session-1' }) });
+    expect(invalid.status).toBe(400);
+    expect(oversized.status).toBe(400);
+    expect(appendPracticeRevision).not.toHaveBeenCalled();
   });
 });

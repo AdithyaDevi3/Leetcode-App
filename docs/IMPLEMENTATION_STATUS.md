@@ -1,8 +1,8 @@
 # Implementation status notes
 
-Snapshot: `main` as of 2026-09-28 after the administration, classrooms,
-assignment grading, roadmap, multi-language grading, and reference-answer
-releases. This is an
+Snapshot: `main` as of 2026-10-18 after the administration, classrooms,
+assignment grading, roadmap, multi-language grading, reference-answer,
+cross-device learner continuity, and spaced-review releases. This is an
 implementation ledger, not a
 declaration that any phase has passed its exit criteria. Code still requires
 tests, operational evidence, and the acceptance criteria named in
@@ -89,6 +89,9 @@ authorization, audited role changes, operational views, and administrator
 managed classes and assignments. Instructor-owned classes include assignment
 submissions, private rubric drafts, explicit grade publication, published-grade
 totals with comparable ranking, and learner published-grade views.
+The instructor gradebook includes learner search, attention and ranking filters,
+rank and published-total sorting, accurate cell-level attention counts, and a
+formula-safe CSV export of the current authorized view.
 
 Remaining: production author/review/publish workflow, operations queues, privileged-action audit controls, support/privacy/legal workflows, and rollback exercises.
 

@@ -57,3 +57,28 @@ test('learner reviews the published grade and requests a review accessibly on ph
   await expect(page.getByRole('status')).toHaveText('Your grade review request was sent.');
   await expectNoPageOverflow(page);
 });
+
+test('instructor filters, sorts, and exports the class gradebook', async ({ page }) => {
+  await page.goto(`${fixturePath}?view=gradebook`);
+
+  await expect(page.getByText('Showing 3 of 3 learners')).toBeVisible();
+  await page.getByLabel('Find a learner').fill('sample');
+  await expect(page.getByText('Showing 1 of 3 learners')).toBeVisible();
+  await expect(page.getByRole('rowheader', { name: /Sample Learner/ })).toBeVisible();
+  await expect(page.getByRole('rowheader', { name: /Avery Ranked/ })).toHaveCount(0);
+
+  await page.getByLabel('Find a learner').fill('');
+  await page.getByLabel('Show').selectOption('ranked');
+  await expect(page.getByRole('rowheader', { name: /Avery Ranked/ })).toBeVisible();
+  await expect(page.getByRole('rowheader', { name: /Sample Learner/ })).toHaveCount(0);
+
+  await page.getByLabel('Show').selectOption('all');
+  await page.getByLabel('Sort by').selectOption('total_desc');
+  const names = await page.getByRole('rowheader').allTextContents();
+  expect(names[0]).toContain('Avery Ranked');
+
+  const downloadPromise = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Download current view' }).click();
+  const download = await downloadPromise;
+  expect(download.suggestedFilename()).toBe('algorithms-studio-gradebook.csv');
+});

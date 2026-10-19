@@ -41,10 +41,8 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @leetcode-app/domain build
       - run: pnpm --filter @leetcode-app/database build
-      - name: Verify queue persistence
-        run: pnpm --filter @leetcode-app/database exec vitest run test/evaluation.repository.test.ts
-      - name: Verify worker and health contracts
-        run: pnpm --filter web exec vitest run src/lib/evaluation-jobs-postgres.test.ts src/app/api/internal/workers/evaluations/route.test.ts src/app/api/health/evaluations/route.test.ts
+      - name: Verify durable PostgreSQL queue and worker contracts
+        run: pnpm --filter web exec vitest run src/lib/evaluation-jobs-postgres.integration.test.ts src/app/api/internal/workers/evaluations/route.test.ts src/app/api/health/evaluations/route.test.ts
 
   evaluation-operations:
     name: Evaluation worker and queue health

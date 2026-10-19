@@ -58,7 +58,7 @@ export function ManualGradeEditor({ submission }: { submission: GradebookRecipie
 
   return <div className="grid gap-6 lg:grid-cols-[minmax(0,1.25fr)_minmax(320px,0.75fr)]">
     <section className="rounded-xl border border-[var(--line)] bg-[var(--surface)] p-5 sm:p-6">
-      <div className="mb-5 flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-lg font-bold">Latest response</h2><p className="text-sm text-[var(--muted)]">Attempt {attempt.sequence} · {new Date(attempt.submittedAt).toLocaleString()}</p></div><AdminBadge value={latestPublication?.gradeRevisionId === grade?.id ? 'published' : grade ? 'draft' : 'submitted'} /></div>
+      <div className="mb-5 flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-lg font-bold">Latest response</h2><p className="text-sm text-[var(--muted)]">{attempt.response.language ? `${attempt.response.language} · ` : ''}Attempt {attempt.sequence} · {new Date(attempt.submittedAt).toLocaleString()}</p></div><AdminBadge value={grade && latestPublication?.gradeRevisionId === grade.id ? 'published' : grade ? 'draft' : 'awaiting_review'} /></div>
       <pre className="max-h-[36rem] overflow-auto whitespace-pre-wrap rounded-lg border border-[var(--line)] bg-[#f6f4ee] p-4 text-sm leading-6">{attempt.response.text}</pre>
     </section>
     <section className="rounded-xl border border-[var(--line)] bg-[var(--surface)] p-5 sm:p-6">

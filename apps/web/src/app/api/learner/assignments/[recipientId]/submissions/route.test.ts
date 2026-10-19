@@ -48,6 +48,18 @@ describe('/api/learner/assignments/[recipientId]/submissions', () => {
     expect(close).toHaveBeenCalledOnce();
   });
 
+  it('acknowledges a human-reviewed rubric submission for the instructor inbox', async () => {
+    submitAttempt.mockResolvedValue({
+      id: '44444444-4444-4444-8444-444444444444',
+      responseRevisionId: '55555555-5555-4555-8555-555555555555',
+      sequence: 1,
+    });
+    const { POST } = await import('./route');
+    const response = await POST(request({ language: 'python', source: 'def solve(): return 1', requestKey: 'attempt-manual' }), context);
+    expect(response.status).toBe(201);
+    expect(await response.json()).toEqual({ attempt: expect.objectContaining({ sequence: 1, status: 'submitted' }) });
+  });
+
   it('rejects malformed bodies before opening a database connection', async () => {
     const { POST } = await import('./route');
     const response = await POST(request({ language: 'ruby', source: 'puts 1', requestKey: 'attempt-1' }), context);

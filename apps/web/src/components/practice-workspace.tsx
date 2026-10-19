@@ -426,7 +426,7 @@ export function PracticeWorkspace({ assignmentRecipientId = null }: { assignment
   const submitAssignedTask = async () => {
     if (!activeAssignmentRecipientId || assignmentSubmissionStatus === 'submitting' || !code.trim()) return;
     setAssignmentSubmissionStatus('submitting');
-    setAssignmentSubmissionMessage('Sending your code for assignment verification…');
+    setAssignmentSubmissionMessage('Sending your work for assignment review…');
     try {
       const response = await fetch(`/api/learner/assignments/${encodeURIComponent(activeAssignmentRecipientId)}/submissions`, {
         method: 'POST',
@@ -437,10 +437,10 @@ export function PracticeWorkspace({ assignmentRecipientId = null }: { assignment
       if (!response.ok || !body?.attempt) throw new Error(body?.error ?? 'Could not submit this assignment. Please try again.');
       if (body.attempt.status === 'queued' || body.attempt.status === 'running') {
         setAssignmentSubmissionStatus('queued');
-        setAssignmentSubmissionMessage('Submitted. Server verification is queued; your instructor can review the result in the class gradebook.');
+        setAssignmentSubmissionMessage('Submitted. Automated checks are processing; your instructor can review the result in the class gradebook.');
       } else {
         setAssignmentSubmissionStatus('submitted');
-        setAssignmentSubmissionMessage('Submission received. Your instructor can review and publish the result in the class gradebook.');
+        setAssignmentSubmissionMessage('Submission received and added to your instructor’s class review inbox. Your instructor will score it against the assignment rubric and publish your grade.');
       }
     } catch (error) {
       setAssignmentSubmissionStatus('error');
@@ -584,7 +584,7 @@ export function PracticeWorkspace({ assignmentRecipientId = null }: { assignment
           </div>
 
           {activeAssignmentRecipientId ? <section className="mb-5 flex flex-col gap-3 rounded-xl border border-[var(--moss)] bg-[var(--moss-soft)] p-4 sm:flex-row sm:items-center sm:justify-between" aria-label="Class assignment submission instructions">
-            <p className="mb-0 text-sm leading-6 text-[var(--ink)]"><strong>Class assignment.</strong> Complete the implementation, then choose <strong>Submit assigned task</strong>. “Run verified tests” is only a local practice check; submit here for the assignment’s server-side verification.</p>
+            <p className="mb-0 text-sm leading-6 text-[var(--ink)]"><strong>Class assignment.</strong> Complete the implementation, then choose <strong>Submit assigned task</strong> to send your work to your instructor for rubric-based grading. “Run verified tests” is a separate practice check and does not submit the assignment.</p>
             <a className="inline-flex min-h-10 shrink-0 items-center justify-center rounded-md border border-[var(--moss)] bg-white px-4 font-bold text-[var(--moss)] no-underline" href="#coding-workspace">Go to submission →</a>
           </section> : null}
           <nav className="practice-stage-nav" aria-label="Practice stages"><a href="#workspace-title"><span>01</span>Write your approach</a><a href="#feedback-title"><span>02</span>Review feedback</a><a href="#coding-workspace"><span>03</span>Implement & test</a></nav>

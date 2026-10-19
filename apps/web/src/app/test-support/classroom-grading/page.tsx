@@ -19,7 +19,7 @@ const submission: GradebookRecipientHistory = {
   assignment: { id: '55555555-5555-4555-8555-555555555555', classId: '66666666-6666-4666-8666-666666666666', title: 'Pair With Target', instructions: 'Explain the linear-time approach.', dueOn: '2026-10-05', closesAt: null, isClosed: false },
   policy: { assignmentId: '55555555-5555-4555-8555-555555555555', versionId: 'policy-v1', contentVersionId: 'content-v1', maxUnits: 1000, attemptPolicy: 'latest', scoring: { mode: 'reviewed_rubric', rubricVersionId: 'rubric-v1', criteria: [{ id: 'reasoning', label: 'Reasoning', maxUnits: 600 }, { id: 'complexity', label: 'Complexity', maxUnits: 400 }] } },
   applicability: { id: '77777777-7777-4777-8777-777777777777', sequence: 1, applicability: 'assigned', createdAt: '2026-10-01T12:00:00.000Z' },
-  attempts: [{ id: attemptId, responseRevisionId: '88888888-8888-4888-8888-888888888888', sequence: 1, response: { text: 'Scan once while storing each value in a map. Return when the complement has already been seen.' }, submittedAt: '2026-10-01T13:00:00.000Z' }],
+  attempts: [{ id: attemptId, responseRevisionId: '88888888-8888-4888-8888-888888888888', sequence: 1, response: { language: 'python', text: 'Scan once while storing each value in a map. Return when the complement has already been seen.' }, submittedAt: '2026-10-01T13:00:00.000Z' }],
   grades: [], publications: [], disputes: [],
 };
 

@@ -39,6 +39,7 @@ const badgeStyles: Record<string, string> = {
   resolved: 'bg-[var(--moss-soft)] text-[var(--moss)]',
   active: 'bg-[var(--moss-soft)] text-[var(--moss)]',
   submitted: 'bg-[var(--sky)] text-slate-800',
+  awaiting_review: 'bg-[var(--sky)] text-slate-800',
   queued: 'bg-[var(--sky)] text-slate-800',
   requested: 'bg-[var(--sky)] text-slate-800',
   processing: 'bg-amber-100 text-amber-900',

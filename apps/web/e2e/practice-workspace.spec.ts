@@ -34,17 +34,30 @@ test('assigned task can be submitted from its practice workspace', async ({ page
   const submissions: Record<string, unknown>[] = [];
   await page.route(`**/api/learner/assignments/${recipientId}/submissions`, async (route) => {
     submissions.push(route.request().postDataJSON() as Record<string, unknown>);
-    await route.fulfill({ status: 202, contentType: 'application/json', body: JSON.stringify({ attempt: { id: 'attempt-1', status: 'queued' } }) });
+    await route.fulfill({ status: 201, contentType: 'application/json', body: JSON.stringify({ attempt: { id: 'attempt-1', status: 'submitted' } }) });
   });
 
   await page.goto(`/practice?problem=pair-with-target-v1&assignment=${recipientId}`);
   await expect(page.getByRole('button', { name: 'Submit assigned task' })).toBeVisible();
   await page.getByRole('button', { name: 'Submit assigned task' }).click();
 
-  await expect(page.getByRole('status').filter({ hasText: 'Submitted. Server verification is queued' })).toBeVisible();
+  await expect(page.getByRole('status').filter({ hasText: 'added to your instructor’s class review inbox' })).toBeVisible();
   expect(submissions[0]).toMatchObject({ language: 'python' });
   expect(submissions[0]?.source).toContain('def find_pair');
   expect(typeof submissions[0]?.requestKey).toBe('string');
+});
+
+test('automated assignment checks are reported separately from instructor rubric review', async ({ page }) => {
+  const recipientId = '11111111-1111-4111-8111-111111111111';
+  await page.route(`**/api/learner/assignments/${recipientId}/submissions`, route => route.fulfill({
+    status: 202,
+    contentType: 'application/json',
+    body: JSON.stringify({ attempt: { id: 'attempt-2', status: 'queued' } }),
+  }));
+
+  await page.goto(`/practice?problem=pair-with-target-v1&assignment=${recipientId}`);
+  await page.getByRole('button', { name: 'Submit assigned task' }).click();
+  await expect(page.getByRole('status').filter({ hasText: 'Automated checks are processing' })).toBeVisible();
 });
 
 test('service worker leaves Next.js static assets on the network', async ({ request }) => {

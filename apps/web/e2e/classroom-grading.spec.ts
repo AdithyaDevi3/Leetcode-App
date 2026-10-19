@@ -17,6 +17,9 @@ test('instructor saves and publishes a private rubric draft', async ({ page }) =
   });
 
   await page.goto(fixturePath);
+  await expect(page.getByText('python · Attempt 1')).toBeVisible();
+  await expect(page.getByText('Scan once while storing each value in a map. Return when the complement has already been seen.')).toBeVisible();
+  await expect(page.getByText('awaiting review')).toBeVisible();
   await page.getByLabel('Reasoning').fill('5');
   await page.getByLabel('Complexity').fill('3.5');
   await page.getByLabel('Feedback for learner').fill('Clear reasoning with the right complexity.');

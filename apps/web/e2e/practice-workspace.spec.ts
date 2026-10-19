@@ -39,6 +39,10 @@ test('assigned task can be submitted from its practice workspace', async ({ page
 
   await page.goto(`/practice?problem=pair-with-target-v1&assignment=${recipientId}`);
   await expect(page.getByRole('button', { name: 'Submit assigned task' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Complete your coding assignment' })).toBeVisible();
+  await expect(page.getByText('Assignment coding is open')).toBeVisible();
+  await expect(page.getByLabel('Python implementation')).toBeEnabled();
+  await expect(page.getByRole('button', { name: /Run verified tests/i })).toBeEnabled();
   await page.getByRole('button', { name: 'Submit assigned task' }).click();
 
   await expect(page.getByRole('status').filter({ hasText: 'added to your instructor’s class review inbox' })).toBeVisible();
@@ -440,7 +444,9 @@ test('queued evaluation cannot be submitted twice', async ({ page }) => {
   const evaluateButton = page.getByRole('button', { name: 'Evaluate reasoning' });
   await evaluateButton.dblclick();
 
-  await expect(page.getByRole('button', { name: 'Evaluating…' })).toBeDisabled();
+  await expect(page.getByText('Implementation unlocked')).toBeVisible();
+  await expect(page.getByLabel('Python implementation')).toBeEnabled();
+  await expect(page.getByRole('button', { name: 'Saving evaluation…' })).toBeDisabled();
   await expect(page.getByRole('button', { name: 'Cancel evaluation' })).toBeVisible();
   await expect.poll(() => page.evaluate(() => (window as typeof window & { evaluationRequests?: number }).evaluationRequests)).toBe(1);
 });
@@ -489,7 +495,7 @@ test('rate-limited evaluation exposes a retry that recovers', async ({ page }) =
 
   await page.getByRole('button', { name: 'Evaluate reasoning' }).click();
 
-  await expect(page.getByText('Too many submissions. Try again in 2 seconds. Showing a local evaluation instead.')).toBeVisible();
+  await expect(page.getByText('Too many submissions. Try again in 2 seconds. Your on-device evaluation is still available.')).toBeVisible();
   await page.getByRole('button', { name: 'Retry evaluation' }).click();
 
   await expect(page.getByText('Recovered evaluation completed.')).toBeVisible();

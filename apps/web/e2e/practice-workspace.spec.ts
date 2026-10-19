@@ -29,6 +29,24 @@ test('home practice button performs a document navigation into the workspace', a
   await expect(page.getByText('Ready', { exact: true })).toBeVisible();
 });
 
+test('assigned task can be submitted from its practice workspace', async ({ page }) => {
+  const recipientId = '11111111-1111-4111-8111-111111111111';
+  const submissions: Record<string, unknown>[] = [];
+  await page.route(`**/api/learner/assignments/${recipientId}/submissions`, async (route) => {
+    submissions.push(route.request().postDataJSON() as Record<string, unknown>);
+    await route.fulfill({ status: 202, contentType: 'application/json', body: JSON.stringify({ attempt: { id: 'attempt-1', status: 'queued' } }) });
+  });
+
+  await page.goto(`/practice?problem=pair-with-target-v1&assignment=${recipientId}`);
+  await expect(page.getByRole('button', { name: 'Submit assigned task' })).toBeVisible();
+  await page.getByRole('button', { name: 'Submit assigned task' }).click();
+
+  await expect(page.getByRole('status').filter({ hasText: 'Submitted. Server verification is queued' })).toBeVisible();
+  expect(submissions[0]).toMatchObject({ language: 'python' });
+  expect(submissions[0]?.source).toContain('def find_pair');
+  expect(typeof submissions[0]?.requestKey).toBe('string');
+});
+
 test('service worker leaves Next.js static assets on the network', async ({ request }) => {
   const response = await request.get('/sw.js');
   expect(response.ok()).toBe(true);

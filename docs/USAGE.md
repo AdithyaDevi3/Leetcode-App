@@ -232,7 +232,11 @@ operation to validate the remote alert path without invoking the worker.
 
 The `Staging Evaluation Operations` workflow applies the same guarded pattern
 to durable evaluation jobs. Its isolated contract runs every six hours and on
-manual dispatch. Remote scheduling remains disabled until the `staging`
+manual dispatch. It starts disposable PostgreSQL, applies the production
+migration chain, and tests idempotent enqueue, claim attempts, completion,
+ownership-scoped reads, retry, stale-lease recovery, dead-lettering,
+cancellation, and queue metrics against the real PostgreSQL adapter. Remote
+scheduling remains disabled until the `staging`
 environment contains `STAGING_APP_URL` and `STAGING_EVALUATION_WORKER_TOKEN`,
 the target uses isolated managed PostgreSQL with current migrations, and the
 repository variable `STAGING_EVALUATION_AUTOMATION_ENABLED=true` is set.

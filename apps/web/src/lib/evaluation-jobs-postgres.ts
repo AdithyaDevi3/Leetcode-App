@@ -51,7 +51,7 @@ export function createEvaluationJobStore(db: DatabaseClient = createDatabaseClie
     async recoverStaleRunning(staleAfterMs: number): Promise<EvaluationRecoveryResult> {
       const result = await db.query<{ status: EvaluationJob['status'] }>(
         `UPDATE evaluation_jobs
-         SET status = CASE WHEN attempts >= max_attempts THEN 'failed' ELSE 'queued' END,
+         SET status = CASE WHEN attempts >= max_attempts THEN 'failed'::evaluation_job_status ELSE 'queued'::evaluation_job_status END,
              started_at = NULL,
              completed_at = CASE WHEN attempts >= max_attempts THEN NOW() ELSE NULL END,
              dead_lettered_at = CASE WHEN attempts >= max_attempts THEN NOW() ELSE NULL END,
@@ -70,7 +70,13 @@ export function createEvaluationJobStore(db: DatabaseClient = createDatabaseClie
       await db.query(`UPDATE evaluation_jobs SET status = 'completed', result = $2, completed_at = NOW(), error = NULL WHERE id = $1 AND status = 'running'`, [jobId, JSON.stringify(result)]);
     },
     async fail(jobId: string, error: string): Promise<void> {
-      await db.query(`UPDATE evaluation_jobs SET status = CASE WHEN attempts >= max_attempts THEN 'failed' ELSE 'queued' END, error = $2, completed_at = CASE WHEN attempts >= max_attempts THEN NOW() ELSE NULL END, dead_lettered_at = CASE WHEN attempts >= max_attempts THEN NOW() ELSE NULL END WHERE id = $1 AND status = 'running'`, [jobId, error]);
+      await db.query(`UPDATE evaluation_jobs
+        SET status = CASE WHEN attempts >= max_attempts THEN 'failed'::evaluation_job_status ELSE 'queued'::evaluation_job_status END,
+            started_at = NULL,
+            error = $2,
+            completed_at = CASE WHEN attempts >= max_attempts THEN NOW() ELSE NULL END,
+            dead_lettered_at = CASE WHEN attempts >= max_attempts THEN NOW() ELSE NULL END
+        WHERE id = $1 AND status = 'running'`, [jobId, error]);
     },
     async cancel(jobId: string, userId: string, sessionId: string): Promise<EvaluationJob | null> {
       const result = await db.query<JobRow>(`UPDATE evaluation_jobs SET status = 'canceled', completed_at = NOW() WHERE id = $1 AND user_id = $2 AND session_id = $3 AND status IN ('queued', 'running') RETURNING *`, [jobId, userId, sessionId]);

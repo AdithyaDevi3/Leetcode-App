@@ -230,6 +230,17 @@ the staging deployment uses a distinct database and the assignment-verification
 migration has been applied. After enabling it, use the manual `health-only`
 operation to validate the remote alert path without invoking the worker.
 
+Production assignment verification uses the `Production Assignment Verification`
+workflow, which invokes at most one queued job every five minutes and then checks
+the aggregate health endpoint. Configure the repository variable
+`PRODUCTION_APP_URL` to the canonical production origin and the Actions secret
+`PRODUCTION_VERIFICATION_WORKER_TOKEN` plus the matching Vercel production
+environment variable of the same name. The workflow rejects any URL other than
+the canonical production host, supports a manual health-only probe, and never
+prints the token or submission payloads. Do not enable this workflow unless
+production `CODE_EXECUTION_ENABLED=true`, `CODE_EXECUTION_PROVIDER` is configured,
+and migration `1790543189816_assignment-verification-jobs.ts` has been applied.
+
 The `Staging Evaluation Operations` workflow applies the same guarded pattern
 to durable evaluation jobs. Its isolated contract runs every six hours and on
 manual dispatch. It starts disposable PostgreSQL, applies the production

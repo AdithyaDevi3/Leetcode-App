@@ -72,7 +72,7 @@ export default async function ClassesPage({ searchParams }: {
               {task.instructions ? <p className="mb-2 text-sm leading-6 text-[var(--muted)]">{task.instructions}</p> : null}
               <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-bold ${task.completed ? 'bg-[var(--moss-soft)] text-[var(--moss)]' : 'bg-[var(--sky)] text-slate-800'}`}>{task.completed ? 'Completed' : 'To do'}</span>
             </div>
-            <a className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-md border border-[var(--moss)] px-4 font-bold text-[var(--moss)] no-underline hover:bg-[var(--moss-soft)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--moss)]" href={`/practice?problem=${encodeURIComponent(task.activitySlug)}`}>{task.completed ? 'Review activity' : 'Start task'} →</a>
+            <a className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-md border border-[var(--moss)] px-4 font-bold text-[var(--moss)] no-underline hover:bg-[var(--moss-soft)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--moss)]" href={`/practice?problem=${encodeURIComponent(task.activitySlug)}${task.recipientId ? `&assignment=${encodeURIComponent(task.recipientId)}` : ''}`}>{task.completed ? 'Review activity' : 'Start task'} →</a>
           </article>)}
         </div>}
       </section>

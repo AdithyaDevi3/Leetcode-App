@@ -66,7 +66,8 @@ const initialsFor = (name: string | null | undefined) => {
   return words.length ? words.slice(0, 2).map((word) => word[0]?.toUpperCase()).join('') : 'GL';
 };
 
-export function PracticeWorkspace() {
+export function PracticeWorkspace({ assignmentRecipientId = null }: { assignmentRecipientId?: string | null }) {
+  const [activeAssignmentRecipientId, setActiveAssignmentRecipientId] = useState(assignmentRecipientId);
   const [activePracticeId, setActivePracticeId] = useState(defaultPracticeItem.id);
   const [draft, setDraft] = useState("");
   const [mode, setMode] = useState<EditorMode>("text");
@@ -84,6 +85,8 @@ export function PracticeWorkspace() {
   const [remoteRevision, setRemoteRevision] = useState(1);
   const [executionStatus, setExecutionStatus] = useState<'idle' | 'running' | 'completed' | 'failed' | 'timed_out' | 'unavailable'>('idle');
   const [executionOutput, setExecutionOutput] = useState('');
+  const [assignmentSubmissionStatus, setAssignmentSubmissionStatus] = useState<'idle' | 'submitting' | 'queued' | 'submitted' | 'error'>('idle');
+  const [assignmentSubmissionMessage, setAssignmentSubmissionMessage] = useState<string | null>(null);
   const [noteDraft, setNoteDraft] = useState('');
   const [libraryStatus, setLibraryStatus] = useState<string | null>(null);
   const [showReferenceAnswer, setShowReferenceAnswer] = useState(false);
@@ -106,6 +109,8 @@ export function PracticeWorkspace() {
   useEffect(() => {
     const timer = window.setTimeout(() => {
       const requestedPracticeId = new URLSearchParams(window.location.search).get("problem");
+      const requestedAssignmentId = new URLSearchParams(window.location.search).get("assignment");
+      if (requestedAssignmentId) setActiveAssignmentRecipientId(requestedAssignmentId);
       const savedPracticeId = requestedPracticeId ? null : readBrowserStorage(selectedPracticeItemKey);
       const restoredPracticeItem = requestedPracticeId
         ? getPracticeItem(requestedPracticeId)
@@ -418,6 +423,31 @@ export function PracticeWorkspace() {
     }
   };
 
+  const submitAssignedTask = async () => {
+    if (!activeAssignmentRecipientId || assignmentSubmissionStatus === 'submitting' || !code.trim()) return;
+    setAssignmentSubmissionStatus('submitting');
+    setAssignmentSubmissionMessage('Sending your code for assignment verification…');
+    try {
+      const response = await fetch(`/api/learner/assignments/${encodeURIComponent(activeAssignmentRecipientId)}/submissions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ language: codingLanguage, source: code, requestKey: crypto.randomUUID() }),
+      });
+      const body = await response.json().catch(() => null) as { attempt?: { status?: string }; error?: string } | null;
+      if (!response.ok || !body?.attempt) throw new Error(body?.error ?? 'Could not submit this assignment. Please try again.');
+      if (body.attempt.status === 'queued' || body.attempt.status === 'running') {
+        setAssignmentSubmissionStatus('queued');
+        setAssignmentSubmissionMessage('Submitted. Server verification is queued; your instructor can review the result in the class gradebook.');
+      } else {
+        setAssignmentSubmissionStatus('submitted');
+        setAssignmentSubmissionMessage('Submission received. Your instructor can review and publish the result in the class gradebook.');
+      }
+    } catch (error) {
+      setAssignmentSubmissionStatus('error');
+      setAssignmentSubmissionMessage(error instanceof Error ? error.message : 'Could not submit this assignment. Please try again.');
+    }
+  };
+
   const saveBookmark = async () => {
     setLibraryStatus('Saving bookmark…');
     try {
@@ -553,6 +583,10 @@ export function PracticeWorkspace() {
             </div>
           </div>
 
+          {activeAssignmentRecipientId ? <section className="mb-5 flex flex-col gap-3 rounded-xl border border-[var(--moss)] bg-[var(--moss-soft)] p-4 sm:flex-row sm:items-center sm:justify-between" aria-label="Class assignment submission instructions">
+            <p className="mb-0 text-sm leading-6 text-[var(--ink)]"><strong>Class assignment.</strong> Complete the implementation, then choose <strong>Submit assigned task</strong>. “Run verified tests” is only a local practice check; submit here for the assignment’s server-side verification.</p>
+            <a className="inline-flex min-h-10 shrink-0 items-center justify-center rounded-md border border-[var(--moss)] bg-white px-4 font-bold text-[var(--moss)] no-underline" href="#coding-workspace">Go to submission →</a>
+          </section> : null}
           <nav className="practice-stage-nav" aria-label="Practice stages"><a href="#workspace-title"><span>01</span>Write your approach</a><a href="#feedback-title"><span>02</span>Review feedback</a><a href="#coding-workspace"><span>03</span>Implement & test</a></nav>
           <div className="work-grid">
             <section className="pane problem-pane" aria-labelledby="lesson-title">
@@ -937,6 +971,17 @@ export function PracticeWorkspace() {
                 >
                   <Play size={15} /> {executionStatus === 'running' ? 'Running verified tests…' : completed ? 'Run verified tests again' : 'Run verified tests'}
                 </button>
+                {activeAssignmentRecipientId ? <>
+                  <button
+                    className="button secondary full-button"
+                    disabled={!code.trim() || assignmentSubmissionStatus === 'submitting' || assignmentSubmissionStatus === 'queued'}
+                    onClick={() => void submitAssignedTask()}
+                    type="button"
+                  >
+                    {assignmentSubmissionStatus === 'submitting' ? 'Submitting assignment…' : assignmentSubmissionStatus === 'queued' ? 'Verification queued' : assignmentSubmissionStatus === 'submitted' ? 'Submit another attempt' : 'Submit assigned task'}
+                  </button>
+                  {assignmentSubmissionMessage ? <div className={`completion-panel ${assignmentSubmissionStatus === 'error' ? 'revise' : ''}`} role={assignmentSubmissionStatus === 'error' ? 'alert' : 'status'}>{assignmentSubmissionMessage}</div> : null}
+                </> : null}
                 {executionStatus !== 'idle' ? (
                   <div className={`completion-panel ${executionStatus === 'failed' || executionStatus === 'timed_out' || executionStatus === 'unavailable' || (codeGrade && !codeGrade.passed) ? 'revise' : ''}`} aria-live="polite">
                     {executionStatus === 'completed' && codeGrade?.passed ? <Check size={16} /> : <Clock3 size={16} />} {executionOutput || `Execution ${executionStatus}.`}

@@ -26,6 +26,18 @@ describe('/api/internal/workers/verifications', () => {
     expect(processNextVerificationJob).toHaveBeenCalledOnce();
   });
 
+  it('accepts the production scheduler token without changing the existing worker token', async () => {
+    process.env.CODE_EXECUTION_ENABLED = 'true';
+    process.env.VERIFICATION_WORKER_TOKEN = 'existing-token';
+    process.env.PRODUCTION_VERIFICATION_WORKER_TOKEN = 'scheduler-token';
+    processNextVerificationJob.mockResolvedValueOnce(null);
+    const { POST } = await import('./route');
+    const response = await POST(new Request('http://localhost', { method: 'POST', headers: { authorization: 'Bearer scheduler-token' }, body: JSON.stringify({ limit: 1 }) }));
+    expect(response.status).toBe(200);
+    expect(processNextVerificationJob).toHaveBeenCalledOnce();
+    delete process.env.PRODUCTION_VERIFICATION_WORKER_TOKEN;
+  });
+
   it('does not claim jobs while code execution is disabled', async () => {
     process.env.CODE_EXECUTION_ENABLED = 'false';
     process.env.VERIFICATION_WORKER_TOKEN = 'test-token';

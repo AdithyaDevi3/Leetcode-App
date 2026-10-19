@@ -32,7 +32,7 @@ The repository currently contains these working product areas:
 | Instructor signup, classes, and assigned practice | `/teach`, `/admin/classes`, `/classes`, owner-scoped classroom repository |
 | Instructor and learner gradebooks | `/teach/[classId]/gradebook`, `/teach/[classId]/submissions`, `/teach/[classId]/disputes`, `/classes/[classId]/grades`, exact published totals, comparable ranks, rubric feedback, recipient excusals, learner grade-review requests, instructor resolution, dispute-aware projections, and draft-safe learner views |
 | Gradebook storage and calculation | `packages/database/src/repositories/gradebook.repository.ts`, `packages/domain/src/gradebook.ts`, immutable policies, explicit recipients, submissions, grade, applicability, and dispute events, publication history, and repeatable-read projections |
-| Assignment submission and verification | authenticated recipient-scoped submissions, assignment-only leased jobs, pinned test snapshots, sandbox worker, exact attempt provenance, binary grade revisions |
+| Assignment submission and verification | authenticated recipient-scoped submissions, clear learner submit flow, assignment-only leased jobs, pinned test snapshots, production five-minute scheduler, sandbox worker, exact attempt provenance, binary grade revisions |
 | Shared learner navigation and landing page | application shell, responsive sidebar and mobile navigation |
 | Authentication and persistence | Supabase Auth, PostgreSQL repositories and migrations |
 | Administration | `/admin`, database roles, server authorization, audit events |

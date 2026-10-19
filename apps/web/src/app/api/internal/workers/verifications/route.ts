@@ -7,7 +7,7 @@ export const runtime = 'nodejs';
 export const maxDuration = 300;
 
 export async function POST(request: Request) {
-  const token = process.env.VERIFICATION_WORKER_TOKEN;
+  const token = process.env.PRODUCTION_VERIFICATION_WORKER_TOKEN ?? process.env.VERIFICATION_WORKER_TOKEN;
   if (!token || request.headers.get('authorization') !== `Bearer ${token}`) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }

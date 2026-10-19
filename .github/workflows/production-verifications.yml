@@ -1,0 +1,81 @@
+name: Production Assignment Verification
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+    inputs:
+      operation:
+        description: 'Operation to run against production'
+        required: true
+        default: scheduler-and-health
+        type: choice
+        options:
+          - scheduler-and-health
+          - health-only
+
+concurrency:
+  group: production-assignment-verification
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  verify-queue:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      PRODUCTION_APP_URL: ${{ vars.PRODUCTION_APP_URL }}
+      VERIFICATION_WORKER_TOKEN: ${{ secrets.PRODUCTION_VERIFICATION_WORKER_TOKEN }}
+      OPERATION: ${{ github.event_name == 'schedule' && 'scheduler-and-health' || inputs.operation }}
+    steps:
+      - name: Validate production target and credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "${PRODUCTION_APP_URL}" || -z "${VERIFICATION_WORKER_TOKEN}" ]]; then
+            echo 'Production URL and verification worker secret must be configured.' >&2
+            exit 1
+          fi
+          if [[ "${PRODUCTION_APP_URL}" != 'https://corsair-tech-leetbot.vercel.app' ]]; then
+            echo 'Refusing to target an unexpected production URL.' >&2
+            exit 1
+          fi
+
+      - name: Process at most one assignment verification
+        if: env.OPERATION == 'scheduler-and-health'
+        shell: bash
+        run: |
+          set -euo pipefail
+          response_file="${RUNNER_TEMP}/verification-worker-response.json"
+          status="$(curl --silent --show-error \
+            --output "${response_file}" \
+            --write-out '%{http_code}' \
+            --request POST \
+            --header "Authorization: Bearer ${VERIFICATION_WORKER_TOKEN}" \
+            --header 'Content-Type: application/json' \
+            --data '{"limit":1}' \
+            "${PRODUCTION_APP_URL%/}/api/internal/workers/verifications")"
+          if [[ "${status}" != '200' ]]; then
+            echo "Production verification worker returned HTTP ${status}." >&2
+            exit 1
+          fi
+          jq -e '.processed | type == "array" and length <= 1' "${response_file}" >/dev/null
+          echo "Worker request completed; processed $(jq '.processed | length' "${response_file}") job(s)."
+
+      - name: Require healthy verification queue
+        shell: bash
+        run: |
+          set -euo pipefail
+          response_file="${RUNNER_TEMP}/verification-health-response.json"
+          status="$(curl --silent --show-error \
+            --output "${response_file}" \
+            --write-out '%{http_code}' \
+            "${PRODUCTION_APP_URL%/}/api/health/verifications")"
+          if [[ "${status}" != '200' ]]; then
+            echo "Production verification queue health returned HTTP ${status}." >&2
+            exit 1
+          fi
+          jq -e '.status == "ok" and .service == "gradebook-verification-queue"' "${response_file}" >/dev/null
+          echo 'Production assignment verification queue is healthy.'

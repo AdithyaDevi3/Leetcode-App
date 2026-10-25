@@ -12,6 +12,38 @@ const parsePoints = (value: string): number | null => {
   return Number.isSafeInteger(units) ? units : null;
 };
 
+function rubricGuidance(id: string, label: string) {
+  const criterion = `${id} ${label}`.toLowerCase();
+  if (/reason|approach|method|strategy/.test(criterion)) {
+    return {
+      lookFor: 'Is the solution’s approach appropriate, well-reasoned, and explained clearly enough to follow?',
+      anchors: ['No relevant approach or reasoning is shown.', 'A workable idea is present, but key steps or justification are missing.', 'The approach is sound and the important steps are justified.'],
+    };
+  }
+  if (/correct|accuracy|result|function|implementation/.test(criterion)) {
+    return {
+      lookFor: 'Does the submitted work produce the required result, including the important edge cases?',
+      anchors: ['The result is missing or fundamentally incorrect.', 'The main case works, but there are correctness gaps.', 'The result is correct for the stated requirements and relevant edge cases.'],
+    };
+  }
+  if (/complex|efficien|performance|space|time/.test(criterion)) {
+    return {
+      lookFor: 'Is the time/space cost understood and appropriate for the task?',
+      anchors: ['No complexity analysis, or the stated cost is substantially incorrect.', 'The analysis is partly right but misses a meaningful cost or tradeoff.', 'The analysis is accurate and the relevant tradeoff is explained.'],
+    };
+  }
+  if (/communicat|explain|clarity|document/.test(criterion)) {
+    return {
+      lookFor: 'Can a reader understand the solution and its key decisions from the explanation?',
+      anchors: ['The explanation is absent or too unclear to assess.', 'The main idea is understandable, but important details are hard to follow.', 'The explanation is clear, organized, and supports the submitted work.'],
+    };
+  }
+  return {
+    lookFor: 'Use the assignment instructions and this criterion’s wording to identify observable evidence in the submission.',
+    anchors: ['Little or no evidence for this criterion is present.', 'Some evidence is present, but important parts are incomplete or unclear.', 'The submission provides clear, complete evidence for this criterion.'],
+  };
+}
+
 export function ManualGradeEditor({ submission }: { submission: GradebookRecipientHistory }) {
   if (submission.policy.scoring.mode !== 'reviewed_rubric') throw new Error('Manual rubric required');
   const criteria = submission.policy.scoring.criteria;
@@ -63,9 +95,16 @@ export function ManualGradeEditor({ submission }: { submission: GradebookRecipie
     </section>
     <section className="rounded-xl border border-[var(--line)] bg-[var(--surface)] p-5 sm:p-6">
       <h2 className="mb-1 text-lg font-bold">Rubric</h2><p className="mb-5 text-sm text-[var(--muted)]">Save a private draft, review the total, then publish.</p>
-      <div className="space-y-4">{criteria.map(criterion => <label className="grid gap-1.5 text-sm font-bold" key={criterion.id}>{criterion.label}<span className="flex items-center gap-2"><input className="min-h-11 min-w-0 flex-1 rounded-md border border-[var(--line)] px-3 font-normal" inputMode="decimal" value={scores[criterion.id]} onChange={event => setScores(current => ({ ...current, [criterion.id]: event.target.value }))} /><span className="text-[var(--muted)]">/ {displayPoints(criterion.maxUnits)}</span></span></label>)}</div>
-      <p className="my-5 border-y border-[var(--line)] py-4 text-sm font-bold">Total <span className="float-right font-mono text-lg">{earned === null ? '—' : displayPoints(earned)} / {displayPoints(submission.policy.maxUnits)}</span></p>
-      <label className="mb-4 grid gap-1.5 text-sm font-bold">Feedback for learner<textarea className="min-h-28 rounded-md border border-[var(--line)] p-3 font-normal" maxLength={10000} value={learnerFeedback} onChange={event => setLearnerFeedback(event.target.value)} /></label>
+      <div className="space-y-4">{criteria.map(criterion => {
+        const guidance = rubricGuidance(criterion.id, criterion.label);
+        return <fieldset className="rounded-lg border border-[var(--line)] p-3" key={criterion.id}>
+          <label className="grid gap-1.5 text-sm font-bold">{criterion.label}<span className="flex items-center gap-2"><input aria-label={criterion.label} className="min-h-11 min-w-0 flex-1 rounded-md border border-[var(--line)] px-3 font-normal" inputMode="decimal" value={scores[criterion.id]} onChange={event => setScores(current => ({ ...current, [criterion.id]: event.target.value }))} /><span className="text-[var(--muted)]">/ {displayPoints(criterion.maxUnits)}</span></span></label>
+          <p className="mt-3 text-sm">{guidance.lookFor}</p>
+          <ul className="mt-2 grid gap-1 text-xs leading-5 text-[var(--muted)]"><li><span className="font-semibold text-[var(--ink)]">No credit:</span> {guidance.anchors[0]}</li><li><span className="font-semibold text-[var(--ink)]">Partial:</span> {guidance.anchors[1]}</li><li><span className="font-semibold text-[var(--ink)]">Full credit:</span> {guidance.anchors[2]}</li></ul>
+        </fieldset>;
+      })}</div>
+      <div className="my-5 border-y border-[var(--line)] py-4 text-sm font-bold"><span>Total</span><span className="float-right font-mono text-lg">{earned === null ? '—' : `${displayPoints(earned)} / ${displayPoints(submission.policy.maxUnits)}`}</span>{earned !== null ? <p className="mt-1 text-right text-xs font-normal text-[var(--muted)]">{(earned / submission.policy.maxUnits * 100).toFixed(1)}% · based on entered criterion scores</p> : null}</div>
+      <label className="mb-4 grid gap-1.5 text-sm font-bold">Feedback for learner<textarea aria-describedby="learner-feedback-hint" className="min-h-28 rounded-md border border-[var(--line)] p-3 font-normal" maxLength={10000} value={learnerFeedback} onChange={event => setLearnerFeedback(event.target.value)} placeholder="Name one specific strength, then give one concrete next step." /><span id="learner-feedback-hint" className="font-normal text-[var(--muted)]">Tie feedback to evidence in the submission. This is shared with the learner when you publish.</span></label>
       <label className="mb-5 grid gap-1.5 text-sm font-bold">Private instructor notes<textarea className="min-h-24 rounded-md border border-[var(--line)] p-3 font-normal" maxLength={10000} value={privateNote} onChange={event => setPrivateNote(event.target.value)} /><span className="font-normal text-[var(--muted)]">Never shown to the learner.</span></label>
       {message ? <p aria-live="polite" className="mb-4 rounded-md bg-[var(--sky)] px-3 py-2 text-sm">{message}</p> : null}
       <div className="flex flex-wrap gap-3"><button className="min-h-11 rounded-md border border-[var(--moss)] px-4 font-bold text-[var(--moss)] disabled:opacity-50" disabled={busy !== null} onClick={saveDraft} type="button">{busy === 'save' ? 'Saving…' : 'Save draft'}</button><button className="min-h-11 rounded-md bg-[var(--moss)] px-4 font-bold text-white disabled:opacity-50" disabled={!grade || busy !== null} onClick={publish} type="button">{busy === 'publish' ? 'Publishing…' : 'Publish grade'}</button></div>

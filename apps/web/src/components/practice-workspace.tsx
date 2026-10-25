@@ -306,6 +306,7 @@ export function PracticeWorkspace({ assignmentRecipientId = null }: { assignment
 
   const evaluationFindings = evaluation?.findings ?? evaluatePseudocode("", activePracticeItem.id).findings;
   const approved = evaluation?.approved ?? false;
+  const canAccessCoding = approved || Boolean(activeAssignmentRecipientId);
 
   useEffect(() => {
     if (!evaluationJobId || (evaluationStatus !== 'queued' && evaluationStatus !== 'running')) return;
@@ -331,17 +332,17 @@ export function PracticeWorkspace({ assignmentRecipientId = null }: { assignment
 
   const submitEvaluation = async () => {
     if (!draft.trim() || evaluationStatus === 'queued' || evaluationStatus === 'running') return;
+    const localEvaluation = evaluatePseudocode(draft, activePracticeItem.id);
+    setEvaluation(localEvaluation);
+    recordLocalPracticeEvidence({ item: activePracticeItem, reasoningScore: localEvaluation.score });
     const sessionId = readCachedPracticeSessionId(activePracticeItem.id);
     if (!sessionId) {
-      const localEvaluation = evaluatePseudocode(draft, activePracticeItem.id);
-      setEvaluation(localEvaluation);
-      recordLocalPracticeEvidence({ item: activePracticeItem, reasoningScore: localEvaluation.score });
       setEvaluationStatus('completed');
-      setEvaluationMessage('Evaluated locally. Verified code tests require an active saved session.');
+      setEvaluationMessage('Evaluation complete on this device.');
       return;
     }
     setEvaluationStatus('queued');
-    setEvaluationMessage('Evaluation queued. This can take a few seconds.');
+    setEvaluationMessage('Your evaluation is ready. Saving it to your account…');
     try {
       const response = await fetch(`/api/practice/sessions/${sessionId}/evaluate`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ revisionNumber: remoteRevision }) });
       if (!response.ok) {
@@ -353,10 +354,8 @@ export function PracticeWorkspace({ assignmentRecipientId = null }: { assignment
       setEvaluationJobId(body.jobId); setEvaluationStatus(body.status);
     } catch (error) {
       setEvaluationStatus('failed');
-      const localEvaluation = evaluatePseudocode(draft, activePracticeItem.id);
       setEvaluation(localEvaluation);
-      recordLocalPracticeEvidence({ item: activePracticeItem, reasoningScore: localEvaluation.score });
-      setEvaluationMessage(error instanceof Error ? `${error.message} Showing a local evaluation instead.` : 'Unable to queue evaluation. Showing a local evaluation instead.');
+      setEvaluationMessage(error instanceof Error ? `${error.message} Your on-device evaluation is still available.` : 'Unable to save the evaluation. Your on-device result is still available.');
     }
   };
 
@@ -808,7 +807,7 @@ export function PracticeWorkspace({ assignmentRecipientId = null }: { assignment
                     onClick={() => void submitEvaluation()}
                     type="button"
                   >
-                    <Sparkles size={16} /> {evaluationStatus === 'queued' || evaluationStatus === 'running' ? 'Evaluating…' : evaluationStatus === 'failed' ? 'Retry evaluation' : 'Evaluate reasoning'}
+                    <Sparkles size={16} /> {evaluationStatus === 'queued' || evaluationStatus === 'running' ? 'Saving evaluation…' : evaluationStatus === 'failed' ? 'Retry evaluation' : 'Evaluate reasoning'}
                   </button>
                   {(evaluationStatus === 'queued' || evaluationStatus === 'running') ? (
                     <button className="text-button muted" onClick={() => void cancelEvaluation()} type="button">Cancel evaluation</button>
@@ -847,11 +846,11 @@ export function PracticeWorkspace({ assignmentRecipientId = null }: { assignment
                 ))}
               </div>
 
-              {approved ? (
+              {canAccessCoding ? (
                 <div className="approved-panel">
-                  <Code2 size={19} />
-                  <strong>Implementation unlocked</strong>
-                  <p>Your approved reasoning stays visible while you translate it into {codingLanguageLabel(codingLanguage)}.</p>
+                  {approved ? <Code2 size={19} /> : <Check size={19} />}
+                  <strong>{approved ? 'Implementation unlocked' : 'Assignment coding is open'}</strong>
+                  <p>{approved ? `Your approved reasoning stays visible while you translate it into ${codingLanguageLabel(codingLanguage)}.` : 'You can work directly on this assigned implementation. Reasoning feedback remains available but does not block your submission.'}</p>
                 </div>
               ) : (
                 <div className="locked-panel">
@@ -890,13 +889,13 @@ export function PracticeWorkspace({ assignmentRecipientId = null }: { assignment
           <section id="coding-workspace" className="coding-section" aria-labelledby="coding-title">
             <div className="pane-header">
               <div>
-                <p className="eyebrow">Optional next step</p>
-                <h2 id="coding-title">Translate the approved plan</h2>
+                <p className="eyebrow">{activeAssignmentRecipientId ? 'Class assignment' : 'Optional next step'}</p>
+                <h2 id="coding-title">{activeAssignmentRecipientId ? 'Complete your coding assignment' : 'Translate the approved plan'}</h2>
                 <span className="pane-kicker">
                   {codingLanguageLabel(codingLanguage)} · isolated verification
                 </span>
               </div>
-              {approved ? <Check color="var(--moss)" /> : <LockKeyhole color="var(--muted)" />}
+              {canAccessCoding ? <Check color="var(--moss)" /> : <LockKeyhole color="var(--muted)" />}
             </div>
             <div className="language-toolbar">
               <div className="language-switch" role="group" aria-label="Solution language">
@@ -919,7 +918,7 @@ export function PracticeWorkspace({ assignmentRecipientId = null }: { assignment
               <textarea
                 aria-label={`${codingLanguage === 'python' ? 'Python' : codingLanguageLabel(codingLanguage)} implementation`}
                 className="editor code-editor"
-                disabled={!approved}
+                disabled={!canAccessCoding}
                 onChange={(event) => {
                   setCode(event.target.value);
                   setCodeChecked(false);
@@ -950,7 +949,7 @@ export function PracticeWorkspace({ assignmentRecipientId = null }: { assignment
                 ))}
                 <button
                   className="button secondary full-button"
-                  disabled={!approved}
+                  disabled={!canAccessCoding}
                   onClick={() => {
                     setCode(buildCodeFromPlanForLanguage(activePracticeItem.codeFunction, activePracticeItem.codeSignature, draft, codingLanguage));
                     setCodeChecked(false);
@@ -965,7 +964,7 @@ export function PracticeWorkspace({ assignmentRecipientId = null }: { assignment
                 </button>
                 <button
                   className="button full-button"
-                  disabled={!approved || executionStatus === 'running'}
+                  disabled={!canAccessCoding || executionStatus === 'running'}
                   onClick={() => void runInSandbox()}
                   type="button"
                 >

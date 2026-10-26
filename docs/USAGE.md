@@ -53,8 +53,10 @@ does not establish account synchronization. Check the workspace's save status
 before changing devices; if persistence fails, retain the draft and retry.
 
 Assigned learners can open and submit coding work without passing the optional
-reasoning gate. Submission, verification, instructor grading, and publication are
-separate states. Private rubric drafts and instructor notes are not learner grades.
+reasoning gate. Workspace saves accept coding-only work with an empty reasoning
+draft, including received test feedback. Submission, verification, instructor
+grading, and publication are separate states. Private rubric drafts and instructor
+notes are not learner grades.
 Learners can request review of their own published grades and inspect the public
 request status and instructor response.
 
@@ -66,6 +68,11 @@ due date. The submission inbox supports manual rubric drafts and explicit
 publication; the gradebook shows published totals, coverage, and comparable
 ranks. Instructors can excuse/restore recipients with a reason and resolve grade
 review requests within their own classes.
+
+Save changed scores or feedback before publishing. The editor shows unsaved
+changes and confirms publication of the saved revision. A failed save or
+publication response can be retried without reentering feedback; a published
+grade can be corrected by saving and publishing a new revision.
 
 Platform administration is separately authorized at /admin. Administration
 roles are stored on the server; instructor signup does not grant them. Authorized

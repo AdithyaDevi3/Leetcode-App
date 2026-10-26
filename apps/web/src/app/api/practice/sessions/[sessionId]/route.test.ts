@@ -81,4 +81,36 @@ describe('/api/practice/sessions/[sessionId]', () => {
     expect(oversized.status).toBe(400);
     expect(appendPracticeRevision).not.toHaveBeenCalled();
   });
+
+  it('saves coding-only work without requiring a reasoning answer', async () => {
+    getPracticeOwner.mockResolvedValue({ kind: 'user', id: 'user-1' });
+    appendPracticeRevision.mockResolvedValue({ revision: { revisionNumber: 3 } });
+    const workspace = {
+      draft: '', mode: 'text', language: 'python', code: 'def find_pair(values, target):\n    return [0, 1]',
+      codeChecked: false, completed: false, evaluation: null, codeGrade: null,
+    };
+    const { POST } = await import('./route');
+    const response = await POST(new Request('http://localhost', {
+      method: 'POST', body: JSON.stringify({ draft: '', currentStage: 'implement', state: workspace }),
+    }), { params: Promise.resolve({ sessionId: 'session-1' }) });
+
+    expect(response.status).toBe(201);
+    expect(appendPracticeRevision).toHaveBeenCalledWith({
+      owner: { kind: 'user', id: 'user-1' }, sessionId: 'session-1',
+      draft: '', currentStage: 'implement', workspaceState: workspace,
+    });
+  });
+
+  it('rejects empty work without a usable code workspace', async () => {
+    getPracticeOwner.mockResolvedValue({ kind: 'user', id: 'user-1' });
+    const { POST } = await import('./route');
+    const state = { draft: '', mode: 'text', language: 'python', code: '  ', codeChecked: false, completed: false, evaluation: null, codeGrade: null };
+    for (const payload of [{ draft: '' }, { draft: '  ', state }]) {
+      const response = await POST(new Request('http://localhost', {
+        method: 'POST', body: JSON.stringify(payload),
+      }), { params: Promise.resolve({ sessionId: 'session-1' }) });
+      expect(response.status).toBe(400);
+    }
+    expect(appendPracticeRevision).not.toHaveBeenCalled();
+  });
 });

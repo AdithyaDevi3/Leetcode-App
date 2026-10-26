@@ -100,6 +100,12 @@ export function PracticeWorkspace({ assignmentRecipientId = null }: { assignment
   const blockOptions = activePracticeItem.blockOptions;
   const activePracticeNumber = practiceItems.findIndex((item) => item.id === activePracticeItem.id) + 1;
   const trace = activePracticeItem.trace;
+  const verificationGeneration = useRef(0);
+  const liveWorkspace = useRef({ practiceId: activePracticeItem.id, draft, code, language: codingLanguage, mode });
+
+  useEffect(() => {
+    liveWorkspace.current = { practiceId: activePracticeItem.id, draft, code, language: codingLanguage, mode };
+  }, [activePracticeItem.id, draft, code, codingLanguage, mode]);
 
   useEffect(() => {
     const timer = window.setInterval(() => setElapsedSeconds((seconds) => seconds + 1), 1000);
@@ -159,13 +165,31 @@ export function PracticeWorkspace({ assignmentRecipientId = null }: { assignment
   }, []);
 
   useEffect(() => {
-    if (!viewer || !localRestoreComplete || remoteRestoreAttempts.current.has(activePracticeItem.id)) return;
-    remoteRestoreAttempts.current.add(activePracticeItem.id);
-    if (readBrowserStorage(sessionStorageKey(activePracticeItem.id))) return;
+    const restoreKey = `${viewer?.id ?? 'guest'}:${activePracticeItem.id}`;
+    if (!localRestoreComplete || remoteRestoreAttempts.current.has(restoreKey)) return;
+    remoteRestoreAttempts.current.add(restoreKey);
+    const local = readBrowserStorage(sessionStorageKey(activePracticeItem.id));
+    const hasLocalState = local !== null && deserializePracticeSession(local) !== null;
+    const initialWorkspace = liveWorkspace.current;
+    const generation = verificationGeneration.current;
 
     let current = true;
     void loadRemotePracticeSession(activePracticeItem.id).then((remote) => {
-      if (!current || !remote || (!remote.state && !remote.draft)) return;
+      if (!current || !remote || verificationGeneration.current !== generation || (!remote.state && !remote.draft)) return;
+      const latest = liveWorkspace.current;
+      if (latest.practiceId !== activePracticeItem.id) return;
+      const edited = latest.code !== initialWorkspace.code || latest.language !== initialWorkspace.language
+        || latest.draft !== initialWorkspace.draft || latest.mode !== initialWorkspace.mode;
+      if (hasLocalState || edited) {
+        if (remote.verification) {
+          const matches = latest.code === remote.verification.source && latest.language === remote.verification.language;
+          restoredSource.current = 'local';
+          setCodeGrade(matches ? remote.verification.grade : null);
+          setCodeChecked(matches);
+          setCompleted(matches && remote.verification.grade.passed);
+        }
+        return;
+      }
       restoredSource.current = 'account';
       setRemoteRevision(remote.latestRevisionNumber ?? 1);
       if (remote.state) {
@@ -375,6 +399,8 @@ export function PracticeWorkspace({ assignmentRecipientId = null }: { assignment
   const runInSandbox = async () => {
     const sessionId = readCachedPracticeSessionId(activePracticeItem.id);
     if (!sessionId) { setExecutionStatus('unavailable'); setExecutionOutput('Save your practice session before running code.'); return; }
+    const submitted = { practiceId: activePracticeItem.id, source: code, language: codingLanguage };
+    const generation = ++verificationGeneration.current;
     setExecutionStatus('running');
     setExecutionOutput('Running isolated correctness and edge-case tests…');
     setCodeGrade(null);
@@ -386,6 +412,13 @@ export function PracticeWorkspace({ assignmentRecipientId = null }: { assignment
         body: JSON.stringify({ language: codingLanguage, source: code }),
       });
       const body = await response.json().catch(() => null) as { status?: 'completed' | 'failed' | 'timed_out'; grade?: CodeGrade; error?: string } | null;
+      const latest = liveWorkspace.current;
+      if (verificationGeneration.current !== generation || latest.practiceId !== submitted.practiceId) return;
+      if (latest.code !== submitted.source || latest.language !== submitted.language) {
+        setExecutionStatus('idle');
+        setExecutionOutput('The earlier submission finished. Run your edited code to verify it.');
+        return;
+      }
       if (response.status === 503) {
         setExecutionStatus('unavailable');
         setExecutionOutput('Verified execution is not enabled in this environment. Your reasoning result is still available.');
@@ -417,6 +450,7 @@ export function PracticeWorkspace({ assignmentRecipientId = null }: { assignment
         });
       }
     } catch (error) {
+      if (verificationGeneration.current !== generation || liveWorkspace.current.practiceId !== submitted.practiceId) return;
       setExecutionStatus('unavailable');
       setExecutionOutput(error instanceof Error ? error.message : 'Unable to run verified execution.');
     }
@@ -497,6 +531,7 @@ export function PracticeWorkspace({ assignmentRecipientId = null }: { assignment
     }
   };
   const resetSession = () => {
+    verificationGeneration.current += 1;
     setDraft("");
     setMode("text");
     setEvaluation(null);
@@ -519,6 +554,7 @@ export function PracticeWorkspace({ assignmentRecipientId = null }: { assignment
     if (nextPracticeItem.id === activePracticeItem.id) {
       return;
     }
+    verificationGeneration.current += 1;
 
     writeBrowserStorage(storageKey, serializePracticeSession({
       draft,
@@ -981,8 +1017,8 @@ export function PracticeWorkspace({ assignmentRecipientId = null }: { assignment
                   </button>
                   {assignmentSubmissionMessage ? <div className={`completion-panel ${assignmentSubmissionStatus === 'error' ? 'revise' : ''}`} role={assignmentSubmissionStatus === 'error' ? 'alert' : 'status'}>{assignmentSubmissionMessage}</div> : null}
                 </> : null}
-                {executionStatus !== 'idle' ? (
-                  <div className={`completion-panel ${executionStatus === 'failed' || executionStatus === 'timed_out' || executionStatus === 'unavailable' || (codeGrade && !codeGrade.passed) ? 'revise' : ''}`} aria-live="polite">
+                {executionStatus !== 'idle' || executionOutput.length > 0 ? (
+                  <div className={`completion-panel ${executionStatus === 'idle' || executionStatus === 'failed' || executionStatus === 'timed_out' || executionStatus === 'unavailable' || (codeGrade && !codeGrade.passed) ? 'revise' : ''}`} aria-live="polite">
                     {executionStatus === 'completed' && codeGrade?.passed ? <Check size={16} /> : <Clock3 size={16} />} {executionOutput || `Execution ${executionStatus}.`}
                   </div>
                 ) : null}

@@ -1,5 +1,6 @@
-import { deserializePracticeSession, serializePracticeSession, type PracticeSessionState } from './practice-session';
+import { serializePracticeSession, type PracticeSessionState } from './practice-session';
 import { readBrowserStorage, removeBrowserStorage, writeBrowserStorage } from './safe-browser-storage';
+import { readPracticeVerification, restoreVerifiedWorkspace, type PracticeVerificationSnapshot } from './practice-verification-state';
 
 export type PracticeSyncStatus = 'ready' | 'saving' | 'saved' | 'offline' | 'conflict';
 
@@ -23,6 +24,7 @@ export type RemotePracticeSession = {
   latestRevisionNumber: number | null;
   state: PracticeSessionState | null;
   draft: string | null;
+  verification?: PracticeVerificationSnapshot;
 };
 
 const practiceSessionCacheKey = (contentId: string) => `method:${contentId}:remote-session`;
@@ -100,9 +102,8 @@ export async function loadRemotePracticeSession(contentId: string): Promise<Remo
   const metadata = body.session.sessionMetadata && typeof body.session.sessionMetadata === 'object'
     ? body.session.sessionMetadata as Record<string, unknown>
     : {};
-  const state = metadata.workspaceState === undefined
-    ? null
-    : deserializePracticeSession(JSON.stringify(metadata.workspaceState));
+  const state = restoreVerifiedWorkspace(metadata, contentId);
+  const verification = readPracticeVerification(metadata.verification, contentId);
   const draft = state?.draft ?? (typeof metadata.draft === 'string' ? metadata.draft : null);
   writeCachedPracticeSessionId(contentId, body.session.id);
   return {
@@ -111,6 +112,7 @@ export async function loadRemotePracticeSession(contentId: string): Promise<Remo
     latestRevisionNumber: typeof body.session.latestRevisionNumber === 'number' ? body.session.latestRevisionNumber : null,
     state,
     draft,
+    ...(verification ? { verification } : {}),
   };
 }
 

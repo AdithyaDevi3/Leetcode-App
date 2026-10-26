@@ -1,5 +1,102 @@
 import { expect, test, type Page } from '@playwright/test';
 
+const verifiedSource = 'def find_pair(values, target):\n    return [0, 1]';
+const editedSource = 'def find_pair(values, target):\n    return []';
+const receivedGrade = {
+  problemId: 'pair-with-target-v1', version: 'code-tests-v3', passed: true,
+  passedCount: 4, totalCount: 4,
+  tests: ['basic pair', 'no match', 'duplicate values', 'negative values'].map(name => ({ name, passed: true })),
+};
+const verification = {
+  requestId: 'verification-saved', language: 'python', source: verifiedSource,
+  grade: receivedGrade, verifiedAt: '2026-10-26T00:00:00.000Z',
+};
+const cachedWorkspace = {
+  draft: '', mode: 'text', language: 'python', code: verifiedSource,
+  codeChecked: false, completed: false, evaluation: null, codeGrade: null,
+};
+const assignedPracticePath = '/practice?assignment=11111111-1111-4111-8111-111111111111';
+
+async function mockOwnedPractice(page: Page, metadata: Record<string, unknown>, signedIn = true) {
+  await page.route('**/api/viewer', route => route.fulfill({ json: { viewer: signedIn
+    ? { id: 'verification-learner', email: 'learner@example.invalid', displayName: 'Learner', canAccessAdministration: false } : null } }));
+  await page.route('**/api/practice/sessions**', async route => {
+    const request = route.request();
+    if (request.method() === 'GET') {
+      await route.fulfill({ json: { session: { id: 'session-verified', revision: 3, latestRevisionNumber: 1, sessionMetadata: metadata } } });
+    } else if (new URL(request.url()).pathname.endsWith('/sessions')) {
+      await route.fulfill({ json: { session: { id: 'session-verified', revision: 3 } } });
+    } else {
+      const body = request.postDataJSON();
+      if (body.state?.codeGrade) {
+        await route.fulfill({ status: 500, json: { error: 'browser result autosave unavailable' } });
+      } else {
+        metadata.workspaceState = body.state;
+        await route.fulfill({ json: { revision: { revisionNumber: 2 } } });
+      }
+    }
+  });
+}
+
+test('guest restores a server verification without any browser result snapshot', async ({ page }) => {
+  await mockOwnedPractice(page, { verification }, false);
+  await page.goto(assignedPracticePath);
+  await expect(page.getByLabel('Python implementation')).toHaveValue(verifiedSource);
+  await expect(page.locator('.grader-state')).toHaveText('Passed');
+  await expect(page.getByText('Restored from account')).toBeVisible();
+});
+
+test('reload restores verification even when both browser result saves are missing', async ({ page }) => {
+  const metadata: Record<string, unknown> = {};
+  await mockOwnedPractice(page, metadata);
+  await page.addInitScript(state => {
+    localStorage.setItem('method:pair-with-target-v1:session', JSON.stringify(state));
+  }, cachedWorkspace);
+  await page.route('**/api/practice/sessions/*/verify', async route => {
+    metadata.verification = verification;
+    await route.fulfill({ json: { status: 'completed', grade: receivedGrade, durationMs: 20 } });
+  });
+  await page.goto(assignedPracticePath);
+  await expect(page.getByLabel('Python implementation')).toHaveValue(verifiedSource);
+  await expect.poll(() => page.evaluate(() => localStorage.getItem('method:pair-with-target-v1:remote-session'))).toBe('session-verified');
+  await page.getByRole('button', { name: 'Run verified tests', exact: true }).click();
+  await expect(page.locator('.grader-state')).toHaveText('Passed');
+  await page.reload();
+  await expect(page.getByLabel('Python implementation')).toHaveValue(verifiedSource);
+  await expect(page.locator('.grader-state')).toHaveText('Passed');
+});
+
+test('account verification preserves a newer local draft and does not grade its edited code', async ({ page }) => {
+  await mockOwnedPractice(page, { verification });
+  await page.addInitScript(state => {
+    localStorage.setItem('method:pair-with-target-v1:session', JSON.stringify(state));
+  }, { ...cachedWorkspace, draft: 'Keep this newer local reasoning.', code: editedSource, codeChecked: true, completed: true, codeGrade: receivedGrade });
+  await page.goto(assignedPracticePath);
+  await expect(page.getByLabel('Python implementation')).toHaveValue(editedSource);
+  await expect(page.getByLabel('Pseudocode draft')).toHaveValue('Keep this newer local reasoning.');
+  await expect(page.locator('.grader-state')).toHaveText('Not run');
+});
+
+test('a verification response cannot mark code edited during the run as passed', async ({ page }) => {
+  await mockOwnedPractice(page, {});
+  let release!: () => void;
+  const responseReady = new Promise<void>(resolve => { release = resolve; });
+  await page.route('**/api/practice/sessions/*/verify', async route => {
+    await responseReady;
+    await route.fulfill({ json: { status: 'completed', grade: receivedGrade, durationMs: 20 } });
+  });
+  await page.goto(assignedPracticePath);
+  await page.getByLabel('Python implementation').fill(verifiedSource);
+  await expect(page.getByText('Saved to server')).toBeVisible();
+  await page.getByRole('button', { name: 'Run verified tests', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Running verified tests…' })).toBeVisible();
+  await page.getByLabel('Python implementation').fill(editedSource);
+  release();
+  await expect(page.getByText('The earlier submission finished. Run your edited code to verify it.')).toBeVisible();
+  await expect(page.getByLabel('Python implementation')).toHaveValue(editedSource);
+  await expect(page.locator('.grader-state')).toHaveText('Not run');
+});
+
 async function openHydratedWorkspace(page: Page) {
   await page.goto('/practice');
   await expect(

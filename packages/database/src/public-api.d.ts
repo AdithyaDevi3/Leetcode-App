@@ -4,6 +4,9 @@ import type { DatabaseClient } from './client.js';
 export type { DatabaseClient, DatabaseConfig } from './client.js';
 export { createDatabaseClient, databaseConfigFromEnv } from './client.js';
 
+export { PostgresAssessmentDraftRepository, AssessmentDraftAccessError, AssessmentDraftConflictError, AssessmentDraftValidationError } from './repositories/assessment-draft.repository.js';
+export type { AssessmentDraftPrincipal, AssessmentDraftQuestion, AssessmentDraftInput, StoredAssessmentDraft } from './repositories/assessment-draft.repository.js';
+
 export { ASSIGNMENT_VERIFIER_VERSION, GradebookAccessError, GradebookConflictError, GradebookRateLimitError } from './repositories/gradebook.repository.js';
 export type { GradebookPrincipal, AssignmentResponse, StoredGradebookAttempt, StoredGradebookGrade, StoredGradebookPublication, StoredGradebookApplicability, GradebookDisputeStatus, StoredGradebookDisputeEvent, GradebookRecipientHistory, ManualReviewStatus, ManualReviewInboxItem, ManualReviewInboxPage, GradeDisputeInboxItem, ClassGradebookCell, ClassGradebookLearner, ClassGradebook, LearnerClassGradeAssignment, LearnerClassGrades } from './repositories/gradebook.repository.js';
 export { PostgresGradebookVerificationRepository } from './repositories/gradebook-verification.repository.js';

@@ -52,6 +52,9 @@ export { PostgresGradebookVerificationRepository } from './repositories/gradeboo
 export type { GradebookVerificationJob, GradebookVerificationQueueMetrics, GradebookVerificationSummary } from './repositories/gradebook-verification.repository.js';
 
 // Classroom repository
+export { PostgresAssessmentDraftRepository, AssessmentDraftAccessError, AssessmentDraftConflictError, AssessmentDraftValidationError } from './repositories/assessment-draft.repository.js';
+export type { AssessmentDraftPrincipal, AssessmentDraftQuestion, AssessmentDraftInput, StoredAssessmentDraft } from './repositories/assessment-draft.repository.js';
+
 export {
   ClassCodeNotFoundError,
   ClassroomNotFoundError,

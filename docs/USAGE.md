@@ -86,6 +86,15 @@ changes and confirms publication of the saved revision. A failed save or
 publication response can be retried without reentering feedback; a published
 grade can be corrected by saving and publishing a new revision.
 
+Class workspaces also provide **Quiz drafts** for instructors and administrators
+with class-management permission. Choose **Create a quiz draft** to search the
+20-question starter bank, preview questions, set their order and points, and save
+instructions and optional opening/due/closing times. Drafts resume from the class
+workspace and stay private to authorized authors; saving does not assign them to
+learners or publish grades. Conflicts retain entered work for comparison, and
+retries can recover an unconfirmed save. Starter questions have independent
+automated content review; teacher validation remains outstanding.
+
 Platform administration is separately authorized at /admin. Administration
 roles are stored on the server; instructor signup does not grant them. Authorized
 administrators manage classes at /admin/classes and roles at /admin/users.

@@ -116,6 +116,20 @@ older stale retries fail revision checks. The browser serializes saves, retains
 unacknowledged requests across reload, and preserves both versions of a conflict.
 Draft revision numbers are distinct from the session counter advanced by verification.
 
+Assessment drafts use separate private PostgreSQL tables for mutable authoring
+state and immutable save receipts. Both instructor and administrator entry points
+use the same service: current class-management permission, class scope, expected
+author, and revision checks apply before mutations or receipt replay. Drafts store
+ordered question-version references and integer point units; they contain no
+answer keys and create no learner recipients or grades. Browser draft recovery is
+scoped to the verified author and retains an alternate copy across reload.
+
+The starter multiple-choice catalog is server-owned, explicitly versioned, and
+records original provenance plus automated author/reviewer separation. The client
+receives an allowlisted question projection without keys, explanations, or
+misconception tags. Immutable scoring snapshots pin reviewed versions and use
+exact integer point arithmetic. Catalog review does not imply teacher validation.
+
 ## Code execution and queues
 
 Python 3, C++20, and TypeScript verification use server-owned activity tests.
@@ -129,6 +143,11 @@ stale workers; only the current eligible attempt can produce the current result.
 Practice execution and reasoning evaluation have separate queue boundaries.
 Expensive routes support quotas, backpressure, and failure states rather than
 silently treating provider unavailability as a learner failure.
+
+Evaluation and execution completion/failure writes require the claimed attempt
+generation and return a persistence acknowledgement. A stale worker cannot finish
+a reclaimed run. Workers close stores they create; uncertain external execution
+is not replayed automatically during recovery.
 
 ## Data and API conventions
 

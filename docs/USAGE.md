@@ -48,9 +48,17 @@ repository's manage-package-manager-versions=false setting in .npmrc.
 - Use /classes to join with a class code and open assigned work. Published grades
   and feedback appear at /classes/[classId]/grades.
 
-Guest drafts and some learning estimates are device-local. A local save message
+Practice retains a device-local copy, and some learning estimates are local. A local save message
 does not establish account synchronization. Check the workspace's save status
 before changing devices; if persistence fails, retain the draft and retry.
+
+Workspace caches are separate for each verified account or guest identity.
+When local and server drafts diverge, saving pauses until you choose which to
+continue; the other copy remains available under **Saved recovery copy**, including
+after reload. **Retry saving** reuses an unacknowledged save safely. If the account
+connection is unavailable, new work stays in a separate device draft; reconnect
+and explicitly import it to continue in an account. Older unscoped browser drafts
+also require explicit import and are never automatically attached to an account.
 
 Assigned learners can open and submit coding work without passing the optional
 reasoning gate. Workspace saves accept coding-only work with an empty reasoning

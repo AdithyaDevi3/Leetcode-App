@@ -7,6 +7,7 @@ import { appendPracticeRevision, getPracticeSessionHistory, startOrResumePractic
 import type { PracticeSessionState } from './practice-session';
 import { beginPracticeVerification, finishPracticeVerification } from './practice-verification';
 import { CODE_GRADING_VERSION, codeCheckLabels } from './code-grading';
+import { PracticeRevisionConflict } from './practice-sync-contract';
 
 vi.mock('server-only', () => ({}));
 
@@ -40,6 +41,54 @@ afterAll(async () => {
 });
 
 describe('durable coding-only practice', () => {
+  it('opens only one session when two devices start the same activity together', async () => {
+    const { owner } = await createVerificationSession();
+    const results = await Promise.all(Array.from({ length: 4 }, () => startOrResumePracticeSession({ owner, contentId: 'balanced-brackets-v1' })));
+    expect(new Set(results.map(result => result.session.id)).size).toBe(1);
+    expect(results.filter(result => result.created)).toHaveLength(1);
+  });
+
+  it('accepts one simultaneous conditional save and retains the winner without overwriting it', async () => {
+    const { owner, sessionId } = await createVerificationSession();
+    const results = await Promise.allSettled(['first device', 'second device'].map((draft, index) => appendPracticeRevision({
+      owner, sessionId, draft, workspaceState: { ...workspace(source), draft }, expectedRevisionNumber: 0, requestKey: `device-${index}`,
+    })));
+    expect(results.filter(result => result.status === 'fulfilled')).toHaveLength(1);
+    const rejected = results.find(result => result.status === 'rejected') as PromiseRejectedResult;
+    expect(rejected.reason).toBeInstanceOf(PracticeRevisionConflict);
+    const winner = results.find(result => result.status === 'fulfilled') as PromiseFulfilledResult<Awaited<ReturnType<typeof appendPracticeRevision>>>;
+    const history = await getPracticeSessionHistory({ owner, sessionId });
+    expect(history.revisions).toHaveLength(1);
+    expect(history.session.sessionMetadata.draft).toBe(winner.value.revision.draft);
+  });
+
+  it('serializes legacy concurrent appends without duplicate revision numbers', async () => {
+    const { owner, sessionId } = await createVerificationSession();
+    const results = await Promise.all(Array.from({ length: 5 }, (_, index) => appendPracticeRevision({ owner, sessionId, draft: `legacy-${index}` })));
+    expect(results.map(result => result.revision.revisionNumber).sort()).toEqual([1, 2, 3, 4, 5]);
+  });
+
+  it('returns the original save receipt after later edits and rejects a changed retry payload', async () => {
+    const { owner, sessionId } = await createVerificationSession();
+    const input = { owner, sessionId, draft: 'First edit.', expectedRevisionNumber: 0, requestKey: 'lost-response' };
+    const first = await appendPracticeRevision(input);
+    await appendPracticeRevision({ owner, sessionId, draft: 'Later edit.', expectedRevisionNumber: 1, requestKey: 'later-edit' });
+    await expect(appendPracticeRevision(input)).resolves.toEqual(first);
+    await expect(appendPracticeRevision({ ...input, draft: 'Changed under same key.' })).rejects.toMatchObject({ code: 'request_reused' });
+    const history = await getPracticeSessionHistory({ owner, sessionId });
+    expect(history.revisions).toHaveLength(2);
+    expect(history.session.sessionMetadata.draft).toBe('Later edit.');
+  });
+
+  it('uses the draft revision independently of verification changes and protects the report', async () => {
+    const { owner, sessionId } = await createVerificationSession();
+    const request = await beginPracticeVerification({ owner, sessionId, language: 'python', source });
+    await finishPracticeVerification({ owner, sessionId, requestId: request.requestId, grade: verificationGrade(true) });
+    const saved = await appendPracticeRevision({ owner, sessionId, draft: 'Reasoning after verification.', workspaceState: workspace(source), expectedRevisionNumber: 0, requestKey: 'post-verification' });
+    expect(saved.revision).toMatchObject({ revisionNumber: 1, sessionRevision: 4 });
+    const resumed = await startOrResumePracticeSession({ owner, contentId: 'pair-with-target-v1' });
+    expect(resumed.session.sessionMetadata.verification).toMatchObject({ requestId: request.requestId, grade: { passed: true } });
+  });
   it('restores code and received feedback through a fresh database client and denies another owner', async () => {
     const users = await db.query<{ id: string }>(
       "INSERT INTO users (display_name, role) VALUES ('Persistence Learner', 'learner'), ('Other Learner', 'learner') RETURNING id",

@@ -19,7 +19,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { defaultPracticeItem, getPracticeItem, practiceItems } from "@/lib/content";
 import type { CodeGrade } from '@/lib/code-grading';
@@ -28,32 +28,27 @@ import { evaluationPolicy } from '@/lib/evaluation-policy';
 import { readLocalLearnerProfile } from "@/lib/local-learner";
 import { recordLocalPracticeEvidence } from '@/lib/local-mastery';
 import { recordLocalPracticeCompletion } from "@/lib/local-practice-history";
-import { readBrowserStorage, removeBrowserStorage, writeBrowserStorage } from "@/lib/safe-browser-storage";
+import { readBrowserStorage, writeBrowserStorage } from "@/lib/safe-browser-storage";
 import {
   buildCodeFromPlanForLanguage,
   codingLanguageLabel,
   codingLanguages,
-  deserializePracticeSession,
   joinBlocksIntoDraft,
   projectDraftBlocks,
-  sessionStorageKey,
   splitDraftIntoBlocks,
   type CodingLanguage,
   type EditorMode,
   type PracticeSessionState,
-  serializePracticeSession,
   defaultCode,
   selectedPracticeItemKey,
 } from "@/lib/practice-session";
 import {
-  clearCachedPracticeSessionId,
-  loadRemotePracticeSession,
   readCachedPracticeSessionId,
-  syncPracticeSession,
   type PracticeSyncStatus,
-  writeCachedPracticeSessionId,
 } from "@/lib/practice-sync";
 import { useViewer } from '@/lib/use-viewer';
+import { usePracticeOwner } from '@/lib/use-practice-owner';
+import { usePracticePersistence } from '@/lib/use-practice-persistence';
 
 const formatElapsed = (seconds: number) => {
   const minutes = Math.floor(seconds / 60);
@@ -67,6 +62,12 @@ const initialsFor = (name: string | null | undefined) => {
 };
 
 export function PracticeWorkspace({ assignmentRecipientId = null }: { assignmentRecipientId?: string | null }) {
+  const scope = usePracticeOwner();
+  if (!scope) return <main className="workspace"><p role="status">Opening your practice workspace…</p></main>;
+  return <OwnedPracticeWorkspace key={scope} scope={scope} assignmentRecipientId={assignmentRecipientId} />;
+}
+
+function OwnedPracticeWorkspace({ scope, assignmentRecipientId }: { scope: string; assignmentRecipientId: string | null }) {
   const [activeAssignmentRecipientId, setActiveAssignmentRecipientId] = useState(assignmentRecipientId);
   const [activePracticeId, setActivePracticeId] = useState(defaultPracticeItem.id);
   const [draft, setDraft] = useState("");
@@ -92,11 +93,8 @@ export function PracticeWorkspace({ assignmentRecipientId = null }: { assignment
   const [showReferenceAnswer, setShowReferenceAnswer] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [localRestoreComplete, setLocalRestoreComplete] = useState(false);
-  const restoredSource = useRef<'local' | 'account' | null>(null);
-  const remoteRestoreAttempts = useRef(new Set<string>());
   const viewer = useViewer();
   const activePracticeItem = getPracticeItem(activePracticeId);
-  const storageKey = sessionStorageKey(activePracticeItem.id);
   const blockOptions = activePracticeItem.blockOptions;
   const activePracticeNumber = practiceItems.findIndex((item) => item.id === activePracticeItem.id) + 1;
   const trace = activePracticeItem.trace;
@@ -117,7 +115,7 @@ export function PracticeWorkspace({ assignmentRecipientId = null }: { assignment
       const requestedPracticeId = new URLSearchParams(window.location.search).get("problem");
       const requestedAssignmentId = new URLSearchParams(window.location.search).get("assignment");
       if (requestedAssignmentId) setActiveAssignmentRecipientId(requestedAssignmentId);
-      const savedPracticeId = requestedPracticeId ? null : readBrowserStorage(selectedPracticeItemKey);
+      const savedPracticeId = requestedPracticeId ? null : readBrowserStorage(`${selectedPracticeItemKey}:${scope}`);
       const restoredPracticeItem = requestedPracticeId
         ? getPracticeItem(requestedPracticeId)
         : savedPracticeId
@@ -129,156 +127,32 @@ export function PracticeWorkspace({ assignmentRecipientId = null }: { assignment
         setActivePracticeId(restoredPracticeItem.id);
       }
 
-      const savedSession = readBrowserStorage(sessionStorageKey(restoredPracticeItem.id));
-      if (!savedSession) {
-        setCodingLanguage(preferredLanguage);
-        setCode(defaultCode(restoredPracticeItem.codeFunction, restoredPracticeItem.codeSignature, preferredLanguage));
-        setSavedAt("Ready");
-        setLocalRestoreComplete(true);
-        return;
-      }
-
-      const restoredSession = deserializePracticeSession(savedSession);
-      if (!restoredSession) {
-        setCodingLanguage(preferredLanguage);
-        setCode(defaultCode(restoredPracticeItem.codeFunction, restoredPracticeItem.codeSignature, preferredLanguage));
-        setSavedAt("Ready");
-        setLocalRestoreComplete(true);
-        return;
-      }
-
-      restoredSource.current = 'local';
-      setDraft(restoredSession.draft);
-      setMode(restoredSession.mode);
-      setCodingLanguage(restoredSession.language);
-      setCode(restoredSession.code);
-      setCodeChecked(restoredSession.codeChecked);
-      setCompleted(restoredSession.completed);
-      setEvaluation(restoredSession.evaluation);
-      setCodeGrade(restoredSession.codeGrade);
-      setSavedAt("Restored locally");
-      setSyncStatus("offline");
+      setCodingLanguage(preferredLanguage);
+      setCode(defaultCode(restoredPracticeItem.codeFunction, restoredPracticeItem.codeSignature, preferredLanguage));
       setLocalRestoreComplete(true);
     }, 0);
-
     return () => window.clearTimeout(timer);
+  }, [scope]);
+
+  const workspaceState = useMemo<PracticeSessionState>(() => ({
+    draft, mode, language: codingLanguage, code, codeChecked, completed, evaluation, codeGrade,
+  }), [draft, mode, codingLanguage, code, codeChecked, completed, evaluation, codeGrade]);
+  const restoreWorkspace = useCallback((state: PracticeSessionState) => {
+    verificationGeneration.current += 1;
+    setDraft(state.draft); setMode(state.mode); setCodingLanguage(state.language);
+    setCode(state.code); setCodeChecked(state.codeChecked); setCompleted(state.completed);
+    setEvaluation(state.evaluation); setCodeGrade(state.codeGrade);
   }, []);
-
-  useEffect(() => {
-    const restoreKey = `${viewer?.id ?? 'guest'}:${activePracticeItem.id}`;
-    if (!localRestoreComplete || remoteRestoreAttempts.current.has(restoreKey)) return;
-    remoteRestoreAttempts.current.add(restoreKey);
-    const local = readBrowserStorage(sessionStorageKey(activePracticeItem.id));
-    const hasLocalState = local !== null && deserializePracticeSession(local) !== null;
-    const initialWorkspace = liveWorkspace.current;
-    const generation = verificationGeneration.current;
-
-    let current = true;
-    void loadRemotePracticeSession(activePracticeItem.id).then((remote) => {
-      if (!current || !remote || verificationGeneration.current !== generation || (!remote.state && !remote.draft)) return;
-      const latest = liveWorkspace.current;
-      if (latest.practiceId !== activePracticeItem.id) return;
-      const edited = latest.code !== initialWorkspace.code || latest.language !== initialWorkspace.language
-        || latest.draft !== initialWorkspace.draft || latest.mode !== initialWorkspace.mode;
-      if (hasLocalState || edited) {
-        if (remote.verification) {
-          const matches = latest.code === remote.verification.source && latest.language === remote.verification.language;
-          restoredSource.current = 'local';
-          setCodeGrade(matches ? remote.verification.grade : null);
-          setCodeChecked(matches);
-          setCompleted(matches && remote.verification.grade.passed);
-        }
-        return;
-      }
-      restoredSource.current = 'account';
-      setRemoteRevision(remote.latestRevisionNumber ?? 1);
-      if (remote.state) {
-        setDraft(remote.state.draft);
-        setMode(remote.state.mode);
-        setCodingLanguage(remote.state.language);
-        setCode(remote.state.code);
-        setCodeChecked(remote.state.codeChecked);
-        setCompleted(remote.state.completed);
-        setEvaluation(remote.state.evaluation);
-        setCodeGrade(remote.state.codeGrade);
-      } else if (remote.draft) {
-        setDraft(remote.draft);
-      }
-      setSavedAt("Restored from account");
-      setSyncStatus("saved");
-    }).catch(() => {
-      // Local practice remains available when remote resume is unavailable.
-    });
-    return () => { current = false; };
-  }, [activePracticeItem.id, localRestoreComplete, viewer]);
-
-  useEffect(() => {
-    const timer = window.setTimeout(() => {
-      const session: PracticeSessionState = {
-        draft,
-        mode,
-        language: codingLanguage,
-        code,
-        codeChecked,
-        completed,
-        evaluation,
-        codeGrade,
-      };
-
-      const locallySaved = writeBrowserStorage(storageKey, serializePracticeSession(session));
-      writeBrowserStorage(selectedPracticeItemKey, activePracticeItem.id);
-      const hasChanges =
-        draft ||
-        mode !== "text" ||
-        code !== defaultCode(activePracticeItem.codeFunction, activePracticeItem.codeSignature, codingLanguage) ||
-        codeChecked ||
-        completed ||
-        evaluation ||
-        codeGrade;
-
-      setSavedAt(hasChanges ? (locallySaved ? "Saving" : "Session active") : "Ready");
-      setSyncStatus(hasChanges ? "saving" : "ready");
-
-      if (!hasChanges) {
-        return;
-      }
-
-      if (restoredSource.current) {
-        const source = restoredSource.current;
-        restoredSource.current = null;
-        setSavedAt(source === 'account' ? "Restored from account" : "Restored locally");
-        setSyncStatus(source === 'account' ? "saved" : "offline");
-        return;
-      }
-
-      const savedRemoteSessionId = readCachedPracticeSessionId(activePracticeItem.id);
-      if (savedRemoteSessionId) {
-        writeCachedPracticeSessionId(activePracticeItem.id, savedRemoteSessionId);
-      }
-
-      void syncPracticeSession({
-        contentId: activePracticeItem.id,
-        draft,
-        currentStage: completed ? "evaluate" : "plan",
-        state: session,
-        sessionId: savedRemoteSessionId ?? undefined,
-      })
-        .then((result) => {
-          setRemoteRevision(result.revisionNumber);
-          setSyncStatus(result.status);
-          setSavedAt(result.status === "saved" ? "Saved to server" : result.status === "conflict" ? "Conflict" : "Offline draft");
-          if (result.sessionId) {
-            writeCachedPracticeSessionId(activePracticeItem.id, result.sessionId);
-          }
-        })
-        .catch(() => {
-          setSyncStatus("offline");
-          setSavedAt("Offline draft");
-        });
-    }, 450);
-
-    return () => window.clearTimeout(timer);
-  }, [draft, mode, codingLanguage, code, codeChecked, completed, evaluation, codeGrade, storageKey, activePracticeItem]);
+  const persistenceStatus = useCallback((label: string, status: PracticeSyncStatus, revision?: number) => {
+    setSavedAt(label); setSyncStatus(status);
+    if (revision !== undefined) setRemoteRevision(revision);
+  }, []);
+  const persistence = usePracticePersistence({
+    scope, contentId: activePracticeItem.id, state: workspaceState, enabled: localRestoreComplete,
+    restore: restoreWorkspace, status: persistenceStatus,
+    generation: verificationGeneration,
+    hasWork: Boolean(draft || mode !== 'text' || code !== defaultCode(activePracticeItem.codeFunction, activePracticeItem.codeSignature, codingLanguage) || evaluation || codeGrade),
+  });
 
   const blocks = mode === "blocks"
     ? projectDraftBlocks(draft, activePracticeItem.codeFunction)
@@ -335,7 +209,7 @@ export function PracticeWorkspace({ assignmentRecipientId = null }: { assignment
   useEffect(() => {
     if (!evaluationJobId || (evaluationStatus !== 'queued' && evaluationStatus !== 'running')) return;
     const timer = window.setInterval(() => {
-      void fetch(`/api/practice/sessions/${readCachedPracticeSessionId(activePracticeItem.id)}/evaluate/${evaluationJobId}`)
+      void fetch(`/api/practice/sessions/${readCachedPracticeSessionId(activePracticeItem.id, scope)}/evaluate/${evaluationJobId}`)
         .then((response) => response.ok ? response.json() : Promise.reject(new Error('Evaluation status unavailable')))
         .then((body: { status: 'queued' | 'running' | 'completed' | 'failed' | 'canceled'; result?: { evaluation?: Evaluation }; error?: string }) => {
           if (body.status === 'completed') {
@@ -352,14 +226,14 @@ export function PracticeWorkspace({ assignmentRecipientId = null }: { assignment
         .catch(() => { setEvaluationStatus('failed'); setEvaluationMessage('Unable to check evaluation progress. Retry when you are online.'); });
     }, evaluationPolicy.pollingIntervalMs);
     return () => window.clearInterval(timer);
-  }, [activePracticeItem, evaluationJobId, evaluationStatus]);
+  }, [activePracticeItem, evaluationJobId, evaluationStatus, scope]);
 
   const submitEvaluation = async () => {
     if (!draft.trim() || evaluationStatus === 'queued' || evaluationStatus === 'running') return;
     const localEvaluation = evaluatePseudocode(draft, activePracticeItem.id);
     setEvaluation(localEvaluation);
     recordLocalPracticeEvidence({ item: activePracticeItem, reasoningScore: localEvaluation.score });
-    const sessionId = readCachedPracticeSessionId(activePracticeItem.id);
+    const sessionId = readCachedPracticeSessionId(activePracticeItem.id, scope);
     if (!sessionId) {
       setEvaluationStatus('completed');
       setEvaluationMessage('Evaluation complete on this device.');
@@ -384,7 +258,7 @@ export function PracticeWorkspace({ assignmentRecipientId = null }: { assignment
   };
 
   const cancelEvaluation = async () => {
-    const sessionId = readCachedPracticeSessionId(activePracticeItem.id);
+    const sessionId = readCachedPracticeSessionId(activePracticeItem.id, scope);
     if (!sessionId || !evaluationJobId) return;
     try {
       const response = await fetch(`/api/practice/sessions/${sessionId}/evaluate/${evaluationJobId}`, { method: 'DELETE' });
@@ -397,7 +271,7 @@ export function PracticeWorkspace({ assignmentRecipientId = null }: { assignment
   };
 
   const runInSandbox = async () => {
-    const sessionId = readCachedPracticeSessionId(activePracticeItem.id);
+    const sessionId = readCachedPracticeSessionId(activePracticeItem.id, scope);
     if (!sessionId) { setExecutionStatus('unavailable'); setExecutionOutput('Save your practice session before running code.'); return; }
     const submitted = { practiceId: activePracticeItem.id, source: code, language: codingLanguage };
     const generation = ++verificationGeneration.current;
@@ -489,7 +363,7 @@ export function PracticeWorkspace({ assignmentRecipientId = null }: { assignment
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           contentId: activePracticeItem.id,
-          sessionId: readCachedPracticeSessionId(activePracticeItem.id) ?? null,
+          sessionId: readCachedPracticeSessionId(activePracticeItem.id, scope) ?? null,
           label: activePracticeItem.label,
         }),
       });
@@ -514,7 +388,7 @@ export function PracticeWorkspace({ assignmentRecipientId = null }: { assignment
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           contentId: activePracticeItem.id,
-          sessionId: readCachedPracticeSessionId(activePracticeItem.id) ?? null,
+          sessionId: readCachedPracticeSessionId(activePracticeItem.id, scope) ?? null,
           body,
           anchor: 'practice-workspace',
         }),
@@ -542,8 +416,6 @@ export function PracticeWorkspace({ assignmentRecipientId = null }: { assignment
     setExecutionStatus('idle');
     setExecutionOutput('');
     setShowReferenceAnswer(false);
-    removeBrowserStorage(storageKey);
-    clearCachedPracticeSessionId(activePracticeItem.id);
     setSavedAt("Ready");
     setSyncStatus("ready");
     setElapsedSeconds(0);
@@ -556,17 +428,7 @@ export function PracticeWorkspace({ assignmentRecipientId = null }: { assignment
     }
     verificationGeneration.current += 1;
 
-    writeBrowserStorage(storageKey, serializePracticeSession({
-      draft,
-      mode,
-      language: codingLanguage,
-      code,
-      codeChecked,
-      completed,
-      evaluation,
-      codeGrade,
-    }));
-    writeBrowserStorage(selectedPracticeItemKey, nextPracticeItem.id);
+    writeBrowserStorage(`${selectedPracticeItemKey}:${scope}`, nextPracticeItem.id);
     setActivePracticeId(nextPracticeItem.id);
     setDraft("");
     setMode("text");
@@ -603,6 +465,36 @@ export function PracticeWorkspace({ assignmentRecipientId = null }: { assignment
         </header>
 
         <div className="content">
+          {scope === 'device' ? <section className="mb-5 rounded-xl border border-[var(--line)] p-4" role="status">
+            <p>Account connection unavailable. This draft stays on this device. Reconnect to open your account’s saved work.</p>
+            <button className="button secondary" type="button" onClick={() => window.dispatchEvent(new Event('practice-owner-changed'))}>Reconnect</button>
+          </section> : null}
+          {persistence.conflict ? <section className="mb-5 rounded-xl border border-[var(--coral)] bg-[var(--coral-soft)] p-4" role="alert" aria-label="Resolve practice conflict">
+            <h2>Choose which draft to continue</h2>
+            <p>This device and the server have different work. Saving is paused. The other copy will remain available here for recovery.</p>
+            <div className="flex flex-wrap gap-3">
+              <button className="button" type="button" onClick={() => persistence.resolve('local')}>Continue with this draft</button>
+              <button className="button secondary" type="button" onClick={() => persistence.resolve('remote')}>Use server draft</button>
+            </div>
+            <details className="mt-3"><summary>View server copy</summary><pre className="max-h-72 overflow-auto whitespace-pre-wrap">{persistence.conflict.state?.draft ?? persistence.conflict.draft}{'\n\n'}{persistence.conflict.state?.code}</pre></details>
+          </section> : null}
+          {persistence.recovery ? <details className="mb-5 rounded-xl border border-[var(--line)] p-4">
+            <summary>Saved recovery copy</summary>
+            <pre className="max-h-72 overflow-auto whitespace-pre-wrap">{persistence.recovery.draft}{'\n\n'}{persistence.recovery.code}</pre>
+            <button className="button secondary" type="button" disabled={syncStatus === 'saving' || Boolean(persistence.conflict)} onClick={() => persistence.restoreCopy(persistence.recovery!)}>Restore recovery copy</button>
+          </details> : null}
+          {persistence.legacy ? <details className="mb-5 rounded-xl border border-[var(--line)] p-4">
+            <summary>Older draft saved in this browser</summary>
+            <p>This draft predates account-specific storage. Import it only if it belongs to you. Your current draft will be retained as a recovery copy.</p>
+            <button className="button secondary" type="button" disabled={syncStatus === 'saving' || Boolean(persistence.conflict)} onClick={() => persistence.restoreCopy(persistence.legacy!)}>Import older browser draft</button>
+          </details> : null}
+          {persistence.deviceDraft ? <details className="mb-5 rounded-xl border border-[var(--line)] p-4">
+            <summary>Offline draft from this browser</summary>
+            <p>Work created while the account connection was unavailable stays separate. Import it to continue here and retain your current draft as a recovery copy.</p>
+            <button className="button secondary" type="button" disabled={syncStatus === 'saving' || Boolean(persistence.conflict)} onClick={() => persistence.restoreCopy(persistence.deviceDraft!)}>Import offline draft</button>
+          </details> : null}
+          {syncStatus === 'offline' && scope !== 'device' ? <button className="button secondary mb-5" type="button" onClick={persistence.retry}>Retry saving</button> : null}
+          {syncStatus === 'conflict' && !persistence.conflict ? <button className="button secondary mb-5" type="button" onClick={persistence.retry}>Reload server copy</button> : null}
           <div className="session-heading">
             <div>
               <p className="eyebrow"><span className="capitalize">{activePracticeItem.difficulty}</span> · {activePracticeItem.estimatedMinutes} min</p>

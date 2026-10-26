@@ -17,6 +17,20 @@ describe('/api/practice/sessions', () => {
     startOrResumePracticeSession.mockReset();
   });
 
+  it('does not load or start a workspace for a different authenticated owner', async () => {
+    getPracticeOwner.mockResolvedValue({ kind: 'user', id: 'user-new' });
+    const { GET, POST } = await import('./route');
+    for (const method of ['GET', 'POST']) {
+      const request = new Request('http://localhost/api/practice/sessions?contentId=pair-with-target-v1', {
+        method, headers: { 'x-practice-owner': 'user:user-old' }, ...(method === 'POST' ? { body: JSON.stringify({ contentId: 'pair-with-target-v1' }) } : {}),
+      });
+      const response = await (method === 'GET' ? GET(request) : POST(request));
+      expect(response.status).toBe(409);
+      expect(await response.json()).toMatchObject({ code: 'owner_changed' });
+    }
+    expect(startOrResumePracticeSession).not.toHaveBeenCalled();
+  });
+
   it('returns 400 when contentId is missing', async () => {
     getPracticeOwner.mockResolvedValue({ kind: 'user', id: 'user-1' });
     const { GET } = await import('./route');

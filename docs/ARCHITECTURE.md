@@ -107,6 +107,15 @@ overwrite the protected report. Read projections restore matching results and
 keep later code edits unverified. This latest-report snapshot is separate from
 the immutable assignment gradebook history.
 
+Workspace identity is resolved on the server before opening owner-scoped caches.
+Save requests carry an expected owner, draft revision, and request identity; these
+are consistency checks alongside server authentication and row ownership.
+Session starts serialize by owner/content, and revision allocation runs under the
+owned session row lock. Bounded server receipts make recent retries idempotent;
+older stale retries fail revision checks. The browser serializes saves, retains
+unacknowledged requests across reload, and preserves both versions of a conflict.
+Draft revision numbers are distinct from the session counter advanced by verification.
+
 ## Code execution and queues
 
 Python 3, C++20, and TypeScript verification use server-owned activity tests.

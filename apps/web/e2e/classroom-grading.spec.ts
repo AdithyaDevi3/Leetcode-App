@@ -13,7 +13,7 @@ test('instructor saves and publishes a private rubric draft', async ({ page }) =
     await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ grade: { id: '33333333-3333-4333-8333-333333333333', sequence: 1, earnedUnits: 850, kind: 'scored', attemptId: '22222222-2222-4222-8222-222222222222', criterionScores: { reasoning: 500, complexity: 350 }, learnerFeedback: 'Clear reasoning with the right complexity.', privateNote: 'Check the explanation wording.', createdAt: '2026-10-01T14:00:00.000Z' } }) });
   });
   await page.route('**/api/instructor/submissions/*/grades/*/publications', async route => {
-    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ publication: { id: '99999999-9999-4999-8999-999999999999', sequence: 1 } }) });
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ publication: { id: '99999999-9999-4999-8999-999999999999', sequence: 1, gradeRevisionId: '33333333-3333-4333-8333-333333333333', publishedAt: '2026-10-01T14:00:00.000Z' } }) });
   });
 
   await page.goto(fixturePath);
@@ -30,11 +30,91 @@ test('instructor saves and publishes a private rubric draft', async ({ page }) =
   await page.getByRole('button', { name: 'Save draft' }).click();
 
   await expect(page.getByText('Draft saved. Learners cannot see it until you publish.')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Save draft' })).toBeDisabled();
   expect(draftRequests).toHaveLength(1);
   expect(draftRequests[0]).toMatchObject({ criterionScores: { reasoning: 500, complexity: 350 }, expectedGradeRevisionId: null });
 
   await page.getByRole('button', { name: 'Publish grade' }).click();
   await expect(page.getByText('Grade published to the learner.')).toBeVisible();
+  await expect(page.getByText('published', { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Publish grade' })).toBeDisabled();
+});
+
+test('instructor must save changed scores and can publish a correction without refreshing', async ({ page }) => {
+  const draftRequests: Record<string, unknown>[] = [];
+  const publicationRequests: Record<string, unknown>[] = [];
+  await page.route('**/api/instructor/submissions/*/draft-grade', async route => {
+    const body = route.request().postDataJSON();
+    draftRequests.push(body);
+    await route.fulfill({ json: { grade: {
+      id: `grade-${draftRequests.length}`, sequence: draftRequests.length,
+      attemptId: '22222222-2222-4222-8222-222222222222', kind: 'scored', earnedUnits: 800,
+      criterionScores: body.criterionScores, learnerFeedback: body.learnerFeedback, privateNote: body.privateNote,
+      createdAt: '2026-10-01T14:00:00.000Z',
+    } } });
+  });
+  await page.route('**/api/instructor/submissions/*/grades/*/publications', async route => {
+    publicationRequests.push(route.request().postDataJSON());
+    await route.fulfill({ json: { publication: {
+      id: `publication-${publicationRequests.length}`, sequence: publicationRequests.length,
+      gradeRevisionId: route.request().url().split('/grades/')[1].split('/')[0], publishedAt: '2026-10-01T14:00:00.000Z',
+    } } });
+  });
+  await page.goto(fixturePath);
+  await page.getByLabel('Reasoning').fill('5');
+  await page.getByLabel('Complexity').fill('3');
+  await page.getByRole('button', { name: 'Save draft' }).click();
+  await expect(page.getByRole('button', { name: 'Publish grade' })).toBeEnabled();
+  await page.getByLabel('Complexity').fill('4');
+  await expect(page.getByRole('button', { name: 'Publish grade' })).toBeDisabled();
+  await expect(page.getByText('Unsaved changes. Save draft before publishing.')).toBeVisible();
+  await page.getByLabel('Complexity').fill('3');
+  await page.getByRole('button', { name: 'Publish grade' }).click();
+  await expect(page.getByText('published', { exact: true })).toBeVisible();
+  await page.getByLabel('Feedback for learner').fill('Corrected feedback after review.');
+  await expect(page.getByText('Grade published to the learner.')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Publish grade' })).toBeDisabled();
+  await page.getByRole('button', { name: 'Save draft' }).click();
+  await expect(page.getByRole('button', { name: 'Publish grade' })).toBeEnabled();
+  await page.getByRole('button', { name: 'Publish grade' }).click();
+  await expect(page.getByText('published', { exact: true })).toBeVisible();
+  expect(draftRequests[1]).toMatchObject({ expectedGradeRevisionId: 'grade-1' });
+  expect(publicationRequests.map(request => request.expectedPublicationSequence)).toEqual([0, 1]);
+});
+
+test('instructor retries a lost save and publication response with the same request keys', async ({ page }) => {
+  const draftRequests: Record<string, unknown>[] = [];
+  const publicationRequests: Record<string, unknown>[] = [];
+  await page.route('**/api/instructor/submissions/*/draft-grade', async route => {
+    const body = route.request().postDataJSON();
+    draftRequests.push(body);
+    if (draftRequests.length === 1) { await route.abort('failed'); return; }
+    await route.fulfill({ json: { grade: {
+      id: 'grade-retry', sequence: 1, attemptId: '22222222-2222-4222-8222-222222222222', kind: 'scored',
+      earnedUnits: 800, criterionScores: body.criterionScores, learnerFeedback: body.learnerFeedback,
+      privateNote: body.privateNote, createdAt: '2026-10-01T14:00:00.000Z',
+    } } });
+  });
+  await page.route('**/api/instructor/submissions/*/grades/*/publications', async route => {
+    publicationRequests.push(route.request().postDataJSON());
+    if (publicationRequests.length === 1) { await route.abort('failed'); return; }
+    await route.fulfill({ json: { publication: { id: 'publication-retry', sequence: 1, gradeRevisionId: 'grade-retry', publishedAt: '2026-10-01T14:00:00.000Z' } } });
+  });
+  await page.goto(fixturePath);
+  await page.getByLabel('Reasoning').fill('5');
+  await page.getByLabel('Complexity').fill('3');
+  await page.getByRole('button', { name: 'Save draft' }).click();
+  await expect(page.getByRole('button', { name: 'Save draft' })).toBeEnabled();
+  await page.getByRole('button', { name: 'Save draft' }).click();
+  await expect(page.getByRole('button', { name: 'Publish grade' })).toBeEnabled();
+  expect(draftRequests).toHaveLength(2);
+  expect(draftRequests[1]).toEqual(draftRequests[0]);
+  await page.getByRole('button', { name: 'Publish grade' }).click();
+  await expect(page.getByRole('button', { name: 'Publish grade' })).toBeEnabled();
+  await page.getByRole('button', { name: 'Publish grade' }).click();
+  await expect(page.getByText('published', { exact: true })).toBeVisible();
+  expect(publicationRequests).toHaveLength(2);
+  expect(publicationRequests[1]).toEqual(publicationRequests[0]);
 });
 
 test('instructor sees an optimistic conflict without losing entered feedback', async ({ page }) => {

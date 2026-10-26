@@ -1,7 +1,7 @@
 'use client';
 
-import { useMemo, useState } from 'react';
-import type { GradebookRecipientHistory, StoredGradebookGrade } from '@leetcode-app/database';
+import { useMemo, useRef, useState } from 'react';
+import type { GradebookRecipientHistory, StoredGradebookGrade, StoredGradebookPublication } from '@leetcode-app/database';
 import { AdminBadge } from '@/components/admin/admin-ui';
 
 const displayPoints = (units: number) => (units / 100).toFixed(2).replace(/\.00$/, '');
@@ -50,15 +50,23 @@ export function ManualGradeEditor({ submission }: { submission: GradebookRecipie
   const attempt = submission.attempts.at(-1)!;
   const latestStored = submission.grades.at(-1) ?? null;
   const activeDraft = latestStored?.attemptId === attempt.id ? latestStored : null;
-  const latestPublication = submission.publications.at(-1) ?? null;
+  const [latestPublication, setLatestPublication] = useState<StoredGradebookPublication | null>(submission.publications.at(-1) ?? null);
   const [grade, setGrade] = useState<StoredGradebookGrade | null>(activeDraft);
   const [scores, setScores] = useState<Record<string, string>>(() => Object.fromEntries(criteria.map(criterion => [criterion.id, activeDraft ? displayPoints(activeDraft.criterionScores[criterion.id] ?? 0) : ''])));
   const [learnerFeedback, setLearnerFeedback] = useState(activeDraft?.learnerFeedback ?? '');
   const [privateNote, setPrivateNote] = useState(activeDraft?.privateNote ?? '');
   const [busy, setBusy] = useState<'save' | 'publish' | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const draftRequest = useRef<{ signature: string; requestKey: string } | null>(null);
+  const publicationRequest = useRef<{ signature: string; requestKey: string } | null>(null);
   const parsedScores = useMemo(() => Object.fromEntries(Object.entries(scores).map(([id, value]) => [id, parsePoints(value)])), [scores]);
   const earned = Object.values(parsedScores).every(value => value !== null) ? Object.values(parsedScores).reduce<number>((sum, value) => sum + (value ?? 0), 0) : null;
+  const hasUnsavedChanges = grade !== null && (
+    criteria.some(criterion => parsedScores[criterion.id] !== grade.criterionScores[criterion.id])
+    || learnerFeedback !== grade.learnerFeedback
+    || privateNote !== grade.privateNote
+  );
+  const published = grade !== null && latestPublication?.gradeRevisionId === grade.id;
 
   async function saveDraft() {
     setMessage(null);
@@ -68,21 +76,32 @@ export function ManualGradeEditor({ submission }: { submission: GradebookRecipie
     }
     setBusy('save');
     try {
-      const response = await fetch(`/api/instructor/submissions/${submission.recipientId}/draft-grade`, { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ attemptId: attempt.id, expectedGradeRevisionId: grade?.id ?? latestStored?.id ?? null, criterionScores: parsedScores, learnerFeedback, privateNote, requestKey: crypto.randomUUID() }) });
+      const payload = { attemptId: attempt.id, expectedGradeRevisionId: grade?.id ?? latestStored?.id ?? null, criterionScores: parsedScores, learnerFeedback, privateNote };
+      const signature = JSON.stringify(payload);
+      if (draftRequest.current?.signature !== signature) draftRequest.current = { signature, requestKey: crypto.randomUUID() };
+      const response = await fetch(`/api/instructor/submissions/${submission.recipientId}/draft-grade`, { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ ...payload, requestKey: draftRequest.current.requestKey }) });
       const body = await response.json();
       if (!response.ok) throw new Error(body.error ?? 'Unable to save draft');
+      if (!body.grade) throw new Error('Unable to confirm the saved grade. Retry saving.');
+      draftRequest.current = null;
       setGrade(body.grade); setMessage('Draft saved. Learners cannot see it until you publish.');
     } catch (error) { setMessage(error instanceof Error ? error.message : 'Unable to save draft'); }
     finally { setBusy(null); }
   }
 
   async function publish() {
-    if (!grade) return;
+    if (!grade || hasUnsavedChanges || published) return;
     setBusy('publish'); setMessage(null);
     try {
-      const response = await fetch(`/api/instructor/submissions/${submission.recipientId}/grades/${grade.id}/publications`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ expectedPublicationSequence: latestPublication?.sequence ?? 0, requestKey: crypto.randomUUID() }) });
+      const expectedPublicationSequence = latestPublication?.sequence ?? 0;
+      const signature = `${grade.id}:${expectedPublicationSequence}`;
+      if (publicationRequest.current?.signature !== signature) publicationRequest.current = { signature, requestKey: crypto.randomUUID() };
+      const response = await fetch(`/api/instructor/submissions/${submission.recipientId}/grades/${grade.id}/publications`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ expectedPublicationSequence, requestKey: publicationRequest.current.requestKey }) });
       const body = await response.json();
       if (!response.ok) throw new Error(body.error ?? 'Unable to publish grade');
+      if (!body.publication) throw new Error('Unable to confirm publication. Retry publishing.');
+      setLatestPublication(body.publication);
+      publicationRequest.current = null;
       setMessage('Grade published to the learner.');
     } catch (error) { setMessage(error instanceof Error ? error.message : 'Unable to publish grade'); }
     finally { setBusy(null); }
@@ -90,7 +109,7 @@ export function ManualGradeEditor({ submission }: { submission: GradebookRecipie
 
   return <div className="grid gap-6 lg:grid-cols-[minmax(0,1.25fr)_minmax(320px,0.75fr)]">
     <section className="rounded-xl border border-[var(--line)] bg-[var(--surface)] p-5 sm:p-6">
-      <div className="mb-5 flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-lg font-bold">Latest response</h2><p className="text-sm text-[var(--muted)]">{attempt.response.language ? `${attempt.response.language} · ` : ''}Attempt {attempt.sequence} · {new Date(attempt.submittedAt).toLocaleString()}</p></div><AdminBadge value={grade && latestPublication?.gradeRevisionId === grade.id ? 'published' : grade ? 'draft' : 'awaiting_review'} /></div>
+      <div className="mb-5 flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-lg font-bold">Latest response</h2><p className="text-sm text-[var(--muted)]">{attempt.response.language ? `${attempt.response.language} · ` : ''}Attempt {attempt.sequence} · {new Date(attempt.submittedAt).toLocaleString()}</p></div><AdminBadge value={hasUnsavedChanges ? 'unsaved_changes' : published ? 'published' : grade ? 'draft' : 'awaiting_review'} /></div>
       <pre className="max-h-[36rem] overflow-auto whitespace-pre-wrap rounded-lg border border-[var(--line)] bg-[#f6f4ee] p-4 text-sm leading-6">{attempt.response.text}</pre>
     </section>
     <section className="rounded-xl border border-[var(--line)] bg-[var(--surface)] p-5 sm:p-6">
@@ -98,16 +117,17 @@ export function ManualGradeEditor({ submission }: { submission: GradebookRecipie
       <div className="space-y-4">{criteria.map(criterion => {
         const guidance = rubricGuidance(criterion.id, criterion.label);
         return <fieldset className="rounded-lg border border-[var(--line)] p-3" key={criterion.id}>
-          <label className="grid gap-1.5 text-sm font-bold">{criterion.label}<span className="flex items-center gap-2"><input aria-label={criterion.label} className="min-h-11 min-w-0 flex-1 rounded-md border border-[var(--line)] px-3 font-normal" inputMode="decimal" value={scores[criterion.id]} onChange={event => setScores(current => ({ ...current, [criterion.id]: event.target.value }))} /><span className="text-[var(--muted)]">/ {displayPoints(criterion.maxUnits)}</span></span></label>
+          <label className="grid gap-1.5 text-sm font-bold">{criterion.label}<span className="flex items-center gap-2"><input aria-label={criterion.label} className="min-h-11 min-w-0 flex-1 rounded-md border border-[var(--line)] px-3 font-normal" inputMode="decimal" value={scores[criterion.id]} onChange={event => { setScores(current => ({ ...current, [criterion.id]: event.target.value })); setMessage(null); }} /><span className="text-[var(--muted)]">/ {displayPoints(criterion.maxUnits)}</span></span></label>
           <p className="mt-3 text-sm">{guidance.lookFor}</p>
           <ul className="mt-2 grid gap-1 text-xs leading-5 text-[var(--muted)]"><li><span className="font-semibold text-[var(--ink)]">No credit:</span> {guidance.anchors[0]}</li><li><span className="font-semibold text-[var(--ink)]">Partial:</span> {guidance.anchors[1]}</li><li><span className="font-semibold text-[var(--ink)]">Full credit:</span> {guidance.anchors[2]}</li></ul>
         </fieldset>;
       })}</div>
       <div className="my-5 border-y border-[var(--line)] py-4 text-sm font-bold"><span>Total</span><span className="float-right font-mono text-lg">{earned === null ? '—' : `${displayPoints(earned)} / ${displayPoints(submission.policy.maxUnits)}`}</span>{earned !== null ? <p className="mt-1 text-right text-xs font-normal text-[var(--muted)]">{(earned / submission.policy.maxUnits * 100).toFixed(1)}% · based on entered criterion scores</p> : null}</div>
-      <label className="mb-4 grid gap-1.5 text-sm font-bold">Feedback for learner<textarea aria-describedby="learner-feedback-hint" className="min-h-28 rounded-md border border-[var(--line)] p-3 font-normal" maxLength={10000} value={learnerFeedback} onChange={event => setLearnerFeedback(event.target.value)} placeholder="Name one specific strength, then give one concrete next step." /><span id="learner-feedback-hint" className="font-normal text-[var(--muted)]">Tie feedback to evidence in the submission. This is shared with the learner when you publish.</span></label>
-      <label className="mb-5 grid gap-1.5 text-sm font-bold">Private instructor notes<textarea className="min-h-24 rounded-md border border-[var(--line)] p-3 font-normal" maxLength={10000} value={privateNote} onChange={event => setPrivateNote(event.target.value)} /><span className="font-normal text-[var(--muted)]">Never shown to the learner.</span></label>
+      <label className="mb-4 grid gap-1.5 text-sm font-bold">Feedback for learner<textarea aria-describedby="learner-feedback-hint" className="min-h-28 rounded-md border border-[var(--line)] p-3 font-normal" maxLength={10000} value={learnerFeedback} onChange={event => { setLearnerFeedback(event.target.value); setMessage(null); }} placeholder="Name one specific strength, then give one concrete next step." /><span id="learner-feedback-hint" className="font-normal text-[var(--muted)]">Tie feedback to evidence in the submission. This is shared with the learner when you publish.</span></label>
+      <label className="mb-5 grid gap-1.5 text-sm font-bold">Private instructor notes<textarea className="min-h-24 rounded-md border border-[var(--line)] p-3 font-normal" maxLength={10000} value={privateNote} onChange={event => { setPrivateNote(event.target.value); setMessage(null); }} /><span className="font-normal text-[var(--muted)]">Never shown to the learner.</span></label>
       {message ? <p aria-live="polite" className="mb-4 rounded-md bg-[var(--sky)] px-3 py-2 text-sm">{message}</p> : null}
-      <div className="flex flex-wrap gap-3"><button className="min-h-11 rounded-md border border-[var(--moss)] px-4 font-bold text-[var(--moss)] disabled:opacity-50" disabled={busy !== null} onClick={saveDraft} type="button">{busy === 'save' ? 'Saving…' : 'Save draft'}</button><button className="min-h-11 rounded-md bg-[var(--moss)] px-4 font-bold text-white disabled:opacity-50" disabled={!grade || busy !== null} onClick={publish} type="button">{busy === 'publish' ? 'Publishing…' : 'Publish grade'}</button></div>
+      {hasUnsavedChanges ? <p role="status" className="mb-4 text-sm text-[var(--muted)]">Unsaved changes. Save draft before publishing.</p> : null}
+      <div className="flex flex-wrap gap-3"><button className="min-h-11 rounded-md border border-[var(--moss)] px-4 font-bold text-[var(--moss)] disabled:opacity-50" disabled={busy !== null || (grade !== null && !hasUnsavedChanges)} onClick={saveDraft} type="button">{busy === 'save' ? 'Saving…' : 'Save draft'}</button><button className="min-h-11 rounded-md bg-[var(--moss)] px-4 font-bold text-white disabled:opacity-50" disabled={!grade || hasUnsavedChanges || published || busy !== null} onClick={publish} type="button">{busy === 'publish' ? 'Publishing…' : 'Publish grade'}</button></div>
     </section>
   </div>;
 }

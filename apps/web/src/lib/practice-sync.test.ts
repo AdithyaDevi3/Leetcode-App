@@ -51,4 +51,27 @@ describe('practice synchronization', () => {
       state: null, draft: 'Older draft', latestRevisionNumber: 2,
     });
   });
+
+  it('round-trips coding-only feedback and completion through account workspace state', async () => {
+    const codingState = {
+      ...state, draft: '', codeChecked: true, completed: true,
+      codeGrade: {
+        problemId: 'pair-with-target-v1', version: 'code-grading-v1', passed: true,
+        passedCount: 1, totalCount: 1, tests: [{ name: 'sample case', passed: true }],
+      },
+    };
+    const fetch = vi.fn()
+      .mockResolvedValueOnce(Response.json({ session: { id: 'session-1', revision: 1 } }))
+      .mockResolvedValueOnce(Response.json({ revision: { revisionNumber: 2 } }))
+      .mockResolvedValueOnce(Response.json({ session: {
+        id: 'session-1', revision: 2, latestRevisionNumber: 2,
+        sessionMetadata: { draft: '', workspaceState: codingState },
+      } }));
+    vi.stubGlobal('fetch', fetch);
+
+    await expect(syncPracticeSession({ contentId: 'pair-with-target-v1', draft: '', currentStage: 'evaluate', state: codingState }))
+      .resolves.toMatchObject({ status: 'saved', revisionNumber: 2 });
+    expect(JSON.parse(fetch.mock.calls[1][1].body).state).toEqual(codingState);
+    await expect(loadRemotePracticeSession('pair-with-target-v1')).resolves.toMatchObject({ state: codingState, draft: '' });
+  });
 });

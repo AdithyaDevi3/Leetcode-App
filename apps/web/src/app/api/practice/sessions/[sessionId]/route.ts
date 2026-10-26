@@ -16,7 +16,7 @@ export async function POST(
       state?: unknown;
     } | null;
 
-    if (!body || typeof body.draft !== 'string' || body.draft.trim().length === 0 || body.draft.length > 50_000) {
+    if (!body || typeof body.draft !== 'string' || body.draft.length > 50_000) {
       return NextResponse.json({ error: 'draft is required' }, { status: 400 });
     }
 
@@ -27,6 +27,10 @@ export async function POST(
     const workspaceState = serializedState ? deserializePracticeSession(serializedState) : undefined;
     if (body.state !== undefined && !workspaceState) {
       return NextResponse.json({ error: 'workspace state is invalid' }, { status: 400 });
+    }
+
+    if (!body.draft.trim() && !workspaceState?.code.trim()) {
+      return NextResponse.json({ error: 'A reasoning draft or code workspace is required' }, { status: 400 });
     }
 
     const currentStage =

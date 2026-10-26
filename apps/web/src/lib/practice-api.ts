@@ -5,6 +5,7 @@ import { fromPersistedContentId } from './content-id';
 import type { PracticeSessionState } from './practice-session';
 import { getPracticeItem } from './content';
 import { createReviewStore } from './review-store';
+import { restoreVerifiedWorkspace } from './practice-verification-state';
 
 type PracticeSessionRecord = {
   id: string;
@@ -109,7 +110,10 @@ const mapPracticeSession = (session: PracticeSessionRecord): PracticeSessionSumm
   latestRevisionNumber: session.latest_revision_number ?? null,
   createdAt: session.created_at.toISOString(),
   updatedAt: session.updated_at.toISOString(),
-  sessionMetadata: session.session_metadata,
+  sessionMetadata: session.session_metadata.verification ? {
+    ...session.session_metadata,
+    workspaceState: restoreVerifiedWorkspace(session.session_metadata, fromPersistedContentId(session.content_id)),
+  } : session.session_metadata,
 });
 
 const ownerColumn = (owner: PracticeOwner) => owner.kind === 'user' ? 'user_id' : 'guest_id';

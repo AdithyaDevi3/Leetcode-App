@@ -5,6 +5,10 @@ import { runMigrations } from '../../../../packages/database/src/migrations/inde
 import { prepareSupabaseTestDatabase } from '../../../../packages/database/test/support/supabase.js';
 import { appendPracticeRevision, getPracticeSessionHistory, startOrResumePracticeSession } from './practice-api';
 import type { PracticeSessionState } from './practice-session';
+import { beginPracticeVerification, finishPracticeVerification } from './practice-verification';
+import { CODE_GRADING_VERSION, codeCheckLabels } from './code-grading';
+
+vi.mock('server-only', () => ({}));
 
 let container: StartedTestContainer;
 let db: DatabaseClient;
@@ -67,4 +71,111 @@ describe('durable coding-only practice', () => {
       owner: { kind: 'user', id: users.rows[1].id }, sessionId: session.id,
     })).rejects.toThrow('Practice session not found');
   });
+
+  it('persists a passing report and source without any browser save, and schedules review once', async () => {
+    const { owner, sessionId } = await createVerificationSession();
+    const request = await beginPracticeVerification({ owner, sessionId, language: 'python', source });
+    const grade = verificationGrade(true);
+    await expect(finishPracticeVerification({ owner, sessionId, requestId: request.requestId, grade })).resolves.toBe(true);
+    const resumed = await startOrResumePracticeSession({ owner, contentId: 'pair-with-target-v1' });
+    expect(resumed.session.status).toBe('completed');
+    expect(resumed.session.sessionMetadata.workspaceState).toMatchObject({ code: source, language: 'python', codeGrade: grade, codeChecked: true, completed: true });
+    expect(resumed.session.sessionMetadata.verification).toMatchObject({ source, grade, requestId: request.requestId });
+    const before = await db.query('SELECT id, repetitions FROM scheduled_reviews WHERE user_id = $1 ORDER BY id', [owner.id]);
+    expect(before.rows.length).toBeGreaterThan(0);
+    await expect(finishPracticeVerification({ owner, sessionId, requestId: request.requestId, grade })).resolves.toBe(true);
+    const after = await db.query('SELECT id, repetitions FROM scheduled_reviews WHERE user_id = $1 ORDER BY id', [owner.id]);
+    expect(after.rows).toEqual(before.rows);
+  });
+
+  it('persists partial-test feedback without completing practice or scheduling reviews', async () => {
+    const { owner, sessionId } = await createVerificationSession();
+    const request = await beginPracticeVerification({ owner, sessionId, language: 'python', source });
+    const grade = verificationGrade(false);
+    await finishPracticeVerification({ owner, sessionId, requestId: request.requestId, grade });
+    const resumed = await startOrResumePracticeSession({ owner, contentId: 'pair-with-target-v1' });
+    expect(resumed.session.status).toBe('in_progress');
+    expect(resumed.session.sessionMetadata.workspaceState).toMatchObject({ codeGrade: grade, codeChecked: true, completed: false });
+    expect((await db.query('SELECT id FROM scheduled_reviews WHERE user_id = $1', [owner.id])).rows).toHaveLength(0);
+  });
+
+  it('keeps the server report when a delayed autosave omits its grade', async () => {
+    const { owner, sessionId } = await createVerificationSession();
+    const request = await beginPracticeVerification({ owner, sessionId, language: 'python', source });
+    const grade = verificationGrade(true);
+    await finishPracticeVerification({ owner, sessionId, requestId: request.requestId, grade });
+    await appendPracticeRevision({ owner, sessionId, draft: '', workspaceState: workspace(source) });
+    const resumed = await startOrResumePracticeSession({ owner, contentId: 'pair-with-target-v1' });
+    expect(resumed.session.sessionMetadata.workspaceState).toMatchObject({ codeGrade: grade, codeChecked: true, completed: true });
+    expect(resumed.session.sessionMetadata.verification).toMatchObject({ grade, source });
+  });
+
+  it('preserves code edited during a run and does not assign the earlier report to it', async () => {
+    const { owner, sessionId } = await createVerificationSession();
+    await appendPracticeRevision({ owner, sessionId, draft: '', workspaceState: workspace('original code') });
+    const request = await beginPracticeVerification({ owner, sessionId, language: 'python', source });
+    const edited = workspace('newer code that has not been tested');
+    await appendPracticeRevision({ owner, sessionId, draft: '', workspaceState: edited });
+    const grade = verificationGrade(true);
+    await finishPracticeVerification({ owner, sessionId, requestId: request.requestId, grade });
+    const resumed = await startOrResumePracticeSession({ owner, contentId: 'pair-with-target-v1' });
+    expect(resumed.session.sessionMetadata.workspaceState).toEqual(edited);
+    expect(resumed.session.sessionMetadata.verification).toMatchObject({ source, grade });
+  });
+
+  it('prevents an older run from replacing a newer report or granting completion', async () => {
+    const { owner, sessionId } = await createVerificationSession();
+    const first = await beginPracticeVerification({ owner, sessionId, language: 'python', source: 'first source' });
+    const second = await beginPracticeVerification({ owner, sessionId, language: 'python', source: 'second source' });
+    const grade = verificationGrade(false);
+    await finishPracticeVerification({ owner, sessionId, requestId: second.requestId, grade });
+    await expect(finishPracticeVerification({ owner, sessionId, requestId: first.requestId, grade: verificationGrade(true) })).resolves.toBe(false);
+    const resumed = await startOrResumePracticeSession({ owner, contentId: 'pair-with-target-v1' });
+    expect(resumed.session.status).toBe('in_progress');
+    expect(resumed.session.sessionMetadata.verification).toMatchObject({ requestId: second.requestId, source: 'second source', grade });
+  });
+
+  it('denies another owner and rejects forged grading versions without persisting results', async () => {
+    const first = await createVerificationSession();
+    const second = await createVerificationSession();
+    const request = await beginPracticeVerification({ ...first, language: 'python', source });
+    await expect(beginPracticeVerification({ owner: second.owner, sessionId: first.sessionId, language: 'python', source }))
+      .rejects.toThrow('Practice session not found');
+    await expect(finishPracticeVerification({ owner: second.owner, sessionId: first.sessionId, requestId: request.requestId, grade: verificationGrade(true) }))
+      .rejects.toThrow('Practice session not found');
+    await expect(finishPracticeVerification({ ...first, requestId: request.requestId, grade: { ...verificationGrade(true), version: 'forged' } }))
+      .rejects.toThrow('Invalid verification report');
+    const resumed = await startOrResumePracticeSession({ owner: first.owner, contentId: 'pair-with-target-v1' });
+    expect(resumed.session.sessionMetadata.verification).toBeUndefined();
+    expect(resumed.session.status).not.toBe('completed');
+  });
+
+  it('persists and restores a guest-owned verification independently of signed-in users', async () => {
+    const guest = await db.query<{ id: string }>(
+      "INSERT INTO guest_identities (device_fingerprint, session_token, expires_at) VALUES ('verification-test', gen_random_uuid()::text, NOW() + INTERVAL '1 day') RETURNING id",
+    );
+    const owner = { kind: 'guest' as const, id: guest.rows[0].id };
+    const { session } = await startOrResumePracticeSession({ owner, contentId: 'pair-with-target-v1' });
+    const request = await beginPracticeVerification({ owner, sessionId: session.id, language: 'python', source });
+    const grade = verificationGrade(true);
+    await finishPracticeVerification({ owner, sessionId: session.id, requestId: request.requestId, grade });
+    const resumed = await startOrResumePracticeSession({ owner, contentId: 'pair-with-target-v1' });
+    expect(resumed.session.sessionMetadata.workspaceState).toMatchObject({ code: source, codeGrade: grade, completed: true });
+  });
 });
+
+const source = 'def find_pair(values, target): return [0, 1]';
+function workspace(code: string): PracticeSessionState {
+  return { draft: '', mode: 'text', language: 'python', code, codeChecked: false, completed: false, evaluation: null, codeGrade: null };
+}
+function verificationGrade(passed: boolean) {
+  const tests = codeCheckLabels('pair-with-target-v1').map((name, index) => ({ name, passed: passed || index !== 0 }));
+  return { problemId: 'pair-with-target-v1', version: CODE_GRADING_VERSION, passed,
+    passedCount: tests.filter(test => test.passed).length, totalCount: tests.length, tests };
+}
+async function createVerificationSession() {
+  const users = await db.query<{ id: string }>("INSERT INTO users (display_name, role) VALUES ('Verification Learner', 'learner') RETURNING id");
+  const owner = { kind: 'user' as const, id: users.rows[0].id };
+  const { session } = await startOrResumePracticeSession({ owner, contentId: 'pair-with-target-v1' });
+  return { owner, sessionId: session.id };
+}

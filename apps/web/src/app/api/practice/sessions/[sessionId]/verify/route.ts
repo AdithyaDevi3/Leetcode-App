@@ -5,7 +5,8 @@ import { getPracticeOwner } from '@/lib/auth/session';
 import { buildGradedExecutionRequest, parseCodeGrade } from '@/lib/code-grading';
 import { fromPersistedContentId } from '@/lib/content-id';
 import { practiceItems } from '@/lib/content';
-import { completePracticeSession, getPracticeSessionHistory } from '@/lib/practice-api';
+import { getPracticeSessionHistory } from '@/lib/practice-api';
+import { beginPracticeVerification, finishPracticeVerification } from '@/lib/practice-verification';
 import { takeRateLimit } from '@/lib/rate-limit';
 import { executionLimits, validateExecutionPolicy } from '@/lib/sandbox/execution-policy';
 import { createConfiguredSandbox } from '@/lib/sandbox/runtime';
@@ -48,6 +49,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ ses
       headers: { 'retry-after': String(rateLimit.retryAfterSeconds) },
     });
 
+    const verification = await beginPracticeVerification({ owner, sessionId, source: body.source, language });
     const result = await createConfiguredSandbox().execute(buildGradedExecutionRequest({
       problemId,
       language,
@@ -67,8 +69,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ ses
       return NextResponse.json({ error: 'The sandbox returned an invalid verification report' }, { status: 502 });
     }
 
-    if (grade.passed) {
-      await completePracticeSession({ owner, sessionId, completed: true, currentStage: 'evaluate' });
+    try {
+      const saved = await finishPracticeVerification({ owner, sessionId, requestId: verification.requestId, grade });
+      if (!saved) return NextResponse.json({ error: 'A newer verification was started. Run the current code again.' }, { status: 409 });
+    } catch {
+      return NextResponse.json({ error: 'Verification finished, but its report could not be saved. Please retry.' }, { status: 500 });
     }
 
     return NextResponse.json({ status: 'completed', grade, durationMs: result.durationMs });

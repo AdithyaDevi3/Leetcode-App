@@ -57,6 +57,10 @@ reasoning gate. Workspace saves accept coding-only work with an empty reasoning
 draft, including received test feedback. Submission, verification, instructor
 grading, and publication are separate states. Private rubric drafts and instructor
 notes are not learner grades.
+Completed verification reports, including partial-test results, are saved on the
+server before the response is returned. Reload can restore the latest saved
+report even if the browser did not finish autosaving it. A report applies only
+to its submitted code and language; later edits remain unverified.
 Learners can request review of their own published grades and inspect the public
 request status and instructor response.
 

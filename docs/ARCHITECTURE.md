@@ -98,6 +98,15 @@ require an explicit elapsed closing time and attributable instructor action.
 Verified-completion results come from the trusted worker and pinned test suite;
 the learner cannot submit a pass flag, hidden tests, or grade identifiers.
 
+The latest completed practice verification is stored separately from editable
+workspace state in the account/guest-owned session metadata. A server-generated
+request marker orders runs; stale completions cannot replace a newer request.
+The report, submitted source/language, completion state, and initial review
+schedule commit transactionally before a successful response. Autosave cannot
+overwrite the protected report. Read projections restore matching results and
+keep later code edits unverified. This latest-report snapshot is separate from
+the immutable assignment gradebook history.
+
 ## Code execution and queues
 
 Python 3, C++20, and TypeScript verification use server-owned activity tests.

@@ -1,103 +1,17 @@
-## Description
+## Problem and behavior
 
-<!-- Provide a clear and concise description of the changes in this PR -->
+<!-- Explain the user problem and what the change does. Link the relevant issue. -->
 
-## Related Issues
+## Validation
 
-<!-- Link to related issues, e.g., "Closes #123" or "Related to #456" -->
+<!-- Name the checks and meaningful user/authorization/failure cases exercised. -->
 
-## Type of Change
+## Delivery
 
-- [ ] Bug fix (non-breaking change which fixes an issue)
-- [ ] New feature (non-breaking change which adds functionality)
-- [ ] Breaking change (fix or feature that would cause existing functionality to not work as expected)
-- [ ] Documentation update
-- [ ] Refactoring (no functional changes)
-- [ ] Infrastructure/DevOps change
-- [ ] Testing improvement
+<!-- Describe migrations, configuration, rollout, and recovery when applicable. -->
 
-## Phase Alignment
-
-Which implementation phase does this PR support? (See IMPLEMENTATION_ROADMAP.md)
-
-- [ ] Phase 0: Foundations
-- [ ] Phase 1: Persistent vertical slice
-- [ ] Phase 2: Pseudocode platform
-- [ ] Phase 3: Evaluation platform
-- [ ] Phase 4: Learning and personalization
-- [ ] Phase 5: Safe code execution
-- [ ] Phase 6: Content and operations
-- [ ] Phase 7: Mobile continuity
-- [ ] Phase 8: System design
-- [ ] Phase 9: Public release
-
-## Checklist
-
-- [ ] My code follows the project's style guidelines
-- [ ] I have performed a self-review of my own code
-- [ ] I have commented my code, particularly in hard-to-understand areas
-- [ ] I have made corresponding changes to the documentation
-- [ ] My changes generate no new warnings or errors
-- [ ] I have added tests that prove my fix is effective or that my feature works
-- [ ] New and existing unit tests pass locally with my changes
-- [ ] Any dependent changes have been merged and published
-
-## Current and remaining work
-
-<!-- Review CONTRIBUTING.md: “What exists” and “Work that needs contribution.”
-Move completed work, add concrete follow-up work, and remove stale entries. -->
-
-- [ ] I updated the work map to reflect this contribution and any new follow-up work
-- [ ] Work map reviewed; no change required
-
-Reason or changed entries:
-
-
-## Testing
-
-<!-- Describe the tests you ran and how to reproduce them -->
-
-### Test Coverage
-
-- [ ] Unit tests added/updated
-- [ ] Integration tests added/updated
-- [ ] E2E tests added/updated (if applicable)
-- [ ] Manual testing completed
-
-### Test Instructions
-
-<!-- Provide step-by-step instructions for reviewers to test the changes -->
-
-1. 
-2. 
-3. 
-
-## Security Considerations
-
-- [ ] This PR has no security implications
-- [ ] This PR has been reviewed for security issues
-- [ ] Security documentation has been updated (if applicable)
-
-## Performance Impact
-
-- [ ] No performance impact
-- [ ] Performance has been tested and documented
-- [ ] Performance benchmarks added/updated
-
-## Screenshots
-
-<!-- If applicable, add screenshots to demonstrate the changes -->
-
-## Additional Notes
-
-<!-- Any additional information that reviewers should know -->
-
-## Deployment Notes
-
-<!-- Any special considerations for deployment? -->
-
-- [ ] Requires database migrations
-- [ ] Requires environment variable changes
-- [ ] Requires infrastructure changes
-- [ ] Requires external service configuration
-- [ ] Can be deployed independently
+- [ ] Required checks and review pass.
+- [ ] Relevant public usage, architecture, or contribution guidance is current.
+- [ ] Public documentation passes pnpm docs:check.
+- [ ] Secrets, learner data, local plans/instructions, and generated artifacts are excluded.
+- [ ] Follow-up work is scoped in an issue when needed.

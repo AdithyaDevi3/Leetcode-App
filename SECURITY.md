@@ -1,159 +1,28 @@
-# Security Policy
+# Security
 
-## Supported Versions
+## Report a vulnerability privately
 
-| Version | Supported          |
-| ------- | ------------------ |
-| 0.x     | :white_check_mark: |
+Use [GitHub private vulnerability reporting](https://github.com/AdithyaDevi3/Leetcode-App/security/advisories/new).
+Include affected behavior, reproduction steps, likely impact, and safe request
+identifiers when available. Avoid public issues for exploitable vulnerabilities,
+credentials, or personal data.
 
-During the MVP development phase (Phase 0-9), only the latest version on `main` is supported. Once we reach public release (Phase 9), we'll establish a formal versioning and support policy.
+Do not include real passwords, access tokens, session cookies, database URLs,
+learner submissions, or database dumps. Use synthetic examples and redact
+sensitive values. Coordinate testing with maintainers and avoid disruptive tests
+against other people's accounts or the hosted application.
 
-## Reporting a Vulnerability
+## Supported code
 
-**Please do not report security vulnerabilities through public GitHub issues.**
+Security fixes target the current main branch. Older snapshots and preview
+deployments do not have a separate supported maintenance line.
 
-### Reporting Process
+## Contributor responsibilities
 
-1. **Private report:** Open a [GitHub private vulnerability report](https://github.com/AdithyaDevi3/Leetcode-App/security/advisories/new).
-   - Or use GitHub Security Advisories (private disclosure)
+Keep secrets server-side, authorize access to the concrete object, and preserve
+private grade drafts, instructor notes, and learner ownership. Report accidental
+credential exposure promptly so maintainers can revoke or rotate the credential.
+Deleting a file or commit does not by itself invalidate exposed credentials.
 
-2. **Include in your report:**
-   - Type of issue (e.g., SQL injection, XSS, authentication bypass)
-   - Full paths of source file(s) related to the issue
-   - Location of the affected code (tag/branch/commit or direct URL)
-   - Step-by-step instructions to reproduce the issue
-   - Proof-of-concept or exploit code (if possible)
-   - Impact assessment (what an attacker could do)
-   - Any suggested fixes (optional)
-
-3. **Response Timeline:**
-   - **Initial Response:** Within 48 hours
-   - **Triage and Assessment:** Within 7 days
-   - **Fix Development:** Depends on severity (see below)
-   - **Public Disclosure:** After fix is deployed and verified
-
-### Severity Levels and Response Times
-
-| Severity | Description | Fix Timeline |
-|----------|-------------|--------------|
-| **Critical** | Remote code execution, authentication bypass, data breach | 24-48 hours |
-| **High** | Privilege escalation, XSS with session hijacking, SQL injection | 7 days |
-| **Medium** | CSRF, non-critical XSS, information disclosure | 30 days |
-| **Low** | Minor information leakage, missing security headers | Next release |
-
-## Security Best Practices for Contributors
-
-### Code Review
-
-- All code changes require approval from at least one maintainer
-- Security-sensitive changes require review from security team
-- No credentials or secrets in code (use environment variables)
-
-### Dependencies
-
-- Dependabot enabled for automated vulnerability scanning
-- Run `npm audit` before every release
-- Pin exact versions for production dependencies
-- Regularly update dependencies (weekly review)
-
-### Authentication & Authorization
-
-- Use Auth0 or similar managed identity provider
-- Implement proper session management
-- Never store passwords in plain text
-- Use HTTPS for all production traffic
-- Implement rate limiting on authentication endpoints
-
-### Data Protection
-
-- Hash user IDs in logs (never log PII)
-- Encrypt sensitive data at rest
-- Use parameterized queries (prevent SQL injection)
-- Sanitize user input (prevent XSS)
-- Implement CORS policies
-- Use Content Security Policy headers
-
-### Code Execution
-
-- Sandbox all user code execution (Judge0 or similar)
-- Strict resource limits (CPU, memory, time)
-- No network access for sandboxed code
-- Validate and sanitize all input before execution
-
-### API Security
-
-- Implement authentication on all API endpoints
-- Use API rate limiting
-- Validate all request payloads
-- Return appropriate error codes (don't leak internal details)
-- Log security events (failed auth, suspicious patterns)
-
-## Threat Model
-
-Our threat model considers the following attack vectors:
-
-1. **User Data Exfiltration**
-   - Mitigation: HTTPS, encryption at rest, access controls
-
-2. **Code Injection**
-   - Mitigation: Input sanitization, sandboxed execution, CSP headers
-
-3. **Authentication Bypass**
-   - Mitigation: Managed identity provider, MFA, session management
-
-4. **Denial of Service**
-   - Mitigation: Rate limiting, resource quotas, monitoring
-
-5. **AI Prompt Injection**
-   - Mitigation: Input sanitization, delimiters, structured output schemas
-
-## Security Testing
-
-### Automated
-
-- Dependabot for dependency vulnerabilities
-- CodeQL for static analysis
-- npm audit in CI pipeline
-- OWASP ZAP for dynamic scanning (pre-release)
-
-### Manual
-
-- Security review before each phase gate
-- Penetration testing before public release (Phase 9)
-- Third-party security audit (planned for Phase 9)
-
-## Disclosure Policy
-
-- **Coordinated Disclosure:** We prefer coordinated disclosure
-- **Public Disclosure:** After fix is deployed and verified (typically 90 days max)
-- **Credits:** We acknowledge security researchers in our CHANGELOG (with permission)
-- **Bug Bounty:** Not currently available, may be added post-launch
-
-## Security Contacts
-
-- **Security and incident reports:** Use a [GitHub private vulnerability report](https://github.com/AdithyaDevi3/Leetcode-App/security/advisories/new).
-- **Privacy reports containing personal data:** Use the same private reporting channel rather than a public issue.
-
-## Compliance
-
-We aim to comply with:
-- GDPR (General Data Protection Regulation)
-- COPPA (Children's Online Privacy Protection Act)
-- CCPA (California Consumer Privacy Act)
-- SOC 2 Type II (planned for Phase 9)
-
-## Security Updates
-
-Subscribe to security advisories:
-- Watch this repository for security announcements
-- Enable GitHub Security Advisories notifications
-- Monitor our status page (post-launch)
-
-## Questions?
-
-For security-related questions that are not sensitive:
-- Open a [GitHub Discussion](https://github.com/AdithyaDevi3/Leetcode-App/discussions)
-- Tag with `security` label
-
-For sensitive questions:
-- Open a [GitHub private vulnerability report](https://github.com/AdithyaDevi3/Leetcode-App/security/advisories/new)
+The [architecture](docs/ARCHITECTURE.md) describes the application's trust
+boundaries; [development conventions](docs/CONVENTIONS.md) cover changes and tests.

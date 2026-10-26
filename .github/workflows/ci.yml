@@ -15,6 +15,18 @@ permissions:
   contents: read
 
 jobs:
+  public-documentation:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: node --test scripts/check-public-docs.test.mjs
+      - run: node scripts/check-public-docs.mjs
+
   evaluation-quality:
     runs-on: ubuntu-latest
     steps:

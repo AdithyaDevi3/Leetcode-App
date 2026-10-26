@@ -33,18 +33,8 @@ Add any other context, mockups, or examples about the feature request here.
 - [ ] This affects security
 - [ ] This affects accessibility
 
-## Phase Alignment
+## Acceptance criteria
 
-Which implementation phase does this align with? (See IMPLEMENTATION_ROADMAP.md)
-
-- [ ] Phase 0: Foundations
-- [ ] Phase 1: Persistent vertical slice
-- [ ] Phase 2: Pseudocode platform
-- [ ] Phase 3: Evaluation platform
-- [ ] Phase 4: Learning and personalization
-- [ ] Phase 5: Safe code execution
-- [ ] Phase 6: Content and operations
-- [ ] Phase 7: Mobile continuity
-- [ ] Phase 8: System design
-- [ ] Phase 9: Public release
-- [ ] Post-MVP
+Describe the complete user task and how to verify success, including relevant
+permissions, persistence, failure behavior, and accessibility. Keep detailed
+internal plans, credentials, and real learner data out of the issue.

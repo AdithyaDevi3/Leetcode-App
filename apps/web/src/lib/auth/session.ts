@@ -60,10 +60,11 @@ const parseGuestCookie = (value: string): GuestSessionCookie | null => {
  * Get the current authenticated session
  * Returns null if user is not authenticated
  */
-export async function getSession(): Promise<Session | null> {
+export async function getSession(options: { failOnAuthError?: boolean } = {}): Promise<Session | null> {
   if (!isSupabaseConfigured()) return null;
   const supabase = await createSupabaseServerClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: { user }, error } = await supabase.auth.getUser();
+  if (options.failOnAuthError && error && error.name !== 'AuthSessionMissingError') throw new Error('Authentication is unavailable');
   if (!user) return null;
   await ensureApplicationUser({ id: user.id, email: user.email, displayName: user.user_metadata.display_name ?? null });
   return { user: { id: user.id, email: user.email ?? null, role: 'learner', displayName: user.user_metadata.display_name ?? null } };
@@ -226,7 +227,7 @@ export async function getCurrentUserId(): Promise<{ type: 'user' | 'guest'; id: 
 
 /** Returns the verified durable owner for a practice request. */
 export async function getPracticeOwner(): Promise<{ kind: 'user' | 'guest'; id: string }> {
-  const session = await getSession();
+  const session = await getSession({ failOnAuthError: true });
   if (session) return { kind: 'user', id: session.user.id };
   const guest = await getOrCreateGuestSession();
   return { kind: 'guest', id: guest.id };

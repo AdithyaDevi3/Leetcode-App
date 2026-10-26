@@ -6,6 +6,8 @@ import type { PracticeSessionState } from './practice-session';
 import { getPracticeItem } from './content';
 import { createReviewStore } from './review-store';
 import { restoreVerifiedWorkspace } from './practice-verification-state';
+import { createHash } from 'node:crypto';
+import { PracticeRevisionConflict } from './practice-sync-contract';
 
 type PracticeSessionRecord = {
   id: string;
@@ -51,12 +53,15 @@ export type AppendPracticeRevisionInput = {
   draft: string;
   currentStage?: PracticeSessionRecord['current_stage'];
   workspaceState?: PracticeSessionState;
+  expectedRevisionNumber?: number;
+  requestKey?: string;
 };
 
 export type AppendPracticeRevisionResult = {
   revision: {
     sessionId: string;
     revisionNumber: number;
+    sessionRevision: number;
     draft: string;
     currentStage: PracticeSessionRecord['current_stage'];
     status: PracticeSessionRecord['status'];
@@ -129,42 +134,45 @@ export async function startOrResumePracticeSession(
   const persistedContentId = toPersistedContentId(input.contentId);
 
   try {
-    const existing = await db.query<PracticeSessionRecord>(
-      `SELECT s.id, s.user_id, s.guest_id, s.content_id, s.current_stage, s.status, s.session_metadata, s.revision, s.created_at, s.updated_at,
-              (SELECT MAX(r.revision_number) FROM pseudocode_revisions r WHERE r.session_id = s.id) AS latest_revision_number
-       FROM practice_sessions s
-       WHERE ${ownerColumn(input.owner)} = $1 AND content_id = $2
-       ORDER BY s.updated_at DESC
-       LIMIT 1`,
-      [input.owner.id, persistedContentId],
-    );
+    return await db.transaction(async client => {
+      await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [`practice-session:${input.owner.kind}:${input.owner.id}:${persistedContentId}`]);
+      const existing = await client.query<PracticeSessionRecord>(
+        `SELECT s.id, s.user_id, s.guest_id, s.content_id, s.current_stage, s.status, s.session_metadata, s.revision, s.created_at, s.updated_at,
+                (SELECT MAX(r.revision_number) FROM pseudocode_revisions r WHERE r.session_id = s.id) AS latest_revision_number
+         FROM practice_sessions s
+         WHERE ${ownerColumn(input.owner)} = $1 AND content_id = $2
+         ORDER BY s.updated_at DESC
+         LIMIT 1`,
+        [input.owner.id, persistedContentId],
+      );
 
-    if (existing.rows.length > 0) {
+      if (existing.rows.length > 0) {
+        return {
+          created: false,
+          session: mapPracticeSession(existing.rows[0]),
+        };
+      }
+
+      const created = await client.query<PracticeSessionRecord>(
+        `INSERT INTO practice_sessions (
+           user_id, guest_id,
+           content_version,
+           content_id,
+           current_stage,
+           status,
+           session_metadata,
+           revision
+         )
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+         RETURNING id, user_id, guest_id, content_id, current_stage, status, session_metadata, revision, created_at, updated_at, NULL::integer AS latest_revision_number`,
+        [input.owner.kind === 'user' ? input.owner.id : null, input.owner.kind === 'guest' ? input.owner.id : null, 1, persistedContentId, 'understand', 'not_started', {}, 1],
+      );
+
       return {
-        created: false,
-        session: mapPracticeSession(existing.rows[0]),
+        created: true,
+        session: mapPracticeSession(created.rows[0]),
       };
-    }
-
-    const created = await db.query<PracticeSessionRecord>(
-      `INSERT INTO practice_sessions (
-         user_id, guest_id,
-         content_version,
-         content_id,
-         current_stage,
-         status,
-         session_metadata,
-         revision
-       )
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-       RETURNING id, user_id, guest_id, content_id, current_stage, status, session_metadata, revision, created_at, updated_at, NULL::integer AS latest_revision_number`,
-      [input.owner.kind === 'user' ? input.owner.id : null, input.owner.kind === 'guest' ? input.owner.id : null, 1, persistedContentId, 'understand', 'not_started', {}, 1],
-    );
-
-    return {
-      created: true,
-      session: mapPracticeSession(created.rows[0]),
-    };
+    });
   } finally {
     await db.close();
   }
@@ -176,47 +184,66 @@ export async function appendPracticeRevision(
   const db = createPracticeDatabaseClient();
 
   try {
-    const sessionResult = await db.query<PracticeSessionRecord>(
-      `SELECT id, user_id, guest_id, content_id, current_stage, status, session_metadata, revision, created_at, updated_at
-       FROM practice_sessions
-       WHERE id = $1 AND ${ownerColumn(input.owner)} = $2
-       LIMIT 1`,
-      [input.sessionId, input.owner.id],
-    );
+    return await db.transaction(async (client) => {
+      const sessionResult = await client.query<PracticeSessionRecord>(
+        `SELECT id, user_id, guest_id, content_id, current_stage, status, session_metadata, revision, created_at, updated_at
+         FROM practice_sessions
+         WHERE id = $1 AND ${ownerColumn(input.owner)} = $2
+         FOR UPDATE`,
+        [input.sessionId, input.owner.id],
+      );
 
-    if (sessionResult.rows.length === 0) {
-      throw new Error('Practice session not found');
-    }
+      if (sessionResult.rows.length === 0) {
+        throw new Error('Practice session not found');
+      }
 
-    const session = sessionResult.rows[0];
-    const nextRevisionNumberResult = await db.query<{ next_revision_number: string }>(
-      `SELECT COALESCE(MAX(revision_number), 0) + 1 AS next_revision_number
-       FROM pseudocode_revisions
-       WHERE session_id = $1`,
-      [session.id],
-    );
+      const session = sessionResult.rows[0];
+      const nextRevisionNumberResult = await client.query<{ next_revision_number: string }>(
+        `SELECT COALESCE(MAX(revision_number), 0) + 1 AS next_revision_number
+         FROM pseudocode_revisions
+         WHERE session_id = $1`,
+        [session.id],
+      );
 
-    const nextRevisionNumber = Number(nextRevisionNumberResult.rows[0]?.next_revision_number ?? 1);
-    const normalizedDraft = input.draft.trim();
-    const stage = input.currentStage ?? session.current_stage;
-
-    const result = await db.transaction(async (client) => {
+      const nextRevisionNumber = Number(nextRevisionNumberResult.rows[0]?.next_revision_number ?? 1);
+      const normalizedDraft = input.draft.trim();
+      const stage = input.currentStage ?? session.current_stage;
+      type Receipt = { requestKey: string; fingerprint: string; result: AppendPracticeRevisionResult };
+      const receipts = (session.session_metadata.saveReceipts ?? []) as Receipt[];
+      const fingerprint = createHash('sha256').update(JSON.stringify({
+        draft: normalizedDraft, currentStage: input.currentStage ?? null,
+        workspaceState: input.workspaceState ?? null, expectedRevisionNumber: input.expectedRevisionNumber ?? null,
+      }, (_key, value) => value && typeof value === 'object' && !Array.isArray(value)
+        ? Object.fromEntries(Object.entries(value).sort(([a], [b]) => a.localeCompare(b))) : value)).digest('hex');
+      const previous = input.requestKey ? receipts.find(receipt => receipt.requestKey === input.requestKey) : null;
+      if (previous) {
+        if (previous.fingerprint !== fingerprint) throw new PracticeRevisionConflict(nextRevisionNumber - 1, 'request_reused');
+        return previous.result;
+      }
+      if (input.expectedRevisionNumber !== undefined && input.expectedRevisionNumber !== nextRevisionNumber - 1) {
+        throw new PracticeRevisionConflict(nextRevisionNumber - 1);
+      }
+      const result: AppendPracticeRevisionResult = {
+        revision: {
+          sessionId: session.id, revisionNumber: nextRevisionNumber, sessionRevision: session.revision + 1,
+          draft: normalizedDraft, currentStage: stage,
+          status: session.status === 'not_started' ? 'in_progress' : session.status,
+          updatedAt: new Date().toISOString(),
+        },
+      };
+      const metadata = { ...session.session_metadata, draft: normalizedDraft, currentStage: stage,
+        ...(input.workspaceState ? { workspaceState: input.workspaceState } : {}),
+        ...(input.requestKey ? { saveReceipts: [...receipts, { requestKey: input.requestKey, fingerprint, result }].slice(-64) } : {}),
+      };
       await client.query(
         `UPDATE practice_sessions
-         SET session_metadata = CASE WHEN $5::jsonb IS NULL THEN
-               jsonb_set(jsonb_set(session_metadata, '{draft}', $2::jsonb, true), '{currentStage}', to_jsonb($3::text), true)
-             ELSE
-               jsonb_set(
-                 jsonb_set(jsonb_set(session_metadata, '{draft}', $2::jsonb, true), '{currentStage}', to_jsonb($3::text), true),
-                 '{workspaceState}', $5::jsonb, true
-               )
-             END,
+         SET session_metadata = $2::jsonb,
              current_stage = $3,
              status = CASE WHEN status = 'not_started' THEN 'in_progress' ELSE status END,
              revision = revision + 1,
              updated_at = NOW()
          WHERE id = $1 AND ${ownerColumn(input.owner)} = $4`,
-        [session.id, JSON.stringify(normalizedDraft), stage, input.owner.id, input.workspaceState ? JSON.stringify(input.workspaceState) : null],
+        [session.id, JSON.stringify(metadata), stage, input.owner.id],
       );
 
       await client.query(
@@ -225,19 +252,8 @@ export async function appendPracticeRevision(
         [session.id, nextRevisionNumber, normalizedDraft],
       );
 
-      return {
-        revision: {
-          sessionId: session.id,
-          revisionNumber: nextRevisionNumber,
-          draft: normalizedDraft,
-          currentStage: stage,
-          status: session.status === 'not_started' ? 'in_progress' : session.status,
-          updatedAt: new Date().toISOString(),
-        },
-      } satisfies AppendPracticeRevisionResult;
+      return result;
     });
-
-    return result;
   } finally {
     await db.close();
   }

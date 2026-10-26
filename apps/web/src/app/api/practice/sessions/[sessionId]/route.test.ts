@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { PracticeRevisionConflict } from '@/lib/practice-sync-contract';
 
 const getPracticeOwner = vi.fn();
 const appendPracticeRevision = vi.fn();
@@ -15,6 +16,32 @@ describe('/api/practice/sessions/[sessionId]', () => {
   beforeEach(() => {
     getPracticeOwner.mockReset();
     appendPracticeRevision.mockReset();
+  });
+
+  it('forwards a valid conditional save and returns a recoverable stale-revision conflict', async () => {
+    getPracticeOwner.mockResolvedValue({ kind: 'user', id: 'user-1' });
+    appendPracticeRevision.mockRejectedValue(new PracticeRevisionConflict(4));
+    const { POST } = await import('./route');
+    const response = await POST(new Request('http://localhost', { method: 'POST', headers: { 'x-practice-owner': 'user:user-1' },
+      body: JSON.stringify({ draft: 'Local plan.', expectedRevisionNumber: 3, requestKey: 'save-1' }),
+    }), { params: Promise.resolve({ sessionId: 'session-1' }) });
+    expect(response.status).toBe(409);
+    expect(await response.json()).toMatchObject({ code: 'revision_conflict', currentRevisionNumber: 4 });
+    expect(appendPracticeRevision).toHaveBeenCalledWith(expect.objectContaining({ expectedRevisionNumber: 3, requestKey: 'save-1' }));
+  });
+
+  it('rejects malformed conditional saves and a changed owner before writing', async () => {
+    getPracticeOwner.mockResolvedValue({ kind: 'user', id: 'user-2' });
+    const { POST } = await import('./route');
+    const context = { params: Promise.resolve({ sessionId: 'session-1' }) };
+    for (const condition of [{ expectedRevisionNumber: 0 }, { requestKey: 'save' }, { requestKey: 'save', expectedRevisionNumber: -1 }, { requestKey: 'save', expectedRevisionNumber: 0.5 }]) {
+      const response = await POST(new Request('http://localhost', { method: 'POST', body: JSON.stringify({ draft: 'Plan.', ...condition }) }), context);
+      expect(response.status).toBe(400);
+    }
+    const changed = await POST(new Request('http://localhost', { method: 'POST', headers: { 'x-practice-owner': 'user:user-1' }, body: JSON.stringify({ draft: 'Old account plan.' }) }), context);
+    expect(changed.status).toBe(409);
+    expect(await changed.json()).toMatchObject({ code: 'owner_changed' });
+    expect(appendPracticeRevision).not.toHaveBeenCalled();
   });
 
   it('returns 400 when draft is missing', async () => {

@@ -1,5 +1,9 @@
 import { expect, test, type Page } from '@playwright/test';
 
+test.beforeEach(async ({ page }) => {
+  await page.route('**/api/practice/owner', route => route.fulfill({ json: { owner: { kind: 'guest', id: 'test-guest' } } }));
+});
+
 const verifiedSource = 'def find_pair(values, target):\n    return [0, 1]';
 const editedSource = 'def find_pair(values, target):\n    return []';
 const receivedGrade = {
@@ -18,6 +22,7 @@ const cachedWorkspace = {
 const assignedPracticePath = '/practice?assignment=11111111-1111-4111-8111-111111111111';
 
 async function mockOwnedPractice(page: Page, metadata: Record<string, unknown>, signedIn = true) {
+  await page.route('**/api/practice/owner', route => route.fulfill({ json: { owner: { kind: signedIn ? 'user' : 'guest', id: signedIn ? 'verification-learner' : 'verification-guest' } } }));
   await page.route('**/api/viewer', route => route.fulfill({ json: { viewer: signedIn
     ? { id: 'verification-learner', email: 'learner@example.invalid', displayName: 'Learner', canAccessAdministration: false } : null } }));
   await page.route('**/api/practice/sessions**', async route => {
@@ -50,7 +55,10 @@ test('reload restores verification even when both browser result saves are missi
   const metadata: Record<string, unknown> = {};
   await mockOwnedPractice(page, metadata);
   await page.addInitScript(state => {
-    localStorage.setItem('method:pair-with-target-v1:session', JSON.stringify(state));
+    const key = 'method:user:verification-learner:pair-with-target-v1:workspace-v2';
+    const value = JSON.stringify({ version: 2, state, base: null });
+    localStorage.setItem(key, value);
+    for (const stored of Object.keys(localStorage)) if (stored.startsWith(`${key}:tab:`)) localStorage.setItem(stored, value);
   }, cachedWorkspace);
   await page.route('**/api/practice/sessions/*/verify', async route => {
     metadata.verification = verification;
@@ -58,7 +66,7 @@ test('reload restores verification even when both browser result saves are missi
   });
   await page.goto(assignedPracticePath);
   await expect(page.getByLabel('Python implementation')).toHaveValue(verifiedSource);
-  await expect.poll(() => page.evaluate(() => localStorage.getItem('method:pair-with-target-v1:remote-session'))).toBe('session-verified');
+  await expect.poll(() => page.evaluate(() => localStorage.getItem('method:user:verification-learner:pair-with-target-v1:remote-session'))).toBe('session-verified');
   await page.getByRole('button', { name: 'Run verified tests', exact: true }).click();
   await expect(page.locator('.grader-state')).toHaveText('Passed');
   await page.reload();
@@ -69,7 +77,7 @@ test('reload restores verification even when both browser result saves are missi
 test('account verification preserves a newer local draft and does not grade its edited code', async ({ page }) => {
   await mockOwnedPractice(page, { verification });
   await page.addInitScript(state => {
-    localStorage.setItem('method:pair-with-target-v1:session', JSON.stringify(state));
+    localStorage.setItem('method:user:verification-learner:pair-with-target-v1:workspace-v2', JSON.stringify({ version: 2, state, base: null }));
   }, { ...cachedWorkspace, draft: 'Keep this newer local reasoning.', code: editedSource, codeChecked: true, completed: true, codeGrade: receivedGrade });
   await page.goto(assignedPracticePath);
   await expect(page.getByLabel('Python implementation')).toHaveValue(editedSource);
@@ -104,6 +112,193 @@ async function openHydratedWorkspace(page: Page) {
   ).toBeVisible();
   await expect(page.getByText('Ready', { exact: true })).toBeVisible();
 }
+
+test('switching accounts opens only that owner’s cache and ignores delayed previous-owner responses', async ({ page }) => {
+  let owner = 'account-a';
+  let release!: () => void;
+  const held = new Promise<void>(resolve => { release = resolve; });
+  await page.route('**/api/practice/owner', route => route.fulfill({ json: { owner: { kind: 'user', id: owner } } }));
+  await page.addInitScript(state => {
+    for (const id of ['account-a', 'account-b']) localStorage.setItem(`method:user:${id}:pair-with-target-v1:workspace-v2`, JSON.stringify({ version: 2, base: null, state: { ...state, draft: `${id} private draft` } }));
+  }, cachedWorkspace);
+  await page.route('**/api/practice/sessions**', async route => {
+    if (route.request().method() === 'GET' && route.request().headers()['x-practice-owner'] === 'user:account-a') {
+      await held;
+      await route.fulfill({ json: { session: { id: 'old-account-session', revision: 7, latestRevisionNumber: 3, sessionMetadata: { workspaceState: { ...cachedWorkspace, draft: 'Delayed previous account response.' } } } } });
+    } else await route.fulfill({ status: 503, json: { error: 'offline' } });
+  });
+  await page.goto('/practice');
+  await expect(page.getByLabel('Pseudocode draft')).toHaveValue('account-a private draft');
+  await page.getByLabel('Pseudocode draft').fill('Unsaved edit belongs to account A.');
+  owner = 'account-b';
+  await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+  await expect(page.getByLabel('Pseudocode draft')).toHaveValue('account-b private draft');
+  release();
+  await expect(page.getByLabel('Pseudocode draft')).toHaveValue('account-b private draft');
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('method:user:account-a:pair-with-target-v1:workspace-v2')!).state.draft)).toBe('Unsaved edit belongs to account A.');
+});
+
+for (const choice of ['server', 'local'] as const) {
+  test(`conflict recovery can continue the ${choice} draft and retains the other copy across reload`, async ({ page }) => {
+    if (choice === 'server') await page.setViewportSize({ width: 390, height: 844 });
+    const base = { ...cachedWorkspace, draft: 'Original shared plan.' };
+    const local = { ...base, draft: 'Local unsaved plan.' };
+    let server = { ...base, draft: 'Updated second-device plan.' };
+    let revision = 2;
+    const writes: Record<string, unknown>[] = [];
+    await page.addInitScript(({ local, base }) => {
+      if (!localStorage.getItem('method:guest:test-guest:pair-with-target-v1:workspace-v2')) localStorage.setItem('method:guest:test-guest:pair-with-target-v1:workspace-v2', JSON.stringify({ version: 2, state: local, base: { sessionId: 'session-conflict', revisionNumber: 1, state: base } }));
+    }, { local, base });
+    await page.route('**/api/practice/sessions**', async route => {
+      if (route.request().method() === 'GET') await route.fulfill({ json: { session: { id: 'session-conflict', revision: revision + 1, latestRevisionNumber: revision, sessionMetadata: { workspaceState: server } } } });
+      else {
+        const body = route.request().postDataJSON();
+        writes.push(body);
+        if (body.expectedRevisionNumber !== revision) { await route.fulfill({ status: 409, json: { code: 'revision_conflict' } }); return; }
+        server = body.state; revision += 1;
+        await route.fulfill({ json: { revision: { revisionNumber: revision } } });
+      }
+    });
+    await page.goto('/practice');
+    await expect(page.getByRole('alert', { name: 'Resolve practice conflict' })).toBeVisible();
+    if (choice === 'server') expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    await expect(page.getByLabel('Pseudocode draft')).toHaveValue(local.draft);
+    expect(writes).toHaveLength(0);
+    await page.getByRole('button', { name: choice === 'server' ? 'Use server draft' : 'Continue with this draft', exact: true }).click();
+    const selected = choice === 'server' ? server.draft : local.draft;
+    const recovery = choice === 'server' ? local.draft : 'Updated second-device plan.';
+    await expect(page.getByLabel('Pseudocode draft')).toHaveValue(selected);
+    if (choice === 'local') {
+      await expect(page.getByText('Saved to server')).toBeVisible();
+      expect(writes[0]).toMatchObject({ expectedRevisionNumber: 2, state: { draft: local.draft } });
+    } else expect(writes).toHaveLength(0);
+    await page.reload();
+    await expect(page.getByLabel('Pseudocode draft')).toHaveValue(selected);
+    await page.getByText('Saved recovery copy', { exact: true }).click();
+    await expect(page.getByText(recovery, { exact: false }).first()).toBeVisible();
+  });
+}
+
+test('a lost save response can be retried after reload with its original receipt', async ({ page }) => {
+  let server: typeof cachedWorkspace | null = null;
+  let revision = 0;
+  const requests: Record<string, unknown>[] = [];
+  await page.route('**/api/practice/sessions**', async route => {
+    if (route.request().method() === 'GET') {
+      await route.fulfill({ json: { session: { id: 'session-retry', revision: revision + 1, latestRevisionNumber: revision, sessionMetadata: server ? { workspaceState: server } : {} } } });
+      return;
+    }
+    const body = route.request().postDataJSON();
+    requests.push(body);
+    if (requests.length === 1) {
+      server = body.state; revision = 1;
+      await route.fulfill({ status: 500, json: { error: 'response lost after commit' } });
+    } else {
+      expect(body.requestKey).toBe(requests[0].requestKey);
+      await route.fulfill({ json: { revision: { revisionNumber: 1 } } });
+    }
+  });
+  await openHydratedWorkspace(page);
+  await page.getByLabel('Pseudocode draft').fill('Persist this even if the response is lost.');
+  await expect(page.getByText('Offline draft')).toBeVisible();
+  await page.reload();
+  await expect(page.getByLabel('Pseudocode draft')).toHaveValue('Persist this even if the response is lost.');
+  await expect(page.getByText('Saved to server')).toBeVisible();
+  expect(requests).toHaveLength(2);
+  expect(requests[1]).toEqual(requests[0]);
+});
+
+test('a delayed remote load cannot overwrite work typed while it was loading', async ({ page }) => {
+  let release!: () => void;
+  const held = new Promise<void>(resolve => { release = resolve; });
+  let writes = 0;
+  await page.route('**/api/practice/sessions**', async route => {
+    if (route.request().method() !== 'GET') { writes += 1; await route.fulfill({ status: 500 }); return; }
+    await held;
+    await route.fulfill({ json: { session: { id: 'session-delayed', revision: 5, latestRevisionNumber: 3, sessionMetadata: { workspaceState: { ...cachedWorkspace, draft: 'Existing account plan.' } } } } });
+  });
+  await openHydratedWorkspace(page);
+  await page.getByLabel('Pseudocode draft').fill('New plan typed before the server responded.');
+  release();
+  await expect(page.getByRole('alert', { name: 'Resolve practice conflict' })).toBeVisible();
+  await expect(page.getByLabel('Pseudocode draft')).toHaveValue('New plan typed before the server responded.');
+  expect(writes).toBe(0);
+});
+
+test('an older unscoped draft is kept for explicit recovery and never imported into an account automatically', async ({ page }) => {
+  await page.route('**/api/practice/owner', route => route.fulfill({ json: { owner: { kind: 'user', id: 'new-account' } } }));
+  await page.addInitScript(state => localStorage.setItem('method:pair-with-target-v1:session', JSON.stringify({ ...state, draft: 'Unclaimed older browser work.' })), cachedWorkspace);
+  await page.route('**/api/practice/sessions**', route => route.fulfill({ status: 503 }));
+  await openHydratedWorkspace(page);
+  await expect(page.getByLabel('Pseudocode draft')).toHaveValue('');
+  await page.getByText('Older draft saved in this browser', { exact: true }).click();
+  await page.getByRole('button', { name: 'Import older browser draft' }).click();
+  await expect(page.getByLabel('Pseudocode draft')).toHaveValue('Unclaimed older browser work.');
+  expect(await page.evaluate(() => localStorage.getItem('method:pair-with-target-v1:session'))).toContain('Unclaimed older browser work.');
+});
+
+test('work created without an account connection can be imported explicitly after reconnecting', async ({ page }) => {
+  let connected = false;
+  const server = { ...cachedWorkspace, draft: 'Existing account plan.' };
+  await page.route('**/api/practice/owner', route => connected
+    ? route.fulfill({ json: { owner: { kind: 'user', id: 'reconnected-user' } } })
+    : route.fulfill({ status: 503 }));
+  await page.route('**/api/practice/sessions**', route => route.request().method() === 'GET'
+    ? route.fulfill({ json: { session: { id: 'session-connected', revision: 3, latestRevisionNumber: 2, sessionMetadata: { workspaceState: server } } } })
+    : route.fulfill({ status: 503 }));
+  await page.goto('/practice');
+  await expect(page.getByText('Account connection unavailable.', { exact: false })).toBeVisible();
+  await page.getByLabel('Pseudocode draft').fill('Offline work to retain.');
+  await expect(page.getByText('Offline draft', { exact: true })).toBeVisible();
+  connected = true;
+  await page.getByRole('button', { name: 'Reconnect', exact: true }).click();
+  await expect(page.getByLabel('Pseudocode draft')).toHaveValue('Existing account plan.');
+  await page.getByText('Offline draft from this browser', { exact: true }).click();
+  await page.getByRole('button', { name: 'Import offline draft', exact: true }).click();
+  await expect(page.getByLabel('Pseudocode draft')).toHaveValue('Offline work to retain.');
+  await page.getByText('Saved recovery copy', { exact: true }).click();
+  await expect(page.getByText('Existing account plan.', { exact: false }).first()).toBeVisible();
+});
+
+test('another tab cannot silently advance the base of an unsaved local edit', async ({ page, context }) => {
+  let server = { ...cachedWorkspace, draft: 'Shared starting plan.' };
+  let revision = 1;
+  let saving = false;
+  let release!: () => void;
+  const held = new Promise<void>(resolve => { release = resolve; });
+  const writes: Record<string, unknown>[] = [];
+  await context.route('**/api/practice/owner', route => route.fulfill({ json: { owner: { kind: 'guest', id: 'test-guest' } } }));
+  await context.route('**/api/practice/sessions**', async route => {
+    if (route.request().method() === 'GET') {
+      await route.fulfill({ json: { session: { id: 'session-tabs', revision: revision + 1, latestRevisionNumber: revision, sessionMetadata: { workspaceState: server } } } });
+      return;
+    }
+    const body = route.request().postDataJSON();
+    writes.push(body);
+    if (body.draft === 'First tab changed plan.') { saving = true; await held; }
+    if (body.expectedRevisionNumber !== revision) { await route.fulfill({ status: 409, json: { code: 'revision_conflict' } }); return; }
+    server = body.state; revision += 1;
+    await route.fulfill({ json: { revision: { revisionNumber: revision } } });
+  });
+  const other = await context.newPage();
+  await page.goto('/practice');
+  await other.goto('/practice');
+  await expect(page.getByLabel('Pseudocode draft')).toHaveValue('Shared starting plan.');
+  await expect(other.getByLabel('Pseudocode draft')).toHaveValue('Shared starting plan.');
+  await page.getByLabel('Pseudocode draft').fill('First tab changed plan.');
+  await expect.poll(() => saving).toBe(true);
+  await other.getByLabel('Pseudocode draft').fill('Second tab unsaved plan.');
+  release();
+  await expect(page.getByText('Saved to server')).toBeVisible();
+  await expect(other.getByRole('alert', { name: 'Resolve practice conflict' })).toBeVisible();
+  await expect(other.getByLabel('Pseudocode draft')).toHaveValue('Second tab unsaved plan.');
+  await other.reload();
+  await expect(other.getByLabel('Pseudocode draft')).toHaveValue('Second tab unsaved plan.');
+  await expect(other.getByRole('alert', { name: 'Resolve practice conflict' })).toBeVisible();
+  expect(server.draft).toBe('First tab changed plan.');
+  expect(writes).toHaveLength(1);
+  await other.close();
+});
 
 test('home practice button performs a document navigation into the workspace', async ({ page }) => {
   await page.goto('/');
@@ -269,7 +464,7 @@ test('guest can open the workspace and autosave a draft locally', async ({ page 
   await expect(page.getByText('Offline draft')).toBeVisible();
 
   const sessionValue = await page.evaluate(() => {
-    const key = 'method:pair-with-target-v1:session';
+    const key = 'method:guest:test-guest:pair-with-target-v1:workspace-v2';
     return window.localStorage.getItem(key);
   });
 
@@ -319,7 +514,7 @@ test('guest can insert the example answer and pass the reasoning check', async (
 }`);
 
   await page.evaluate(() => {
-    window.localStorage.setItem('method:pair-with-target-v1:remote-session', 'session-1');
+    window.localStorage.setItem('method:guest:test-guest:pair-with-target-v1:remote-session', 'session-1');
     const originalFetch = window.fetch.bind(window);
     window.fetch = async (input, init) => {
       if (String(input).endsWith('/api/practice/sessions/session-1/verify')) {
@@ -429,7 +624,7 @@ test('unavailable execution never records an unverified completion', async ({ pa
 }`);
 
   await page.evaluate(() => {
-    window.localStorage.setItem('method:pair-with-target-v1:remote-session', 'session-1');
+    window.localStorage.setItem('method:guest:test-guest:pair-with-target-v1:remote-session', 'session-1');
     window.fetch = async (input) => String(input).endsWith('/verify')
       ? new Response(JSON.stringify({ error: 'Verified execution is unavailable' }), { status: 503, headers: { 'Content-Type': 'application/json' } })
       : new Response('', { status: 401 });
@@ -515,7 +710,7 @@ test('queued evaluation cannot be submitted twice', async ({ page }) => {
   await page.getByRole('button', { name: 'Insert example answer' }).click();
 
   await page.evaluate(() => {
-    window.localStorage.setItem('method:pair-with-target-v1:remote-session', 'session-1');
+    window.localStorage.setItem('method:guest:test-guest:pair-with-target-v1:remote-session', 'session-1');
     const testWindow = window as typeof window & { evaluationRequests?: number };
     testWindow.evaluationRequests = 0;
     const originalFetch = window.fetch.bind(window);
@@ -553,7 +748,7 @@ test('rate-limited evaluation exposes a retry that recovers', async ({ page }) =
   await page.getByRole('button', { name: 'Insert example answer' }).click();
 
   await page.evaluate(() => {
-    window.localStorage.setItem('method:pair-with-target-v1:remote-session', 'session-1');
+    window.localStorage.setItem('method:guest:test-guest:pair-with-target-v1:remote-session', 'session-1');
     const testWindow = window as typeof window & { evaluationRequests?: number };
     testWindow.evaluationRequests = 0;
     const originalFetch = window.fetch.bind(window);

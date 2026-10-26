@@ -4,7 +4,7 @@ const mocks = vi.hoisted(() => ({ configured: vi.fn(), create: vi.fn(), user: vi
 vi.mock('@/lib/supabase/config', () => ({ isSupabaseConfigured: mocks.configured }));
 vi.mock('@/lib/supabase/server', () => ({ createSupabaseServerClient: mocks.create }));
 vi.mock('@leetcode-app/database', () => ({ createDatabaseClient: mocks.database, databaseConfigFromEnv: () => ({}) }));
-import { getSession } from './session';
+import { getPracticeOwner, getSession } from './session';
 
 describe('verified application sessions', () => {
   beforeEach(() => {
@@ -22,6 +22,16 @@ describe('verified application sessions', () => {
   it('requires a verified Supabase user before accessing application data', async () => {
     mocks.user.mockResolvedValue({ data: { user: null } });
     expect(await getSession()).toBeNull();
+    expect(mocks.database).not.toHaveBeenCalled();
+  });
+  it('allows a genuinely missing session while resolving a practice identity', async () => {
+    mocks.user.mockResolvedValue({ data: { user: null }, error: { name: 'AuthSessionMissingError' } });
+    expect(await getSession({ failOnAuthError: true })).toBeNull();
+    expect(mocks.database).not.toHaveBeenCalled();
+  });
+  it('does not create a guest when Supabase cannot verify authentication', async () => {
+    mocks.user.mockResolvedValue({ data: { user: null }, error: { name: 'AuthRetryableFetchError' } });
+    await expect(getPracticeOwner()).rejects.toThrow('Authentication is unavailable');
     expect(mocks.database).not.toHaveBeenCalled();
   });
   it('creates the application identity from the verified user without trusting a metadata role', async () => {

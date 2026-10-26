@@ -42,6 +42,9 @@ Add any other context about the problem here.
 
 ## Logs
 
+Use sanitized excerpts and safe request IDs. Exclude credentials, cookies,
+database URLs, personal information, and real learner submissions.
+
 ```
 Paste relevant logs here
 ```

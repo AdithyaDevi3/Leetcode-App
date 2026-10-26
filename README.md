@@ -1,103 +1,60 @@
-# Method Algorithm Learning App
+# Method
 
-A working pseudocode-first learning application for algorithms, data structures,
-and system-design practice. The deployed learner experience supports guest
-practice, deterministic feedback, Python 3, C++20, and TypeScript verification, and
-rules-based personalization.
+Method is a pseudocode-first algorithm learning application. Learners describe
+an approach, receive deterministic feedback, and optionally verify Python 3,
+C++20, or TypeScript code against server-owned tests.
 
-The app is designed to teach problem-solving before syntax. Learners can practice concepts, express solutions in structured English or visual blocks, receive evaluation and targeted feedback, and only then move into executable code when they choose the pseudocode-to-code workflow.
+The current application includes ten original practice activities, a 48-question
+algorithm/system-design analysis roadmap, guest drafts, account persistence,
+profiles, recommendations, and spaced reviews. Some learning estimates remain
+device-local. Instructors can create classes, assign existing activities, review
+submissions, and publish rubric grades. Learners can inspect their published
+grades and request review. A separate role-scoped administration portal manages
+platform operations and classes.
 
-## Documentation
+## Public documentation
 
-Start with [docs/README.md](docs/README.md) for the complete documentation map. The core documents are:
+| Guide | Purpose |
+|---|---|
+| [Usage](docs/USAGE.md) | Local setup, current learner/teaching workflows, configuration, and troubleshooting |
+| [Contributing](CONTRIBUTING.md) | Selecting work, development workflow, validation, and pull requests |
+| [Architecture](docs/ARCHITECTURE.md) | Current components, data ownership, trust boundaries, and tradeoffs |
+| [Development conventions](docs/CONVENTIONS.md) | Code, API, database, testing, release, and documentation rules |
+| [Personal use](docs/PERSONAL_USE.md) | Local operation, data responsibilities, and hosted-service limits |
+| [Security](SECURITY.md) | Private vulnerability reporting and supported code |
 
-- [Maintainer quick start](docs/USAGE.md) for what works today, local setup,
-  common change locations, known launch gaps, and the takeover checklist.
-- [Product plan](docs/PRODUCT_PLAN.md) for vision, learning model, complete scope, security controls, and release gates.
-- [Implementation roadmap](docs/IMPLEMENTATION_ROADMAP.md) for dependency-ordered phases, issue-sized work packages, and the next 12 issues.
-- [Current and target architecture](docs/ARCHITECTURE.md) for deployed providers,
-  domains, data, runtime boundaries, APIs, sandboxing, and future boundaries.
-- [Administration and learner architecture](docs/ADMIN_ARCHITECTURE.md) and
-  [use cases](docs/ADMIN_USE_CASES.md) for the current operator workflows,
-  permissions, learner interactions, and remaining capabilities.
-- [Development and contribution conventions](docs/DEVELOPMENT.md) for setup,
-  validation, workflow, testing, migrations, security, and deployment.
-- [Contribution guide](CONTRIBUTING.md) for current product areas, remaining
-  work, work-map maintenance, validation, and pull request expectations.
-- [Administration-console decision](docs/adr/011-current-platform-and-admin-console.md)
-  for the secure delivery sequence and non-goals.
-- [Requirements matrix](docs/REQUIREMENTS_MATRIX.md) for stable requirement IDs, current status, target phase, and acceptance evidence.
+This is the complete public documentation set. Detailed plans, implementation
+notes, internal checklists, and generated artifacts are local working material.
+The documentation check enforces the public file allowlist, including the
+repository's issue and pull-request templates.
 
-## Current learner application
+## Run locally
 
-The first deployable product slice lives in [apps/web](apps/web). It includes:
-
-- Ten original algorithm activities spanning hashing, windows, trees, stacks, graphs, queues, two pointers, and dynamic programming.
-- A browseable roadmap with 48 foundation, intermediate, and advanced analysis
-  questions across eight algorithm and eight system-design topics, with search,
-  filters, and device-local progress.
-- Structured-English and semantic-block pseudocode modes with learner-invoked
-  reference answers that never replace a draft automatically.
-- Local profiles, history-aware practice recommendations, and draft autosave for guest learners.
-- Deterministic, activity-specific reasoning evaluation for every algorithm
-  activity, including explicit contradiction checks and fail-closed rubric selection.
-- Server-side Python 3, C++20, and TypeScript verification against activity-specific test suites before a solution can be marked complete.
-- Local concept-mastery evidence that adjusts practice recommendations as the learner improves.
-- Python 3, C++20, and TypeScript coding starters that follow the learner's local language preference.
-- A shared desktop sidebar and mobile navigation, with a level, uncluttered landing page.
-- A role-scoped administration portal with live operational summaries, safe
-  queue views, audited operator-role changes, and deny-by-default Supabase RLS.
-- Instructor signup and owner-scoped classes with join codes, learner enrollment,
-  assigned practice activities, due dates, a manual-grading inbox, and a
-  published-only class gradebook. Learners can review published scores, rubric
-  breakdowns, and instructor feedback without seeing draft grades. Instructors
-  can excuse or restore an assignment for an individual learner with a required
-  reason; excused work is excluded from that learner's totals and class ranking
-  while the immutable applicability history is retained. The gradebook storage
-  boundary also preserves an immutable, recipient-scoped grade-dispute lifecycle:
-  an active dispute keeps the published score visible in totals but removes the
-  learner from comparable ranking until explicit resolution, withdrawal, or
-  automatic supersession by a new submission or excusal. On each published grade
-  card, the owning learner can submit a 20–4,000 character review reason, inspect
-  the public request, status, and instructor response, or withdraw an active
-  request. Stale concurrent changes return a refresh-and-retry conflict instead
-  of overwriting history. Class owners receive open requests in a dedicated
-  grade-review inbox, can acknowledge them as in review, and resolve them with a
-  written response by upholding the grade or selecting an already-published
-  replacement grade. Platform administrators retain separate access to manage
-  all classes.
-- Unit tests, CI, a health endpoint, and a non-root production container.
-
-Run it locally from the repository root:
+Use Node.js 24, pnpm 9-compatible tooling, and Docker for database-backed paths.
+From the repository root:
 
 ```bash
 pnpm install --frozen-lockfile
 cp apps/web/.env.example apps/web/.env.local
+pnpm db:up
+pnpm db:bootstrap
 pnpm dev
 ```
 
-Then open `http://localhost:3000`.
-
-Validation commands:
+Open <http://localhost:3000>. Guest UI exploration works without a hosted Auth
+configuration; account features need the documented Supabase settings. Keep code
+execution disabled for ordinary local development.
 
 ```bash
+pnpm docs:check
 pnpm preflight
 ```
 
-Build and run the production container:
+The health endpoint is GET /api/health. Production code verification requires a
+configured isolated execution provider; it is not ordinary application-server
+execution. See [usage](docs/USAGE.md) and [architecture](docs/ARCHITECTURE.md).
 
-```bash
-cd apps/web
-docker build -t method-web .
-docker run --rm -p 3000:3000 method-web
-```
+## Content
 
-The service health check is available at `GET /api/health`.
-
-### Current security note
-
-The project pins Next.js `16.3.5`. The vulnerable transitive Sharp release is overridden to patched version `0.35.3`. Do not use npm's suggested forced downgrade to Next.js 9.
-
-## Content and trademark note
-
-The product should use original or properly licensed problem statements, examples, explanations, and system-design material. It should not scrape, republish, or imply affiliation with LeetCode. Product naming and marketing should avoid third-party trademarks unless permission has been obtained.
+Use original or properly licensed questions and examples. Method is not
+affiliated with LeetCode and should not scrape or republish its problem library.

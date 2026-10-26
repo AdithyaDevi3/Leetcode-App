@@ -25,6 +25,13 @@ function run(label, command, args, options = {}) {
   return passed;
 }
 
+const docsOk = run("Public documentation boundary", "node", ["scripts/check-public-docs.mjs"]);
+const docsTestsOk = run("Documentation boundary tests", "node", ["--test", "scripts/check-public-docs.test.mjs"]);
+if (!docsOk || !docsTestsOk) {
+  printSummary();
+  process.exit(1);
+}
+
 const installOk = run("Install workspace dependencies", "pnpm", [
   "install",
   "--frozen-lockfile",
@@ -59,6 +66,8 @@ const browserOk = run("Critical-path browser tests", "pnpm", [
 printSummary();
 
 const allPassed = [
+  docsOk,
+  docsTestsOk,
   domainBuildOk,
   databaseBuildOk,
   lintOk,

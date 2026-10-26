@@ -9,6 +9,8 @@
     "start": "pnpm --filter web start",
     "lint": "pnpm --filter web lint",
     "test": "pnpm -r test",
+    "docs:check": "node scripts/check-public-docs.mjs",
+    "test:docs": "node --test scripts/check-public-docs.test.mjs",
     "test:production-health": "node --test scripts/check-production-health.test.mjs",
     "test:e2e": "pnpm --filter web test:e2e",
     "migrate": "pnpm run db:bootstrap",

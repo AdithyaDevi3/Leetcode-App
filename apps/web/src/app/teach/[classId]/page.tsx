@@ -8,6 +8,7 @@ import {
 import { practiceItems } from '@/lib/content';
 import { readInstructorData } from '@/lib/instructor-access';
 import { createClassAssignment } from '../actions';
+import { AssessmentDraftList } from '@/components/assessments/assessment-draft-list';
 
 const formatDueDate = (value: string | null) => value
   ? new Intl.DateTimeFormat('en-US', { dateStyle: 'medium', timeZone: 'UTC' }).format(new Date(`${value}T00:00:00Z`))
@@ -73,6 +74,8 @@ export default async function InstructorClassDetailPage({ params, searchParams }
         <button className="min-h-11 justify-self-start rounded-md bg-[var(--moss)] px-5 font-bold text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--moss)] sm:col-span-2" type="submit">Assign task</button>
       </form>
     </AdminSection>
+
+    <AssessmentDraftList workspace="teach" classId={classId} />
 
     <AdminSection title="Assigned tasks" description="Learners see these tasks as soon as they join the class.">
       {assignments.length === 0 ? <AdminEmptyState>No tasks have been assigned yet.</AdminEmptyState> : <AdminTable label="Class assignments">

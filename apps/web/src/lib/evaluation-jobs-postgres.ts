@@ -66,17 +66,23 @@ export function createEvaluationJobStore(db: DatabaseClient = createDatabaseClie
         return summary;
       }, { retried: 0, deadLettered: 0 });
     },
-    async complete(jobId: string, result: unknown): Promise<void> {
-      await db.query(`UPDATE evaluation_jobs SET status = 'completed', result = $2, completed_at = NOW(), error = NULL WHERE id = $1 AND status = 'running'`, [jobId, JSON.stringify(result)]);
+    async complete(jobId: string, result: unknown, claimedAttempt: number): Promise<boolean> {
+      if (!Number.isSafeInteger(claimedAttempt) || claimedAttempt < 1) throw new Error('A claimed evaluation attempt is required');
+      const saved = await db.query<{ id: string }>(`UPDATE evaluation_jobs
+        SET status = 'completed', result = $2, completed_at = NOW(), error = NULL
+        WHERE id = $1 AND status = 'running' AND attempts = $3 RETURNING id`, [jobId, JSON.stringify(result), claimedAttempt]);
+      return saved.rows.length === 1;
     },
-    async fail(jobId: string, error: string): Promise<void> {
-      await db.query(`UPDATE evaluation_jobs
+    async fail(jobId: string, error: string, claimedAttempt: number): Promise<boolean> {
+      if (!Number.isSafeInteger(claimedAttempt) || claimedAttempt < 1) throw new Error('A claimed evaluation attempt is required');
+      const saved = await db.query<{ id: string }>(`UPDATE evaluation_jobs
         SET status = CASE WHEN attempts >= max_attempts THEN 'failed'::evaluation_job_status ELSE 'queued'::evaluation_job_status END,
             started_at = NULL,
             error = $2,
             completed_at = CASE WHEN attempts >= max_attempts THEN NOW() ELSE NULL END,
             dead_lettered_at = CASE WHEN attempts >= max_attempts THEN NOW() ELSE NULL END
-        WHERE id = $1 AND status = 'running'`, [jobId, error]);
+        WHERE id = $1 AND status = 'running' AND attempts = $3 RETURNING id`, [jobId, error, claimedAttempt]);
+      return saved.rows.length === 1;
     },
     async cancel(jobId: string, userId: string, sessionId: string): Promise<EvaluationJob | null> {
       const result = await db.query<JobRow>(`UPDATE evaluation_jobs SET status = 'canceled', completed_at = NOW() WHERE id = $1 AND user_id = $2 AND session_id = $3 AND status IN ('queued', 'running') RETURNING *`, [jobId, userId, sessionId]);
@@ -97,5 +103,6 @@ export function createEvaluationJobStore(db: DatabaseClient = createDatabaseClie
       const row = result.rows[0];
       return { queued: Number(row.queued), running: Number(row.running), completed: Number(row.completed), failed: Number(row.failed), canceled: Number(row.canceled), deadLettered: Number(row.dead_lettered), oldestQueuedAgeMs: Number(row.oldest_queued_age_ms ?? 0) };
     },
+    async close(): Promise<void> { await db.close(); },
   };
 }

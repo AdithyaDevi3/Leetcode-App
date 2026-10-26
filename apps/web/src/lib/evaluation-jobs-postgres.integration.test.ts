@@ -74,7 +74,7 @@ describe('PostgreSQL evaluation job store', () => {
     expect(claimed).toMatchObject({ id: enqueued.id, status: 'running', attempts: 1 });
 
     const result = { score: 0.92, findings: [{ criterion: 'edge-case' }] };
-    await store.complete(enqueued.id, result);
+    await store.complete(enqueued.id, result, claimed!.attempts);
     await expect(store.findOwned(enqueued.id, principal.userId, principal.sessionId)).resolves.toMatchObject({
       status: 'completed',
       attempts: 1,
@@ -88,7 +88,7 @@ describe('PostgreSQL evaluation job store', () => {
   it('retries transient failures, recovers stale leases, and dead-letters exhausted work', async () => {
     const enqueued = await store.enqueue(request());
     await store.claimNext();
-    await store.fail(enqueued.id, 'temporary evaluator failure');
+    await store.fail(enqueued.id, 'temporary evaluator failure', 1);
     await expect(store.findById(enqueued.id)).resolves.toMatchObject({ status: 'queued', attempts: 1, error: 'temporary evaluator failure' });
 
     await store.claimNext();
@@ -97,7 +97,7 @@ describe('PostgreSQL evaluation job store', () => {
     await expect(store.findById(enqueued.id)).resolves.toMatchObject({ status: 'queued', attempts: 2, startedAt: null });
 
     await store.claimNext();
-    await store.fail(enqueued.id, 'retry budget exhausted');
+    await store.fail(enqueued.id, 'retry budget exhausted', 3);
     await expect(store.findById(enqueued.id)).resolves.toMatchObject({ status: 'failed', attempts: 3, deadLetteredAt: expect.any(String) });
 
     const staleAtLimit = await store.enqueue(request(2));

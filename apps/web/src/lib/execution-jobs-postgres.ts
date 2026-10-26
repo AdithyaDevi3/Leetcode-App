@@ -34,11 +34,17 @@ export function createExecutionJobStore(db: DatabaseClient = createDatabaseClien
       );
       return result.rows.length;
     },
-    async complete(id: string, result: ExecutionResult): Promise<void> {
-      await db.query(`UPDATE execution_jobs SET status = $2, result = $3, completed_at = NOW(), error = NULL WHERE id = $1 AND status = 'running'`, [id, result.status, JSON.stringify(result)]);
+    async complete(id: string, result: ExecutionResult, claimedAttempt: number): Promise<boolean> {
+      if (!Number.isSafeInteger(claimedAttempt) || claimedAttempt < 1) throw new Error('A claimed execution attempt is required');
+      const saved = await db.query<{ id: string }>(`UPDATE execution_jobs SET status = $2, result = $3, completed_at = NOW(), error = NULL
+        WHERE id = $1 AND status = 'running' AND attempts = $4 RETURNING id`, [id, result.status, JSON.stringify(result), claimedAttempt]);
+      return saved.rows.length === 1;
     },
-    async fail(id: string, error: string): Promise<void> {
-      await db.query(`UPDATE execution_jobs SET status = 'failed', error = $2, completed_at = NOW() WHERE id = $1 AND status = 'running'`, [id, error]);
+    async fail(id: string, error: string, claimedAttempt: number): Promise<boolean> {
+      if (!Number.isSafeInteger(claimedAttempt) || claimedAttempt < 1) throw new Error('A claimed execution attempt is required');
+      const saved = await db.query<{ id: string }>(`UPDATE execution_jobs SET status = 'failed', error = $2, completed_at = NOW()
+        WHERE id = $1 AND status = 'running' AND attempts = $3 RETURNING id`, [id, error, claimedAttempt]);
+      return saved.rows.length === 1;
     },
     async cancel(id: string, userId: string, sessionId: string): Promise<ExecutionJob | null> {
       const result = await db.query<Row>(`UPDATE execution_jobs SET status = 'canceled', completed_at = NOW() WHERE id = $1 AND user_id = $2 AND session_id = $3 AND status IN ('queued', 'running') RETURNING *`, [id, userId, sessionId]);
@@ -58,5 +64,6 @@ export function createExecutionJobStore(db: DatabaseClient = createDatabaseClien
       const row = result.rows[0];
       return { queued: Number(row.queued), running: Number(row.running), completed: Number(row.completed), failed: Number(row.failed), canceled: Number(row.canceled), timedOut: Number(row.timed_out), oldestQueuedAgeMs: Number(row.oldest_queued_age_ms ?? 0) };
     },
+    async close(): Promise<void> { await db.close(); },
   };
 }

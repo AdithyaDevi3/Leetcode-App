@@ -27,8 +27,37 @@ permissions:
   id-token: write
 
 jobs:
+  changes:
+    name: Detect infrastructure changes
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      infrastructure: ${{ steps.detect.outputs.infrastructure }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Detect infrastructure changes
+        id: detect
+        env:
+          CHANGE_EVENT: ${{ github.event_name }}
+          CHANGE_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+          CHANGE_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+        shell: bash
+        run: |
+          if [[ "$CHANGE_EVENT" == "workflow_dispatch" ]]; then
+            echo 'infrastructure=true' >> "$GITHUB_OUTPUT"
+          else
+            git diff --name-only -z "$CHANGE_BASE" "$CHANGE_HEAD" -- infra |
+              python3 -c 'import sys; paths = sys.stdin.buffer.read().split(b"\0"); docs = (b".md", b".mdx", b".markdown", b".rst", b".adoc", b".pdf", b".doc", b".docx", b".ppt", b".pptx", b".odt", b".odp", b".rtf", b".tex"); print("infrastructure=" + str(any(path and not path.lower().endswith(docs) for path in paths)).lower())' >> "$GITHUB_OUTPUT"
+          fi
+
   terraform-plan:
     name: Terraform Plan
+    needs: changes
+    if: needs.changes.outputs.infrastructure == 'true'
     runs-on: ubuntu-latest
     strategy:
       matrix:

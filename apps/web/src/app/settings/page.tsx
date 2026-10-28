@@ -1,5 +1,5 @@
-import { LocalLearnerSettings } from '@/components/local-learner-settings';
+import { LearningSettingsBoundary } from '@/components/learning-settings-boundary';
 
 export default function SettingsPage() {
-  return <LocalLearnerSettings />;
+  return <LearningSettingsBoundary />;
 }

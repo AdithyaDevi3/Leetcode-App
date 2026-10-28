@@ -63,11 +63,28 @@ support polling, cancellation, retry accounting, and lease recovery. Runtime
 selection can use PostgreSQL or instance-local memory; durable operation needs
 the database mode and a configured protected worker trigger.
 
-Profiles and scheduled concept reviews are persisted. The active dashboard also
-uses device-local history/mastery calculations and interpretable recommendation
-rules. Domain mastery/recommendation foundations and a concept-mastery table
-exist; a fully connected cross-device evidence pipeline is not established by
-those foundations alone.
+Profiles and concept reviews are persisted. Account learning estimates are a
+separate projection from academic grades and device-only estimates. A private
+outbox records eligible source changes atomically; authenticated owner reads
+process a bounded batch and derive versioned concept estimates and explained
+practice recommendations using the existing database and deterministic rules.
+
+Released multiple-choice results and newly captured practice verification supply
+evidence. Logical questions deduplicate across versions and assignment copies;
+practice activities deduplicate across sessions and retries. Limited evidence
+produces broad model ranges, while unknown concepts remain unknown. Current
+release, applicability, dispute, and personalization consent are checked before
+evidence is exposed. Review dates use an independent durable projection, expected
+revisions, and immutable retry receipts. These estimates never change gradebook
+scores. No additional hosted worker or model provider is required for this flow.
+
+Learning APIs return owner-scoped aggregate allowlists with private/no-store
+headers. Answer keys, per-question scoring evidence, and private instructor notes
+remain server-only. Historical practice metadata is not sufficient provenance for
+backfill; existing history remains visible, and newly guarded server captures add
+evidence. Execution reports retain the coding harness's existing trust boundary.
+Guest recommendations remain device-local. Personalization opt-out suppresses
+account recommendations in favor of the standard curriculum.
 
 ## Classes and gradebook
 

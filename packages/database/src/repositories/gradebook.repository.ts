@@ -224,12 +224,18 @@ export class PostgresGradebookRepository {
 
   private async recipient(client: PoolClient, recipientId: string, lock: boolean): Promise<Recipient> {
     uuid(recipientId);
-    const quiz = await client.query(`SELECT r.id FROM gradebook_recipients r JOIN gradebook_policies p ON p.id=r.policy_id
-      WHERE r.id=$1 AND p.policy->'scoring'->>'mode'='multiple_choice'`, [recipientId]);
-    // Check the current user before taking child locks (account deletion must keep parent-first lock order).
-    if (quiz.rows.length) await this.currentQuizRole(client, lock);
-    if (quiz.rows.length && lock) {
-      // MCQ release/applicability writes share the quiz repository's parent-before-recipient order.
+    const identity = await client.query<{ learner_id: string; is_quiz: boolean }>(`SELECT r.learner_id,
+      p.policy->'scoring'->>'mode'='multiple_choice' AS is_quiz FROM gradebook_recipients r
+      JOIN gradebook_policies p ON p.id=r.policy_id WHERE r.id=$1`, [recipientId]);
+    if (lock && identity.rows[0]) {
+      // Source events reference the owning learner, even when an instructor acts.
+      // Lock both parents in deterministic order before any recipient/class child.
+      const parents = await client.query<{ id: string }>('SELECT id FROM users WHERE id=ANY($1::uuid[]) ORDER BY id FOR SHARE', [[this.principal.userId,identity.rows[0].learner_id]]);
+      if (![this.principal.userId,identity.rows[0].learner_id].every(id => parents.rows.some(parent => parent.id===id))) throw new GradebookAccessError();
+    }
+    // Role changes and account deletion serialize before child locks.
+    if (identity.rows[0]?.is_quiz) await this.currentQuizRole(client, lock);
+    if (identity.rows[0] && lock) {
       await client.query(`SELECT c.id FROM classrooms c JOIN class_assignments a ON a.class_id=c.id
         JOIN gradebook_policies p ON p.assignment_id=a.id JOIN gradebook_recipients r ON r.policy_id=p.id
         WHERE r.id=$1 FOR SHARE OF c`, [recipientId]);

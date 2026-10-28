@@ -5,6 +5,7 @@ import {
   loadLearnerReviews,
   parseLearnerProfile,
   saveLearnerProfile,
+  snoozeLearnerReview,
 } from './learner-continuity';
 
 const profile = {
@@ -38,18 +39,58 @@ describe('learner continuity', () => {
     expect(parseLearnerProfile({ ...profile, preferredLanguage: 'ruby' })).toBeNull();
   });
 
-  it('loads an account profile and caches it for offline continuity', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({ profile }), { status: 200 })));
+  it('loads an account profile with its original owner without overwriting shared device preferences', async () => {
+    const fetcher = vi.fn().mockResolvedValue(new Response(JSON.stringify({ learnerId: 'owner-1', profile }), { status: 200 }));
+    vi.stubGlobal('fetch', fetcher);
 
-    await expect(loadLearnerProfile()).resolves.toEqual({ profile, source: 'account' });
-    expect(storage.get('leetcode-app.local-learner-profile.v1')).toContain('America/New_York');
+    await expect(loadLearnerProfile()).resolves.toEqual({ profile, source: 'account', learnerId: 'owner-1' });
+    expect(fetcher).toHaveBeenCalledWith('/api/learner/profile', expect.objectContaining({ cache: 'no-store' }));
+    expect(storage.has('leetcode-app.local-learner-profile.v1')).toBe(false);
   });
 
   it('keeps onboarding durable on the device when signed out', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({ error: 'Authentication required' }), { status: 401 })));
 
     await expect(saveLearnerProfile(profile)).resolves.toBe('device');
-    await expect(loadLearnerProfile()).resolves.toEqual({ profile, source: 'device' });
+    await expect(loadLearnerProfile()).resolves.toEqual({ profile, source: 'device', learnerId: null });
+  });
+
+  it('retains account identity before first onboarding without attaching a device profile', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({ learnerId: 'new-owner', profile: null }))));
+    await expect(loadLearnerProfile()).resolves.toEqual({ profile: null, source: 'account', learnerId: 'new-owner' });
+  });
+
+  it('saves without an owner only on the device and never discovers a new account at save time', async () => {
+    const fetcher = vi.fn(); vi.stubGlobal('fetch', fetcher);
+    await expect(saveLearnerProfile(profile)).resolves.toBe('device');
+    expect(fetcher).not.toHaveBeenCalled();
+    await expect(snoozeLearnerReview('review-1', 1)).resolves.toBe(false);
+    expect(fetcher).not.toHaveBeenCalled();
+  });
+
+  it('sends the owner captured at load and verifies the acknowledged owner on success', async () => {
+    const fetcher = vi.fn().mockResolvedValue(new Response(JSON.stringify({ learnerId: 'original-owner', profile })));
+    vi.stubGlobal('fetch', fetcher);
+    await expect(saveLearnerProfile(profile, 'original-owner')).resolves.toBe('account');
+    expect(fetcher).toHaveBeenCalledOnce();
+    expect(fetcher).toHaveBeenCalledWith('/api/learner/profile', expect.objectContaining({ method: 'PUT', headers: { 'Content-Type': 'application/json', 'x-learning-owner': 'original-owner' } }));
+    expect(storage.size).toBe(0);
+  });
+
+  it.each([
+    [409, { code: 'owner_changed', error: 'Your signed-in account changed.' }],
+    [503, { error: 'Temporarily unavailable.' }],
+    [200, { learnerId: 'switched-owner', profile }],
+    [200, { profile }],
+  ])('does not silently claim device/account consent success for an unconfirmed save', async (status, body) => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify(body), { status })));
+    await expect(saveLearnerProfile(profile, 'original-owner')).rejects.toThrow();
+    expect(storage.size).toBe(0);
+  });
+
+  it('does not treat a profile without a confirmed owner as account data', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({ profile }))));
+    await expect(loadLearnerProfile()).resolves.toEqual({ profile: null, source: 'none', learnerId: null });
   });
 
   it('merges completed account sessions into recommendation history', async () => {

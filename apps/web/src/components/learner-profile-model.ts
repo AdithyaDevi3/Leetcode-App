@@ -55,10 +55,14 @@ export function profilePayload(profile: LearnerProfile): LearnerProfile {
 export function isLearnerProfile(value: unknown): value is LearnerProfile {
   if (!value || typeof value !== 'object') return false;
   const profile = value as Partial<LearnerProfile>;
-  return typeof profile.goal === 'string'
-    && typeof profile.experience === 'string'
+  return ['interview', 'coursework', 'career_change', 'exploration'].includes(profile.goal ?? '')
+    && ['new', 'some', 'experienced'].includes(profile.experience ?? '')
     && (profile.preferredLanguage === 'python' || profile.preferredLanguage === 'cpp' || profile.preferredLanguage === 'typescript')
-    && typeof profile.weeklyMinutes === 'number'
+    && Number.isInteger(profile.weeklyMinutes) && Number(profile.weeklyMinutes) >= 30 && Number(profile.weeklyMinutes) <= 1_680
     && typeof profile.timezone === 'string'
-    && typeof profile.diagnosticOptIn === 'boolean';
+    && Boolean(profile.timezone.trim())
+    && typeof profile.diagnosticOptIn === 'boolean'
+    && (profile.personalizationOptOut === undefined || typeof profile.personalizationOptOut === 'boolean')
+    && (profile.targetDate === undefined || (typeof profile.targetDate === 'string' && Number.isFinite(Date.parse(profile.targetDate))))
+    && (profile.accessibilityNotes === undefined || (typeof profile.accessibilityNotes === 'string' && profile.accessibilityNotes.length <= 2_000));
 }

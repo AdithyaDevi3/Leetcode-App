@@ -1,5 +1,7 @@
 import type { PostgresGradebookRepository as GradebookRepository, GradebookPrincipal } from './repositories/gradebook.repository.js';
 import type { DatabaseClient } from './client.js';
+export { PostgresLearningEvidenceRepository, LearningEvidenceAccessError, LearningEvidenceConflictError, LearningEvidenceValidationError } from './repositories/learning-evidence.repository.js';
+export type { LearningReviewReceipt } from './repositories/learning-evidence.repository.js';
 
 export type { DatabaseClient, DatabaseConfig } from './client.js';
 export { createDatabaseClient, databaseConfigFromEnv } from './client.js';

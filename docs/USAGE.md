@@ -48,9 +48,22 @@ repository's manage-package-manager-versions=false setting in .npmrc.
 - Use /classes to join with a class code and open assigned work. Published grades
   and feedback appear at /classes/[classId]/grades.
 
-Practice retains a device-local copy, and some learning estimates are local. A local save message
-does not establish account synchronization. Check the workspace's save status
+Practice retains a device-local copy. Guest learning estimates use this device;
+signed-in dashboard estimates use account evidence across devices. A local save
+message does not establish account synchronization. Check the workspace's save status
 before changing devices; if persistence fails, retain the draft and retry.
+
+The signed-in dashboard uses released, eligible quiz results and newly recorded
+practice verification to suggest activities and explain **Why this question?**
+Concept estimates show evidence coverage and a model range; unknown concepts
+have no inferred weakness. Repeating the same question or activity updates its
+evidence without adding independent coverage. Older practice history remains
+available but may not contribute to estimates until a new verification.
+
+Due concept reviews follow account evidence. **Tomorrow** moves a review without
+changing an estimate or class grade; an interrupted request can safely be retried.
+Use /settings to disable personalization and follow the standard curriculum.
+An unavailable account plan offers retry and curriculum access.
 
 Workspace caches are separate for each verified account or guest identity.
 When local and server drafts diverge, saving pauses until you choose which to

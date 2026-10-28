@@ -22,4 +22,8 @@ describe('learner profile model', () => {
     expect(isLearnerProfile({ ...profile, preferredLanguage: 'ruby' })).toBe(false);
     expect(isLearnerProfile({ goal: 'interview' })).toBe(false);
   });
+  it.each([{ ...profile, goal: 'admin' }, { ...profile, experience: 'expert' }, { ...profile, weeklyMinutes: Infinity },
+    { ...profile, personalizationOptOut: 'false' }, { ...profile, targetDate: 'not-a-date' }])('rejects unsafe account response values', value => {
+    expect(isLearnerProfile(value)).toBe(false);
+  });
 });

@@ -50,37 +50,39 @@ export const parseLearnerProfile = (value: unknown): LocalLearnerProfile | null 
   };
 };
 
-export async function loadLearnerProfile(): Promise<{ profile: LocalLearnerProfile | null; source: LearnerProfileSource }> {
+export type LoadedLearnerProfile = { profile: LocalLearnerProfile | null; source: LearnerProfileSource; learnerId: string | null };
+
+export async function loadLearnerProfile(): Promise<LoadedLearnerProfile> {
   const local = readLocalLearnerProfile();
   try {
-    const response = await fetch('/api/learner/profile');
+    const response = await fetch('/api/learner/profile', { cache: 'no-store', signal: AbortSignal.timeout(15_000) });
     if (response.ok) {
-      const body = await response.json() as { profile?: unknown };
+      const body = await response.json() as { profile?: unknown; learnerId?: unknown };
+      if (typeof body.learnerId !== 'string' || !body.learnerId || body.learnerId.length > 128) throw new Error('Account identity was not confirmed');
+      if (body.profile === null) return { profile: null, source: 'account', learnerId: body.learnerId };
       const accountProfile = parseLearnerProfile(body.profile);
       if (accountProfile) {
-        writeLocalLearnerProfile(accountProfile);
-        return { profile: accountProfile, source: 'account' };
+        return { profile: accountProfile, source: 'account', learnerId: body.learnerId };
       }
     }
   } catch {
     // Device continuity remains available while the account API is unavailable.
   }
-  return { profile: local, source: local ? 'device' : 'none' };
+  return { profile: local, source: local ? 'device' : 'none', learnerId: null };
 }
 
-export async function saveLearnerProfile(profile: LocalLearnerProfile): Promise<LearnerProfileSource> {
-  const savedLocally = writeLocalLearnerProfile(profile);
-  try {
-    const response = await fetch('/api/learner/profile', {
+export async function saveLearnerProfile(profile: LocalLearnerProfile, expectedOwner?: string | null): Promise<LearnerProfileSource> {
+  if (!expectedOwner) return writeLocalLearnerProfile(profile) ? 'device' : 'none';
+  const response = await fetch('/api/learner/profile', {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'x-learning-owner': expectedOwner },
       body: JSON.stringify(profile),
+      signal: AbortSignal.timeout(15_000),
     });
-    if (response.ok) return 'account';
-  } catch {
-    // Report the durable device fallback below.
-  }
-  return savedLocally ? 'device' : 'none';
+  const body = await response.json().catch(() => null) as { learnerId?: unknown; profile?: unknown; error?: unknown } | null;
+  if (!response.ok) throw new Error(typeof body?.error === 'string' ? body.error : 'Your account plan could not be saved. Please retry.');
+  if (body?.learnerId !== expectedOwner || !parseLearnerProfile(body.profile)) throw new Error('Your signed-in account changed. Reload before saving your plan.');
+  return 'account';
 }
 
 type RemoteHistoryItem = {
@@ -139,11 +141,12 @@ export async function loadLearnerReviews(): Promise<LearnerReview[]> {
   }
 }
 
-export async function snoozeLearnerReview(reviewId: string, snoozeDays: 1 | 3 | 7): Promise<boolean> {
+export async function snoozeLearnerReview(reviewId: string, snoozeDays: 1 | 3 | 7, expectedOwner?: string): Promise<boolean> {
+  if (!expectedOwner) return false;
   try {
     const response = await fetch('/api/learner/reviews', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'x-learning-owner': expectedOwner },
       body: JSON.stringify({ reviewId, snoozeDays }),
     });
     return response.ok;

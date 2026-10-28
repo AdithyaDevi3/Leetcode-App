@@ -24,6 +24,10 @@ export async function beginPracticeVerification(input: {
   const db = createDatabaseClient(databaseConfigFromEnv());
   try {
     return await db.transaction(async client => {
+      if (input.owner.kind === 'user') {
+        const parent = await client.query('SELECT id FROM users WHERE id = $1 FOR UPDATE', [input.owner.id]);
+        if (!parent.rowCount) throw new Error('Practice session not found');
+      }
       const result = await client.query<VerificationSession>(
         `SELECT id, content_id, revision, status, session_metadata FROM practice_sessions
          WHERE id = $1 AND ${ownerColumn(input.owner)} = $2 FOR UPDATE`,
@@ -52,6 +56,10 @@ export async function finishPracticeVerification(input: {
   const db = createDatabaseClient(databaseConfigFromEnv());
   try {
     return await db.transaction(async client => {
+      if (input.owner.kind === 'user') {
+        const parent = await client.query('SELECT id FROM users WHERE id = $1 FOR UPDATE', [input.owner.id]);
+        if (!parent.rowCount) throw new Error('Practice session not found');
+      }
       const result = await client.query<VerificationSession>(
         `SELECT id, content_id, revision, status, session_metadata FROM practice_sessions
          WHERE id = $1 AND ${ownerColumn(input.owner)} = $2 FOR UPDATE`,

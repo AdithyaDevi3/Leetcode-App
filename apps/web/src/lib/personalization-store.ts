@@ -6,6 +6,7 @@ const mapProfile = (row: ProfileRow): LearnerProfile & { personalizationOptOut: 
 
 export function createPersonalizationStore(db: DatabaseClient = createDatabaseClient(databaseConfigFromEnv())) {
   return {
+    close: () => db.close(),
     async getProfile(userId: string) {
       const result = await db.query<ProfileRow>('SELECT goal, target_date, experience, preferred_language, weekly_minutes, timezone, accessibility_notes, diagnostic_opt_in, personalization_opt_out FROM learner_profiles WHERE user_id = $1', [userId]);
       return result.rows[0] ? mapProfile(result.rows[0]) : null;
@@ -13,8 +14,8 @@ export function createPersonalizationStore(db: DatabaseClient = createDatabaseCl
     async upsertProfile(userId: string, profile: LearnerProfile & { personalizationOptOut?: boolean }) {
       const result = await db.query<ProfileRow>(`INSERT INTO learner_profiles (user_id, goal, target_date, experience, preferred_language, weekly_minutes, timezone, accessibility_notes, diagnostic_opt_in, personalization_opt_out)
         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
-        ON CONFLICT (user_id) DO UPDATE SET goal = EXCLUDED.goal, target_date = EXCLUDED.target_date, experience = EXCLUDED.experience, preferred_language = EXCLUDED.preferred_language, weekly_minutes = EXCLUDED.weekly_minutes, timezone = EXCLUDED.timezone, accessibility_notes = EXCLUDED.accessibility_notes, diagnostic_opt_in = EXCLUDED.diagnostic_opt_in, personalization_opt_out = EXCLUDED.personalization_opt_out, updated_at = NOW()
-        RETURNING goal, target_date, experience, preferred_language, weekly_minutes, timezone, accessibility_notes, diagnostic_opt_in, personalization_opt_out`, [userId, profile.goal, profile.targetDate ?? null, profile.experience, profile.preferredLanguage, profile.weeklyMinutes, profile.timezone, profile.accessibilityNotes ?? null, profile.diagnosticOptIn, profile.personalizationOptOut ?? false]);
+        ON CONFLICT (user_id) DO UPDATE SET goal = EXCLUDED.goal, target_date = EXCLUDED.target_date, experience = EXCLUDED.experience, preferred_language = EXCLUDED.preferred_language, weekly_minutes = EXCLUDED.weekly_minutes, timezone = EXCLUDED.timezone, accessibility_notes = EXCLUDED.accessibility_notes, diagnostic_opt_in = EXCLUDED.diagnostic_opt_in, personalization_opt_out = COALESCE($11::boolean, learner_profiles.personalization_opt_out), updated_at = NOW()
+        RETURNING goal, target_date, experience, preferred_language, weekly_minutes, timezone, accessibility_notes, diagnostic_opt_in, personalization_opt_out`, [userId, profile.goal, profile.targetDate ?? null, profile.experience, profile.preferredLanguage, profile.weeklyMinutes, profile.timezone, profile.accessibilityNotes ?? null, profile.diagnosticOptIn, profile.personalizationOptOut ?? false, profile.personalizationOptOut ?? null]);
       return mapProfile(result.rows[0]);
     },
   };

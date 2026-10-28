@@ -398,17 +398,20 @@ test('local preferences choose a working personalized algorithm', async ({ page 
 });
 
 test('signed-in learner carries onboarding and completed practice into the dashboard', async ({ page }) => {
+  const learnerId = '11111111-1111-4111-8111-111111111111';
+  await page.route('**/api/viewer', route => route.fulfill({ json: { viewer: { id: learnerId, email: null, displayName: 'Sample Learner', canAccessAdministration: false } } }));
   let savedProfile: Record<string, unknown> | null = null;
   await page.route('**/api/learner/profile', async (route) => {
     if (route.request().method() === 'PUT') {
       savedProfile = route.request().postDataJSON() as Record<string, unknown>;
-      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ profile: savedProfile }) });
+      expect(route.request().headers()['x-learning-owner']).toBe(learnerId);
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ learnerId, profile: savedProfile }) });
       return;
     }
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
-      body: JSON.stringify({ profile: savedProfile }),
+      body: JSON.stringify({ learnerId, profile: savedProfile }),
     });
   });
   await page.route('**/api/practice/history', async (route) => {
@@ -422,19 +425,23 @@ test('signed-in learner carries onboarding and completed practice into the dashb
     });
   });
   await page.route('**/api/learner/reviews', async (route) => {
+    const review = { id: 'review-1', conceptId: 'hash-maps', dueAt: '2026-10-10T12:00:00.000Z', intervalDays: 2, repetitions: 1, practiceItemId: 'pair-with-target-v1', label: 'Pair With Target' };
     if (route.request().method() === 'POST') {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ review: { id: 'review-1' } }) });
+      expect(route.request().headers()['x-learning-owner']).toBe(learnerId);
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ learnerId, review: { ...review, dueAt: new Date(Date.now() + 86_400_000).toISOString() } }) });
       return;
     }
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
-      body: JSON.stringify({ reviews: [{
-        id: 'review-1', conceptId: 'hash-maps', dueAt: '2026-10-10T12:00:00.000Z', intervalDays: 2,
-        repetitions: 1, practiceItemId: 'pair-with-target-v1', label: 'Pair With Target',
-      }] }),
+      body: JSON.stringify({ learnerId, reviews: [review] }),
     });
   });
+  await page.route('**/api/learner/learning', route => route.fulfill({ json: {
+    learnerId,
+    snapshot: { algorithmVersion: 'learning-evidence-v1', generatedAt: '2026-10-27T12:00:00.000Z', optOut: false, concepts: [], recentActivityIds: [], sourceSummary: { releasedQuizItems: 0, verifiedPracticeItems: 0, independentItems: 0 }, processing: { pending: false, processedSources: 0, remainingSources: 0 } },
+    plan: { algorithmVersion: 'learning-evidence-v1', status: 'ready', recommendations: [{ practiceId: 'balanced-brackets-v1', label: 'Balanced Brackets', conceptIds: ['stack-lifo'], difficulty: 'foundation', estimatedMinutes: 20, reason: 'Build initial evidence for an unknown concept.', reasonKind: 'diagnostic', evidenceStatus: 'unknown' }] },
+  } }));
 
   await page.goto('/onboarding');
   await page.getByLabel('Goal').selectOption('coursework');
@@ -446,12 +453,14 @@ test('signed-in learner carries onboarding and completed practice into the dashb
   await page.goto('/dashboard');
   await expect(page.getByText('Plan synced with your account.')).toBeVisible();
   await expect(page.getByText('Completed').locator('..').getByText('1', { exact: true })).toBeVisible();
-  await expect(page.getByRole('heading', { name: '1 review due' })).toBeVisible();
-  await expect(page.getByRole('link', { name: 'Review now' })).toHaveAttribute('href', '/practice?problem=pair-with-target-v1');
-  await page.getByRole('button', { name: 'Tomorrow' }).click();
+  const earlier = page.getByRole('region', { name: 'Earlier saved practice reviews' });
+  await expect(earlier.getByText('1 earlier review due', { exact: false })).toBeVisible();
+  await expect(earlier.getByRole('link', { name: 'Open earlier review Pair With Target' })).toHaveAttribute('href', '/practice?problem=pair-with-target-v1');
+  await earlier.getByRole('button', { name: 'Move earlier review Pair With Target to tomorrow' }).click();
   await expect(page.getByText('Review moved to tomorrow. Your streak is unchanged.')).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Balanced Brackets' })).toBeVisible();
-  await expect(page.getByText('Pair With Target')).toHaveCount(0);
+  await expect(earlier.getByText('Pair With Target', { exact: true })).toBeVisible();
+  await expect(page.getByText('No account evidence yet.', { exact: false })).toBeVisible();
 });
 
 test('guest can open the workspace and autosave a draft locally', async ({ page }) => {

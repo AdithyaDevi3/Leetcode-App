@@ -4,9 +4,10 @@ import { getAdministrationAccess } from '@/lib/admin/authorization';
 import { getSession } from '@/lib/auth/session';
 
 export async function GET() {
+  const headers = { 'Cache-Control': 'private, no-store, max-age=0', Vary: 'Cookie' };
   try {
-    const session = await getSession();
-    if (!session) return NextResponse.json({ viewer: null });
+    const session = await getSession({ failOnAuthError: true });
+    if (!session) return NextResponse.json({ viewer: null }, { headers });
     let canAccessAdministration = false;
     try {
       const access = await getAdministrationAccess();
@@ -19,8 +20,8 @@ export async function GET() {
       email: session.user.email,
       displayName: session.user.displayName,
       canAccessAdministration,
-    } });
+    } }, { headers });
   } catch {
-    return NextResponse.json({ viewer: null });
+    return NextResponse.json({ error: 'Your signed-in account could not be verified. Please try again.' }, { status: 503, headers });
   }
 }

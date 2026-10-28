@@ -12,15 +12,38 @@ Run these commands from the repository root:
 ```bash
 pnpm install --frozen-lockfile
 cp apps/web/.env.example apps/web/.env.local
+pnpm --filter @leetcode-app/domain build
+pnpm --filter @leetcode-app/database build
+pnpm --filter @leetcode-app/observability build
 pnpm db:up
 pnpm db:bootstrap
 pnpm dev
 ```
 
-Open <http://localhost:3000>. The example file supplies local PostgreSQL settings;
-configure its Supabase URL and publishable key to exercise account features.
-Keep the server database connection private. Guest browser practice is available
-without account configuration, but account synchronization is not.
+Open <http://localhost:3000>. On a fresh clone, build the three shared packages
+first: their exports reference generated files and `pnpm dev` starts only Next.js.
+Rebuild a shared package after editing it, or run its development watcher in a
+separate terminal.
+
+The example defaults to local PostgreSQL and guest development. Leave
+`DATABASE_URL` commented and the two Supabase public Auth values empty for this
+path. A populated `DATABASE_URL` overrides `POSTGRES_*`; placeholder URLs are not
+valid local configuration. Existing checkouts should preserve their environment
+file and review these settings rather than overwriting it.
+
+The local bootstrap creates missing compatibility roles and auth primitives
+inside the Compose PostgreSQL service before applying migrations. It preserves
+existing auth definitions and does not run a Supabase sign-in service. Account
+flows require approved development Supabase Auth and database configuration from
+the maintainer. Guest device practice works without Auth; durable guest sessions
+need PostgreSQL. Keep server credentials private and use synthetic development
+accounts rather than production learner data.
+
+Bootstrap requires a local Docker socket or local named-pipe context and rejects
+network Docker endpoints. It pins the verified endpoint for its Compose commands.
+For custom local `POSTGRES_*` values, export the same settings in the terminal
+running Compose/bootstrap and configure the web environment consistently. Compose
+and bootstrap do not load `apps/web/.env.local` automatically.
 
 ```bash
 pnpm db:status
@@ -34,6 +57,13 @@ existing development seed; repeated runs do not reset the database.
 
 If pnpm tries to download its own pinned version unexpectedly, check the
 repository's manage-package-manager-versions=false setting in .npmrc.
+
+For a first setup check, open /api/health, confirm `pnpm db:status`, then save a
+guest practice draft and reload. Inspect its save status to distinguish a device
+save from a database save. The hosted /api/health/ready probe also requires Auth
+configuration: HTTP 503 with `supabase: missing_configuration` is expected in the
+guest-only setup and does not test database reachability. A disabled code runner
+is also expected in the default setup.
 
 ## Learner workflows
 

@@ -56,9 +56,11 @@ jobs:
       # The web package imports these workspaces through their built exports.
       - run: pnpm --filter @leetcode-app/domain build
       - run: pnpm --filter @leetcode-app/database build
+      - run: pnpm --filter @leetcode-app/observability build
       - run: pnpm --filter web lint
       - run: pnpm --filter web typecheck
       - run: pnpm test:production-health
+      - run: pnpm test:local-bootstrap
       - run: pnpm -r test
       - run: pnpm --filter web build
 

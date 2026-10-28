@@ -60,6 +60,13 @@ connection is unavailable, new work stays in a separate device draft; reconnect
 and explicitly import it to continue in an account. Older unscoped browser drafts
 also require explicit import and are never automatically attached to an account.
 
+After evaluating pseudocode, meeting every reasoning check or at least 80% with
+no conflicting algorithm instruction unlocks continuation. Choose **Continue to
+coding** or **Next practice question**. **Continue anyway** offers manual control
+even before the checks pass; it preserves the feedback and never awards a grade
+or verified completion. That choice is local to the current account, activity,
+and exact draft. Moving to another question first preserves the current work.
+
 Assigned learners can open and submit coding work without passing the optional
 reasoning gate. Workspace saves accept coding-only work with an empty reasoning
 draft, including received test feedback. Submission, verification, instructor
@@ -74,8 +81,8 @@ request status and instructor response.
 
 ## Teaching and administration
 
-Instructors create and manage their own classes at /teach. A class currently
-assigns an existing practice activity with a title, instructions, and optional
+Instructors create and manage their own classes at /teach. A class can
+assign an existing practice activity with a title, instructions, and optional
 due date. The submission inbox supports manual rubric drafts and explicit
 publication; the gradebook shows published totals, coverage, and comparable
 ranks. Instructors can excuse/restore recipients with a reason and resolve grade
@@ -94,6 +101,20 @@ workspace and stay private to authorized authors; saving does not assign them to
 learners or publish grades. Conflicts retain entered work for comparison, and
 retries can recover an unconfirmed save. Starter questions have independent
 automated content review; teacher validation remains outstanding.
+
+On a saved quiz, choose **Load class audience**, select all current learners or
+a subset, review the saved revision and dates, and confirm **Assign quiz**.
+Publication freezes the questions, points, and recipients. Later draft edits and
+class joins do not change that assignment; a later cohort needs a new draft.
+Administrative class-management permission does not grant private-grade access.
+
+Learners open quizzes from /classes, choose answers, and use **Save answers** to
+resume across devices. **Review and submit** shows unanswered questions before
+one final submission. Closing time blocks new saves/submissions; accepted retries
+can still recover their receipts. The owning instructor opens the quiz from the
+class gradebook and explicitly releases its saved score. Learners then see the
+same published score in the quiz receipt and class grades. Answer keys and
+explanations remain private.
 
 Platform administration is separately authorized at /admin. Administration
 roles are stored on the server; instructor signup does not grant them. Authorized

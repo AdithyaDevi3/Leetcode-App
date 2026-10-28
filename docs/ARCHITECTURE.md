@@ -130,6 +130,26 @@ receives an allowlisted question projection without keys, explanations, or
 misconception tags. Immutable scoring snapshots pin reviewed versions and use
 exact integer point arithmetic. Catalog review does not imply teacher validation.
 
+Explicit quiz publication creates a class-private content/version placeholder,
+immutable scoring snapshot, frozen recipient cohort, grade policy, and request
+receipt in one transaction. Generic content reads exclude class-private rows.
+Quiz joins do not backfill recipients; gradebook readers distinguish intentionally
+unassigned learners from missing records within the published cohort.
+
+Recipient-owned answer drafts use optimistic revisions and replayable receipts.
+One final submission atomically writes the typed answers, immutable attempt,
+deterministic scoring evidence, and private grade revision. Database constraints
+validate the score against the pinned snapshot. Current roles, ownership,
+enrollment, applicability, and admission times govern new work; accepted retries
+recheck access without creating another attempt. The existing instructor release
+ledger publishes scores to both gradebooks. MCQ scoring uses no execution worker
+or paid model, and learner responses omit keys and unreleased scores.
+
+Quiz HTTP commands use bounded UTF-8 decoding, reject duplicate JSON keys, and
+allowlist client fields. Expected actor headers protect open tabs after account
+changes. Navigation readiness from pseudocode is separately computed from current
+text; manual continuation does not mark verified completion or award a grade.
+
 ## Code execution and queues
 
 Python 3, C++20, and TypeScript verification use server-owned activity tests.

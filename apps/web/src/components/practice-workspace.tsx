@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from 'next/navigation';
 import {
   Bookmark,
   BookOpen,
@@ -28,7 +29,9 @@ import { evaluationPolicy } from '@/lib/evaluation-policy';
 import { readLocalLearnerProfile } from "@/lib/local-learner";
 import { recordLocalPracticeEvidence } from '@/lib/local-mastery';
 import { recordLocalPracticeCompletion } from "@/lib/local-practice-history";
-import { readBrowserStorage, writeBrowserStorage } from "@/lib/safe-browser-storage";
+import { readBrowserStorage, removeBrowserStorage, writeBrowserStorage } from "@/lib/safe-browser-storage";
+import { reasoningReadiness } from '@/lib/reasoning-progression';
+import { readPracticeCache, writePracticeCache } from '@/lib/practice-cache';
 import {
   buildCodeFromPlanForLanguage,
   codingLanguageLabel,
@@ -44,6 +47,7 @@ import {
 } from "@/lib/practice-session";
 import {
   readCachedPracticeSessionId,
+  syncPracticeSession,
   type PracticeSyncStatus,
 } from "@/lib/practice-sync";
 import { useViewer } from '@/lib/use-viewer';
@@ -68,6 +72,7 @@ export function PracticeWorkspace({ assignmentRecipientId = null }: { assignment
 }
 
 function OwnedPracticeWorkspace({ scope, assignmentRecipientId }: { scope: string; assignmentRecipientId: string | null }) {
+  const router = useRouter();
   const [activeAssignmentRecipientId, setActiveAssignmentRecipientId] = useState(assignmentRecipientId);
   const [activePracticeId, setActivePracticeId] = useState(defaultPracticeItem.id);
   const [draft, setDraft] = useState("");
@@ -93,17 +98,34 @@ function OwnedPracticeWorkspace({ scope, assignmentRecipientId }: { scope: strin
   const [showReferenceAnswer, setShowReferenceAnswer] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [localRestoreComplete, setLocalRestoreComplete] = useState(false);
+  const [manualReasoningDraft, setManualReasoningDraft] = useState<string | null>(null);
+  const [movingOn, setMovingOn] = useState(false);
+  const [continuationMessage, setContinuationMessage] = useState<string | null>(null);
   const viewer = useViewer();
   const activePracticeItem = getPracticeItem(activePracticeId);
   const blockOptions = activePracticeItem.blockOptions;
   const activePracticeNumber = practiceItems.findIndex((item) => item.id === activePracticeItem.id) + 1;
   const trace = activePracticeItem.trace;
   const verificationGeneration = useRef(0);
+  const workspaceMounted = useRef(true);
   const liveWorkspace = useRef({ practiceId: activePracticeItem.id, draft, code, language: codingLanguage, mode });
 
   useEffect(() => {
     liveWorkspace.current = { practiceId: activePracticeItem.id, draft, code, language: codingLanguage, mode };
   }, [activePracticeItem.id, draft, code, codingLanguage, mode]);
+
+  useEffect(() => {
+    workspaceMounted.current = true;
+    return () => { workspaceMounted.current = false; verificationGeneration.current += 1; };
+  }, []);
+
+  const overrideKey = `method:reasoning-continue:${scope}:${activePracticeItem.id}`;
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setManualReasoningDraft(readBrowserStorage(overrideKey) === draft ? draft : null);
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [overrideKey, draft]);
 
   useEffect(() => {
     const timer = window.setInterval(() => setElapsedSeconds((seconds) => seconds + 1), 1000);
@@ -159,11 +181,13 @@ function OwnedPracticeWorkspace({ scope, assignmentRecipientId }: { scope: strin
     : splitDraftIntoBlocks(draft);
 
   const updateDraft = (nextDraft: string) => {
+    liveWorkspace.current = { ...liveWorkspace.current, draft: nextDraft };
     setDraft(nextDraft);
     setEvaluationStatus('idle');
     setEvaluationJobId(null);
     setEvaluationMessage(null);
     setEvaluation(null);
+    setContinuationMessage(null);
     setCodeGrade(null);
     setCodeChecked(false);
     setCompleted(false);
@@ -204,14 +228,21 @@ function OwnedPracticeWorkspace({ scope, assignmentRecipientId }: { scope: strin
 
   const evaluationFindings = evaluation?.findings ?? evaluatePseudocode("", activePracticeItem.id).findings;
   const approved = evaluation?.approved ?? false;
-  const canAccessCoding = approved || Boolean(activeAssignmentRecipientId);
+  // Re-check the current text so an old restored result cannot unlock a changed plan.
+  const readiness = useMemo(() => evaluation ? reasoningReadiness(evaluatePseudocode(draft, activePracticeId)) : 'unevaluated', [evaluation, draft, activePracticeId]);
+  const reasoningReady = readiness === 'optimal' || readiness === 'close';
+  const manualContinuation = manualReasoningDraft === draft;
+  const canAccessCoding = reasoningReady || manualContinuation || Boolean(activeAssignmentRecipientId);
+  const nextPracticeItem = practiceItems[activePracticeNumber] ?? null;
 
   useEffect(() => {
     if (!evaluationJobId || (evaluationStatus !== 'queued' && evaluationStatus !== 'running')) return;
+    let current = true;
     const timer = window.setInterval(() => {
       void fetch(`/api/practice/sessions/${readCachedPracticeSessionId(activePracticeItem.id, scope)}/evaluate/${evaluationJobId}`)
         .then((response) => response.ok ? response.json() : Promise.reject(new Error('Evaluation status unavailable')))
         .then((body: { status: 'queued' | 'running' | 'completed' | 'failed' | 'canceled'; result?: { evaluation?: Evaluation }; error?: string }) => {
+          if (!current) return;
           if (body.status === 'completed') {
             const nextEvaluation = body.result?.evaluation ?? null;
             setEvaluation(nextEvaluation);
@@ -223,14 +254,17 @@ function OwnedPracticeWorkspace({ scope, assignmentRecipientId }: { scope: strin
           else if (body.status === 'canceled') { setEvaluationStatus('canceled'); setEvaluationMessage('Evaluation canceled. Your draft is still saved.'); }
           else setEvaluationStatus(body.status);
         })
-        .catch(() => { setEvaluationStatus('failed'); setEvaluationMessage('Unable to check evaluation progress. Retry when you are online.'); });
+        .catch(() => { if (current) { setEvaluationStatus('failed'); setEvaluationMessage('Unable to check evaluation progress. Retry when you are online.'); } });
     }, evaluationPolicy.pollingIntervalMs);
-    return () => window.clearInterval(timer);
-  }, [activePracticeItem, evaluationJobId, evaluationStatus, scope]);
+    return () => { current = false; window.clearInterval(timer); };
+  }, [activePracticeItem, draft, evaluationJobId, evaluationStatus, scope]);
 
   const submitEvaluation = async () => {
     if (!draft.trim() || evaluationStatus === 'queued' || evaluationStatus === 'running') return;
     const localEvaluation = evaluatePseudocode(draft, activePracticeItem.id);
+    const evaluated = { practiceId: activePracticeItem.id, draft, generation: verificationGeneration.current };
+    const stillCurrent = () => workspaceMounted.current && verificationGeneration.current === evaluated.generation
+      && liveWorkspace.current.practiceId === evaluated.practiceId && liveWorkspace.current.draft === evaluated.draft;
     setEvaluation(localEvaluation);
     recordLocalPracticeEvidence({ item: activePracticeItem, reasoningScore: localEvaluation.score });
     const sessionId = readCachedPracticeSessionId(activePracticeItem.id, scope);
@@ -249,8 +283,10 @@ function OwnedPracticeWorkspace({ scope, assignmentRecipientId }: { scope: strin
         throw new Error('Evaluation request failed');
       }
       const body = await response.json() as { jobId: string; status: 'queued' | 'running' | 'completed' };
+      if (!stillCurrent()) return;
       setEvaluationJobId(body.jobId); setEvaluationStatus(body.status);
     } catch (error) {
+      if (!stillCurrent()) return;
       setEvaluationStatus('failed');
       setEvaluation(localEvaluation);
       setEvaluationMessage(error instanceof Error ? `${error.message} Your on-device evaluation is still available.` : 'Unable to save the evaluation. Your on-device result is still available.');
@@ -419,6 +455,9 @@ function OwnedPracticeWorkspace({ scope, assignmentRecipientId }: { scope: strin
     setSavedAt("Ready");
     setSyncStatus("ready");
     setElapsedSeconds(0);
+    setManualReasoningDraft(null);
+    setContinuationMessage(null);
+    removeBrowserStorage(overrideKey);
   };
 
   const switchPracticeItem = (practiceId: string) => {
@@ -443,6 +482,33 @@ function OwnedPracticeWorkspace({ scope, assignmentRecipientId }: { scope: strin
     setSavedAt("Ready");
     setSyncStatus("ready");
     setElapsedSeconds(0);
+    setManualReasoningDraft(null);
+    setContinuationMessage(null);
+  };
+
+  const continueToNextPractice = async () => {
+    if (movingOn || !nextPracticeItem || activeAssignmentRecipientId || (!reasoningReady && !manualContinuation)) return;
+    setMovingOn(true); setContinuationMessage('Saving your work before continuing…');
+    const snapshot = { ...liveWorkspace.current };
+    const cache = readPracticeCache(activePracticeItem.id, scope);
+    const keptLocally = writePracticeCache(activePracticeItem.id, scope, { version: 2, base: null, ...cache, state: workspaceState });
+    try {
+      const hasWork = Boolean(draft || evaluation || codeGrade || code !== defaultCode(activePracticeItem.codeFunction, activePracticeItem.codeSignature, codingLanguage));
+      const result = hasWork ? await syncPracticeSession({ contentId: activePracticeItem.id, scope, draft, currentStage: 'implement', state: workspaceState }) : null;
+      const latest = liveWorkspace.current;
+      if (!workspaceMounted.current || Object.entries(snapshot).some(([key, value]) => latest[key as keyof typeof latest] !== value)) {
+        if (workspaceMounted.current) setContinuationMessage('Your latest edit stays here. Continue again after reviewing it.');
+        return;
+      }
+      if (result?.status === 'conflict') { persistence.retry(); setContinuationMessage('Your saved work changed elsewhere. Resolve the preserved draft conflict before continuing.'); return; }
+      if (hasWork && result?.status !== 'saved' && !keptLocally) { setContinuationMessage('Could not preserve this draft. Save or copy your work before continuing.'); return; }
+      writeBrowserStorage(`${selectedPracticeItemKey}:${scope}`, nextPracticeItem.id);
+      router.push(`/practice?problem=${encodeURIComponent(nextPracticeItem.id)}`);
+    } catch {
+      if (!workspaceMounted.current) return;
+      // A failed owner check must never advance into another account's workspace.
+      setContinuationMessage('Your draft is preserved here. Retry saving before continuing.');
+    } finally { if (workspaceMounted.current) setMovingOn(false); }
   };
 
   return (
@@ -777,16 +843,25 @@ function OwnedPracticeWorkspace({ scope, assignmentRecipientId }: { scope: strin
               {canAccessCoding ? (
                 <div className="approved-panel">
                   {approved ? <Code2 size={19} /> : <Check size={19} />}
-                  <strong>{approved ? 'Implementation unlocked' : 'Assignment coding is open'}</strong>
-                  <p>{approved ? `Your approved reasoning stays visible while you translate it into ${codingLanguageLabel(codingLanguage)}.` : 'You can work directly on this assigned implementation. Reasoning feedback remains available but does not block your submission.'}</p>
+                  <strong>{reasoningReady ? readiness === 'optimal' ? 'Implementation unlocked' : 'Close enough to continue' : manualContinuation ? 'Continued manually' : 'Assignment coding is open'}</strong>
+                  <p>{reasoningReady ? readiness === 'optimal' ? `Your reasoning meets every check and stays visible while you translate it into ${codingLanguageLabel(codingLanguage)}.` : 'At least 80% of the reasoning checks pass with no conflicting algorithm instruction. You can move on and revisit the remaining feedback.' : manualContinuation ? 'You chose to continue. Your reasoning feedback and verified code result stay separate.' : 'You can work directly on this assigned implementation. Reasoning feedback remains available but does not block your submission.'}</p>
                 </div>
               ) : (
                 <div className="locked-panel">
                   <LockKeyhole size={19} />
                   <strong>Coding stays quiet for now</strong>
-                  <p>Pass the critical reasoning checks, or complete this as pseudocode-only practice.</p>
+                  <p>Get close to an implementation-ready plan, or use the manual continue option below.</p>
                 </div>
               )}
+              <section className="study-capture" aria-label="Continue practice">
+                <h3 className="font-bold">Your next step</h3>
+                {!reasoningReady && !manualContinuation ? <button className="button secondary" type="button" onClick={() => { writeBrowserStorage(overrideKey, draft); setManualReasoningDraft(draft); setContinuationMessage('Manual continuation enabled. Your feedback is unchanged.'); }}>Continue anyway</button> : null}
+                {canAccessCoding ? <div className="flex flex-wrap gap-3">
+                  <button className="button secondary" type="button" onClick={() => { document.getElementById('coding-workspace')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); document.querySelector<HTMLTextAreaElement>('.code-editor')?.focus({ preventScroll: true }); }}>Continue to coding</button>
+                  {!activeAssignmentRecipientId && (reasoningReady || manualContinuation) ? nextPracticeItem ? <button className="button" type="button" disabled={movingOn} onClick={() => void continueToNextPractice()}>{movingOn ? 'Saving and continuing…' : 'Next practice question'}</button> : <Link className="button" href="/roadmap">Return to roadmap</Link> : null}
+                </div> : null}
+                {continuationMessage ? <p className="study-status" role="status" aria-label="Practice continuation status">{continuationMessage}</p> : null}
+              </section>
               <section className="study-capture" aria-labelledby="study-capture-title">
                 <div className="study-capture-heading">
                   <div>

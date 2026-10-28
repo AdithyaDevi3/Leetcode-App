@@ -84,7 +84,7 @@ export default async function AdminClassDetailPage({ params, searchParams }: {
         <thead><tr><th className={adminTableHeadClass}>Task</th><th className={adminTableHeadClass}>Activity</th><th className={adminTableHeadClass}>Due</th><th className={adminTableHeadClass}>Completed</th></tr></thead>
         <tbody>{assignments.map((item) => <tr key={item.id}>
           <td className={adminTableCellClass}><strong className="block">{item.title}</strong>{item.instructions ? <span className="mt-1 block text-xs text-[var(--muted)]">{item.instructions}</span> : null}</td>
-          <td className={adminTableCellClass}>{practiceItems.find((activity) => activity.id === item.activitySlug)?.label ?? item.activitySlug}</td>
+          <td className={adminTableCellClass}>{item.assignmentKind === 'quiz' ? 'Multiple-choice quiz' : practiceItems.find((activity) => activity.id === item.activitySlug)?.label ?? item.activitySlug}</td>
           <td className={adminTableCellClass}>{formatDueDate(item.dueOn)}</td>
           <td className={adminTableCellClass}>{item.completedCount} / {classroom.learnerCount}</td>
         </tr>)}</tbody>

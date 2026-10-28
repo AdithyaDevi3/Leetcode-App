@@ -7,5 +7,5 @@ export default async function PracticePage({ searchParams }: { searchParams: Pro
   const problem = params.problem;
   const assignment = params.assignment;
   if (typeof problem === 'string' && !findPracticeItem(problem)) notFound();
-  return <PracticeWorkspace assignmentRecipientId={typeof assignment === 'string' ? assignment : null} />;
+  return <PracticeWorkspace key={`${typeof problem === 'string' ? problem : 'selected'}:${typeof assignment === 'string' ? assignment : 'practice'}`} assignmentRecipientId={typeof assignment === 'string' ? assignment : null} />;
 }

@@ -7,6 +7,7 @@ import type { AssessmentDraftInput, StoredAssessmentDraft } from '@leetcode-app/
 import type { LearnerQuestion } from '@leetcode-app/domain';
 import { AdminBadge, AdminSection } from '@/components/admin/admin-ui';
 import { assessmentDraftForm, assessmentFormInput, displayAssessmentPoints, type AssessmentDraftForm } from '@/lib/assessment-draft-form';
+import { AssessmentPublicationPanel } from './assessment-publication-panel';
 
 const field = 'min-h-11 w-full rounded-md border border-[var(--line)] bg-white px-3 font-normal focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--moss)]';
 const secondary = 'min-h-11 rounded-md border border-[var(--line)] bg-[var(--surface)] px-3 text-sm font-bold text-[var(--ink)] disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--moss)]';
@@ -134,6 +135,7 @@ export function AssessmentDraftEditor({ classId, authorId, workspace, questions,
     {message ? <p role={error ? 'alert' : 'status'} aria-label={error ? 'Quiz draft error' : 'Quiz draft status'} className={`rounded-lg border p-4 text-sm ${error ? 'border-[var(--coral)] bg-[var(--coral-soft)]' : 'border-[var(--moss)] bg-[var(--moss-soft)]'}`}>{message}</p> : null}
     {conflict ? <p className="text-sm"><Link className="font-bold text-[var(--moss)] underline" href={editUrl ?? basePath} target="_blank" rel="noopener noreferrer">{editUrl ? 'Open latest saved draft in a new tab' : 'Reopen class workspace'}</Link>. Your edits remain in this tab for comparison.</p> : null}
     {recovery ? <details className="rounded-xl border border-[var(--line)] p-4"><summary>Recover a different browser draft</summary><p className="text-sm">The server has a newer revision. Restore this browser copy only if you want to use it as your next edit.</p><button className={secondary} type="button" onClick={() => { setForm(recovery); setRecovery(null); }}>Restore browser draft</button></details> : null}
+    {stored ? <AssessmentPublicationPanel key={`${authorId}:${stored.id}:${stored.revision}`} draft={stored} authorId={authorId} workspace={workspace} blocked={dirty || conflict || busy || hasPending || !cacheReady} /> : <p className="text-sm text-[var(--muted)]">Save this draft to choose a class audience and assign the quiz.</p>}
     <fieldset disabled={busy} className="space-y-6">
       <AdminSection title="Quiz details" description="Give learners a clear title and instructions."><div className="grid gap-4 p-5 sm:grid-cols-2 sm:p-6">
         <label className="grid gap-1.5 text-sm font-bold sm:col-span-2">Quiz title<input className={field} minLength={3} maxLength={160} value={form.title} onChange={event => setForm(current => ({ ...current, title: event.target.value }))} /></label>

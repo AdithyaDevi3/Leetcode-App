@@ -4,6 +4,25 @@ Contributions should improve a complete learner or instructor workflow and keep
 main deployable. Start with [usage](docs/USAGE.md), [architecture](docs/ARCHITECTURE.md),
 and [development conventions](docs/CONVENTIONS.md).
 
+## First development session
+
+1. Read [README](README.md) for the product and [usage](docs/USAGE.md#local-setup)
+   for the local setup. Build the shared workspaces before starting development.
+2. Explore guest practice: describe an approach, evaluate it, edit and reload the
+   draft, then open the dashboard and roadmap. Leave sandbox execution disabled.
+3. Read [architecture](docs/ARCHITECTURE.md), then trace one workflow through its
+   UI, API, domain policy, and repository using the map below.
+4. Run focused tests for that area. Database tests need Docker; browser tests need
+   a production build and installed Chromium as described in
+   [validation](docs/CONVENTIONS.md#validation).
+5. Ask the maintainer for approved development account access and privately shared
+   project goals, delivery history, and roadmap context before choosing larger work.
+
+Distinguish an editable draft, accepted submission, verified result, published
+academic grade, and learning estimate. A manual continuation button does not award
+a grade. A browser save does not establish account persistence. Account estimates
+use server evidence; guest estimates remain local.
+
 ## Choose work
 
 Check open issues, pull requests, and existing code before starting. Use an
@@ -17,7 +36,9 @@ maintained locally and are not part of the public documentation contract.
 | Learning content and roadmap | apps/web/src/lib/content.ts, apps/web/src/lib/roadmap.ts |
 | Practice and feedback | apps/web/src/components/practice-workspace.tsx, practice APIs, evaluator fixtures |
 | Code verification | apps/web/src/lib/code-grading.ts, apps/web/src/lib/sandbox |
-| Profiles and recommendations | Learner APIs, learner-continuity and local-mastery modules |
+| Account learning and reviews | apps/web/src/lib/learning-api.ts, packages/domain/src/learning-evidence.ts, database learning-evidence repository |
+| Guest continuity and profiles | apps/web/src/lib/learner-continuity.ts, local-learner and local-mastery modules |
+| Quiz authoring and question bank | apps/web/src/lib/question-bank.server.ts, assessment-draft and quiz-assignment repositories |
 | Classes and grading | /teach, /classes, classroom and gradebook repositories |
 | Authentication and administration | apps/web/src/lib/auth, apps/web/src/lib/admin |
 | Persistence | packages/database/src, packages/database/migrations |
@@ -51,6 +72,8 @@ issue without publishing detailed internal plans.
 Use forward migrations for schema changes. Do not rewrite published migrations,
 silently reinterpret historical grades, or expose hidden tests and answer keys.
 Keep provider calls behind adapters and avoid paid services in default tests.
+Local bootstrap changes also need `pnpm test:local-bootstrap`; the database suite
+verifies compatibility setup against disposable PostgreSQL, without real accounts.
 
 ## Documentation and sensitive material
 

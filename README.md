@@ -4,13 +4,16 @@ Method is a pseudocode-first algorithm learning application. Learners describe
 an approach, receive deterministic feedback, and optionally verify Python 3,
 C++20, or TypeScript code against server-owned tests.
 
-The current application includes ten original practice activities, a 48-question
-algorithm/system-design analysis roadmap, guest drafts, account persistence,
-profiles, recommendations, and spaced reviews. Some learning estimates remain
-device-local. Instructors can create classes, assign existing activities, review
-submissions, and publish rubric grades. Learners can inspect their published
-grades and request review. A separate role-scoped administration portal manages
-platform operations and classes.
+The application includes ten original coding activities, a 48-question analysis
+roadmap, and a 20-question multiple-choice bank. Guests can practice locally;
+signed-in learners retain their work and receive explained recommendations and
+spaced reviews from released quiz results and newly verified practice.
+
+Instructors and authorized administrators can draft and assign quizzes to a class
+or selected enrolled learners. Learners save answers, submit once, and see scores
+after instructor release. Coding assignments, rubric grades, corrections, and
+grade-review requests have separate durable histories. Administration permissions
+remain separate from access to private grades.
 
 ## Public documentation
 
@@ -36,14 +39,19 @@ From the repository root:
 ```bash
 pnpm install --frozen-lockfile
 cp apps/web/.env.example apps/web/.env.local
+pnpm --filter @leetcode-app/domain build
+pnpm --filter @leetcode-app/database build
+pnpm --filter @leetcode-app/observability build
 pnpm db:up
 pnpm db:bootstrap
 pnpm dev
 ```
 
-Open <http://localhost:3000>. Guest UI exploration works without a hosted Auth
-configuration; account features need the documented Supabase settings. Keep code
-execution disabled for ordinary local development.
+Open <http://localhost:3000>. The example defaults to local guest development;
+leave Auth values blank and the hosted database URL commented for this path.
+Account features need approved development Supabase settings. Keep code execution
+disabled for ordinary local development. New contributors should follow the
+[first development session](CONTRIBUTING.md#first-development-session).
 
 ```bash
 pnpm docs:check

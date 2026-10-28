@@ -25,6 +25,7 @@ and [CONTRIBUTING.md](../CONTRIBUTING.md) for selecting and delivering work.
 ```bash
 pnpm docs:check
 pnpm test:docs
+pnpm test:local-bootstrap
 pnpm --filter web lint
 pnpm --filter web typecheck
 pnpm -r test
@@ -32,8 +33,17 @@ pnpm --filter web build
 pnpm --filter web test:e2e
 ```
 
-pnpm preflight runs the repository release gate, including the documentation
-boundary. Use focused checks while iterating. Database changes need meaningful
+Build the domain and database workspaces before typechecking a fresh clone, as
+shown in [local setup](USAGE.md#local-setup). Before the first browser run, install
+Chromium with `pnpm --filter web exec playwright install chromium` and complete
+`pnpm --filter web build`. The browser runner starts the built standalone server;
+it does not build the app or install a browser. Linux environments may also need
+the Playwright system dependencies used in CI.
+
+pnpm preflight installs dependencies and runs the full repository release gate,
+including builds, database suites, and browser tests. It needs Docker and the
+browser prerequisites; it is not a lightweight check. Use focused checks while
+iterating. Database changes need meaningful
 integration evidence against an ephemeral PostgreSQL instance. API changes need
 ownership, validation, and failure coverage; learner flows need browser evidence.
 Evaluator changes need gold-set regressions and scrutiny of false acceptances.

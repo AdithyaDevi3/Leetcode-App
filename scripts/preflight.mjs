@@ -27,7 +27,8 @@ function run(label, command, args, options = {}) {
 
 const docsOk = run("Public documentation boundary", "node", ["scripts/check-public-docs.mjs"]);
 const docsTestsOk = run("Documentation boundary tests", "node", ["--test", "scripts/check-public-docs.test.mjs"]);
-if (!docsOk || !docsTestsOk) {
+const localBootstrapOk = run("Local database bootstrap tests", "node", ["--test", "scripts/local-db-bootstrap.test.mjs"]);
+if (!docsOk || !docsTestsOk || !localBootstrapOk) {
   printSummary();
   process.exit(1);
 }
@@ -52,6 +53,9 @@ const databaseBuildOk = run("Build database workspace", "pnpm", [
   "@leetcode-app/database",
   "build",
 ]);
+const observabilityBuildOk = run("Build observability workspace", "pnpm", [
+  "--filter", "@leetcode-app/observability", "build",
+]);
 const lintOk = run("Lint", "pnpm", ["--filter", "web", "lint"]);
 
 const typecheckOk = run("Type check", "pnpm", ["--filter", "web", "typecheck"]);
@@ -68,8 +72,10 @@ printSummary();
 const allPassed = [
   docsOk,
   docsTestsOk,
+  localBootstrapOk,
   domainBuildOk,
   databaseBuildOk,
+  observabilityBuildOk,
   lintOk,
   typecheckOk,
   testOk,

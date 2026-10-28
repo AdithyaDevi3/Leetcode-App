@@ -67,7 +67,10 @@ async function connect(page: Page, state: Model) {
 }
 
 const capture = async (page: Page, name: string) => {
-  if (process.env.METHOD_CAPTURE_UI === '1') await page.screenshot({ path: `../../.local-docs/e4-${name}.png`, fullPage: true });
+  if (process.env.METHOD_CAPTURE_UI === '1') {
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.screenshot({ path: `../../.local-docs/e4-${name}.png`, fullPage: true });
+  }
 };
 
 test('first account practice is diagnostic and unknown evidence is never presented as a zero or weakness', async ({ page }) => {
@@ -272,6 +275,7 @@ async function connectDashboard(page: Page, identity: () => string | null) {
 test('dashboard focus switches account plans while preserving profile, progress, history, and settings navigation', async ({ page }) => {
   let owner: string | null = first;
   const state = model(); await connect(page, state); await connectDashboard(page, () => owner);
+  await page.addInitScript(value => localStorage.setItem('leetcode-app.local-learner-profile.v1', JSON.stringify(value)), profile);
   await page.goto(`${fixture}?view=dashboard`);
   await expect(page.getByText('42/100', { exact: false })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Progress you can build on' })).toBeVisible();
@@ -364,7 +368,7 @@ test('account settings opt-out persists to the account and changes the real dash
   await page.getByRole('button', { name: 'Save settings', exact: true }).click();
   await expect(page.getByText('Settings saved.', { exact: true })).toBeVisible();
   expect(writes).toHaveLength(1); expect(writes[0]).toMatchObject({ personalizationOptOut: true });
-  await page.getByRole('link', { name: 'Dashboard', exact: true }).click();
+  await page.getByRole('navigation', { name: 'Learner navigation', exact: true }).getByRole('link', { name: 'Dashboard', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Follow the standard curriculum' })).toBeVisible();
   await expect(page.getByRole('list', { name: 'Concept estimates' })).toHaveCount(0);
   await expect(page.getByText('Device practice plan', { exact: false })).toHaveCount(0);
@@ -381,7 +385,7 @@ test('switching accounts in settings blocks the old consent edits from being sav
   await page.getByLabel('Weekly minutes', { exact: true }).fill('45');
   await page.getByRole('checkbox', { name: /Turn off personalization/ }).check();
   owner = second; await page.evaluate(() => window.dispatchEvent(new Event('focus')));
-  await expect(page.getByRole('alert')).toContainText('Your signed-in account changed');
+  await expect(page.getByRole('alert').filter({ hasText: 'Your signed-in account changed' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Save settings', exact: true })).toBeHidden();
   expect(writes).toBe(0);
   await page.getByRole('link', { name: 'Reload settings', exact: true }).click();
@@ -394,7 +398,7 @@ test('guest settings retain device preferences and do not send account consent w
   await connectDashboard(page, () => null);
   let writes = 0;
   await page.route('**/api/learner/profile', route => { if (route.request().method() === 'PUT') writes += 1; return route.fulfill({ status: 401, json: { error: 'Sign in first.' } }); });
-  await page.addInitScript(value => localStorage.setItem('leetcode-app.local-learner-profile.v1', JSON.stringify(value)), profile);
+  await page.addInitScript(value => { if (!localStorage.getItem('leetcode-app.local-learner-profile.v1')) localStorage.setItem('leetcode-app.local-learner-profile.v1', JSON.stringify(value)); }, profile);
   await page.goto('/settings');
   await page.getByRole('checkbox', { name: /Turn off personalized recommendations/ }).check();
   await page.getByRole('button', { name: 'Save settings', exact: true }).click();
@@ -407,7 +411,7 @@ test('guest settings retain device preferences and do not send account consent w
 test('an authentication outage does not turn account settings into a guest consent form', async ({ page }) => {
   await page.route('**/api/viewer', route => route.fulfill({ status: 503, json: { error: 'Authentication is unavailable.' } }));
   await page.goto('/settings');
-  await expect(page.getByRole('alert')).toContainText('could not verify your signed-in account');
+  await expect(page.getByRole('alert').filter({ hasText: 'could not verify your signed-in account' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Retry account check' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Save settings', exact: true })).toHaveCount(0);
   await expect(page.getByRole('checkbox', { name: /Turn off personalized recommendations/ })).toHaveCount(0);

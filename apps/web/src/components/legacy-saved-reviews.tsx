@@ -66,8 +66,8 @@ function OwnedSavedReviews({ learnerId }: { learnerId: string }) {
       const saved = body.review;
       setReviews(current => current?.map(item => item.id === review.id ? saved : item) ?? null);
       setMessage('Review moved to tomorrow. Your streak is unchanged.');
-    } catch (cause) {
-      if (alive.current) { setUncertain(true); setError(cause instanceof Error ? cause.message : 'Reload the saved schedule to check whether the reminder changed.'); }
+    } catch {
+      if (alive.current) { setUncertain(true); setError('The reminder change could not be confirmed. Reload the saved schedule before changing it again.'); }
     } finally {
       inFlight.current = false;
       if (alive.current) setBusy(false);

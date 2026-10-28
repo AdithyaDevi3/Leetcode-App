@@ -1,3 +1,5 @@
+import { MULTIPLE_CHOICE_SCORING_VERSION } from './question-bank.js';
+
 /** Points are stored in hundredths. Percentages are rounded only for display. */
 export const GRADE_POINT_SCALE = 100;
 export const GRADEBOOK_CALCULATION_VERSION = 'points-v1';
@@ -11,6 +13,7 @@ export type AssignmentGradePolicy = Readonly<{
   attemptPolicy: 'latest' | 'best';
   scoring:
     | Readonly<{ mode: 'verified_completion'; verifierVersionId: string }>
+    | Readonly<{ mode: 'multiple_choice'; scoringVersion: typeof MULTIPLE_CHOICE_SCORING_VERSION; attemptLimit: 1; releasePolicy: 'instructor'; audience: 'frozen' }>
     | Readonly<{ mode: 'reviewed_rubric'; rubricVersionId: string; criteria: readonly GradeCriterion[] }>;
 }>;
 
@@ -102,6 +105,12 @@ export function freezeAssignmentGradePolicy(policy: AssignmentGradePolicy): Assi
   if (!['latest', 'best'].includes(policy.attemptPolicy)) throw new Error('Unsupported attempt policy');
   if (policy.scoring.mode === 'verified_completion') {
     identifier(policy.scoring.verifierVersionId);
+    return Object.freeze({ ...policy, scoring: Object.freeze({ ...policy.scoring }) });
+  }
+  if (policy.scoring.mode === 'multiple_choice') {
+    if (policy.scoring.scoringVersion !== MULTIPLE_CHOICE_SCORING_VERSION || policy.scoring.attemptLimit !== 1
+      || policy.scoring.releasePolicy !== 'instructor' || policy.scoring.audience !== 'frozen'
+      || policy.attemptPolicy !== 'latest' || policy.maxUnits > 1_000_000) throw new Error('Unsupported multiple-choice policy');
     return Object.freeze({ ...policy, scoring: Object.freeze({ ...policy.scoring }) });
   }
   if (policy.scoring.mode !== 'reviewed_rubric') throw new Error('Unsupported scoring mode');

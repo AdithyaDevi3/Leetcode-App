@@ -50,6 +50,8 @@ export { ASSIGNMENT_VERIFIER_VERSION, PostgresGradebookRepository, GradebookAcce
 export type { GradebookPrincipal, AssignmentResponse, StoredGradebookAttempt, StoredGradebookGrade, StoredGradebookPublication, StoredGradebookApplicability, GradebookDisputeStatus, StoredGradebookDisputeEvent, GradebookRecipientHistory, ManualReviewStatus, ManualReviewInboxItem, ManualReviewInboxPage, GradeDisputeInboxItem, ClassGradebookCell, ClassGradebookLearner, ClassGradebook, LearnerClassGradeAssignment, LearnerClassGrades } from './repositories/gradebook.repository.js';
 export { PostgresGradebookVerificationRepository } from './repositories/gradebook-verification.repository.js';
 export type { GradebookVerificationJob, GradebookVerificationQueueMetrics, GradebookVerificationSummary } from './repositories/gradebook-verification.repository.js';
+export { PostgresQuizAssignmentRepository, QuizAssignmentAccessError, QuizAssignmentConflictError, QuizAssignmentValidationError } from './repositories/quiz-assignment.repository.js';
+export type { QuizAnswers, QuizAssignmentPrincipal, QuizAudience, StoredQuizPublication, QuizAuthorDraft, QuizAnswerDraft, QuizAnswerSave, QuizSubmissionReceipt, LearnerQuizAssignment, InstructorQuizAssignment } from './repositories/quiz-assignment.repository.js';
 
 // Classroom repository
 export { PostgresAssessmentDraftRepository, AssessmentDraftAccessError, AssessmentDraftConflictError, AssessmentDraftValidationError } from './repositories/assessment-draft.repository.js';

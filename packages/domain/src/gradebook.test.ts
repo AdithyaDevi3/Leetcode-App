@@ -32,6 +32,17 @@ describe('exact grade points', () => {
 });
 
 describe('frozen assignment policies', () => {
+  it('pins one frozen-audience MCQ submission and explicit grade release with exact partial points', () => {
+    const input: AssignmentGradePolicy = { ...policy('quiz', 333), scoring: { mode: 'multiple_choice', scoringVersion: 'multiple-choice-v1', attemptLimit: 1, releasePolicy: 'instructor', audience: 'frozen' } };
+    const pinned = freezeAssignmentGradePolicy(input);
+    expect(Object.isFrozen(pinned.scoring)).toBe(true);
+    expect(calculateGradebook([pinned], [learner('student', [cell('quiz', scored(111))])])[0].publishedTotal).toMatchObject({ earnedUnits: 111, possibleUnits: 333, percentage: '33.33' });
+    for (const invalid of [{ scoringVersion: 'changed-v2' }, { attemptLimit: 2 }, { releasePolicy: 'automatic' }, { audience: 'rolling' }]) {
+      expect(() => freezeAssignmentGradePolicy({ ...input, scoring: { ...input.scoring, ...invalid } } as AssignmentGradePolicy)).toThrow('Unsupported');
+    }
+    expect(() => freezeAssignmentGradePolicy({ ...input, attemptPolicy: 'best' })).toThrow();
+    expect(() => freezeAssignmentGradePolicy({ ...input, maxUnits: 1_000_001 })).toThrow();
+  });
   it('isolates and freezes criteria as well as the policy', () => {
     const input = policy('a');
     const frozen = freezeAssignmentGradePolicy(input);

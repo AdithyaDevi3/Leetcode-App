@@ -30,6 +30,8 @@ export type LearnerQuestion = Readonly<{
   options: readonly Readonly<{ id: string; text: string }>[];
 }>;
 export type QuizQuestionSelection = Readonly<{ question: QuestionVersion; maxUnits: number }>;
+export type QuizAnswers = Readonly<Record<string, string | null>>;
+export type MultipleChoiceAssignmentResponse = Readonly<{ kind: 'multiple_choice'; answers: QuizAnswers; text?: never; language?: never }>;
 export type MultipleChoiceQuizSnapshot = Readonly<{
   scoringVersion: typeof MULTIPLE_CHOICE_SCORING_VERSION;
   maxUnits: number;
@@ -200,4 +202,10 @@ export function scoreMultipleChoiceQuiz(snapshot: MultipleChoiceQuizSnapshot, an
   });
   return Object.freeze({ scoringVersion: MULTIPLE_CHOICE_SCORING_VERSION, earnedUnits, maxUnits: validated.maxUnits,
     answeredCount, correctCount, totalQuestions: validated.questions.length, items: Object.freeze(items) });
+}
+
+/** Canonical full response for durable saves; omitted answers become explicit nulls. */
+export function freezeMultipleChoiceAnswers(snapshot: MultipleChoiceQuizSnapshot, answers: unknown): QuizAnswers {
+  const score = scoreMultipleChoiceQuiz(snapshot, answers);
+  return Object.freeze(Object.fromEntries(score.items.map(item => [item.questionVersionId, item.selectedOptionId])));
 }

@@ -24,8 +24,12 @@ export class InstructorGradebookValidationError extends Error {
   }
 }
 
+export class InstructorGradebookOwnerError extends Error {
+  constructor() { super('Your account changed. Reopen the gradebook before publishing.'); this.name = 'InstructorGradebookOwnerError'; }
+}
+
 export async function withInstructorGradebook<T>(
-  operation: (repository: PostgresGradebookRepository) => Promise<T>,
+  operation: (repository: PostgresGradebookRepository, instructor: { id: string }) => Promise<T>,
 ): Promise<T> {
   const session = await getSession();
   if (!session) throw new InstructorGradebookAuthError(401);
@@ -33,7 +37,7 @@ export async function withInstructorGradebook<T>(
   try {
     const result = await db.query<{ role: string }>('SELECT role FROM users WHERE id = $1', [session.user.id]);
     if (!['instructor', 'admin'].includes(result.rows[0]?.role)) throw new InstructorGradebookAuthError(403);
-    return await operation(new PostgresGradebookRepository(db, { role: 'instructor', userId: session.user.id }));
+    return await operation(new PostgresGradebookRepository(db, { role: 'instructor', userId: session.user.id }), session.user);
   } finally {
     await db.close();
   }
@@ -41,6 +45,7 @@ export async function withInstructorGradebook<T>(
 
 export function instructorGradebookError(error: unknown): { status: number; body: { error: string } } {
   if (error instanceof InstructorGradebookAuthError) return { status: error.status, body: { error: error.message } };
+  if (error instanceof InstructorGradebookOwnerError) return { status: 409, body: { error: error.message } };
   if (error instanceof InstructorGradebookValidationError || error instanceof SyntaxError) return { status: 400, body: { error: 'Invalid request' } };
   if (error instanceof GradebookAccessError) return { status: 404, body: { error: 'Submission not found' } };
   if (error instanceof GradebookConflictError) return { status: 409, body: { error: 'Submission changed; refresh and try again' } };

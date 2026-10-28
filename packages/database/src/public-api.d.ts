@@ -11,6 +11,8 @@ export { ASSIGNMENT_VERIFIER_VERSION, GradebookAccessError, GradebookConflictErr
 export type { GradebookPrincipal, AssignmentResponse, StoredGradebookAttempt, StoredGradebookGrade, StoredGradebookPublication, StoredGradebookApplicability, GradebookDisputeStatus, StoredGradebookDisputeEvent, GradebookRecipientHistory, ManualReviewStatus, ManualReviewInboxItem, ManualReviewInboxPage, GradeDisputeInboxItem, ClassGradebookCell, ClassGradebookLearner, ClassGradebook, LearnerClassGradeAssignment, LearnerClassGrades } from './repositories/gradebook.repository.js';
 export { PostgresGradebookVerificationRepository } from './repositories/gradebook-verification.repository.js';
 export type { GradebookVerificationJob, GradebookVerificationQueueMetrics, GradebookVerificationSummary } from './repositories/gradebook-verification.repository.js';
+export { PostgresQuizAssignmentRepository, QuizAssignmentAccessError, QuizAssignmentConflictError, QuizAssignmentValidationError } from './repositories/quiz-assignment.repository.js';
+export type { QuizAnswers, QuizAssignmentPrincipal, QuizAudience, StoredQuizPublication, QuizAuthorDraft, QuizAnswerDraft, QuizAnswerSave, QuizSubmissionReceipt, LearnerQuizAssignment, InstructorQuizAssignment } from './repositories/quiz-assignment.repository.js';
 
 export class PostgresGradebookRepository {
   constructor(db: DatabaseClient, principal: GradebookPrincipal);
@@ -59,6 +61,7 @@ export interface ClassroomSummary {
 }
 
 export interface ClassAssignment {
+  assignmentKind?: 'problem' | 'quiz';
   id: string;
   classId: string;
   title: string;
@@ -93,6 +96,12 @@ export interface StudentClassroom {
 }
 
 export interface StudentAssignment {
+  assignmentKind?: 'problem' | 'quiz';
+  availableAt?: string | null;
+  dueAt?: string | null;
+  closesAt?: string | null;
+  submittedAt?: string | null;
+  quizStatus?: 'not_started' | 'in_progress' | 'submitted' | 'published';
   id: string;
   classId: string;
   className: string;

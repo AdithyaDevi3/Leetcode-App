@@ -6,7 +6,7 @@ import { Repository, EntityNotFoundError, OptimisticConcurrencyError, mapDatabas
 export interface ContentItem {
   id: string;
   slug: string;
-  type: 'lesson' | 'problem' | 'module';
+  type: 'lesson' | 'problem' | 'module' | 'quiz';
   status: 'draft' | 'published' | 'archived';
   difficulty: 'beginner' | 'intermediate' | 'advanced';
   estimatedMinutes: number;
@@ -53,7 +53,7 @@ export class PostgresContentRepository implements ContentRepository {
   async findById(id: string, client?: PoolClient): Promise<ContentItem | null> {
     const executor = client || this.db.getPool();
     const result = await executor.query<ContentItem>(
-      'SELECT * FROM content_items WHERE id = $1',
+      'SELECT * FROM content_items WHERE id = $1 AND NOT class_private',
       [id]
     );
     return result.rows[0] ? mapDatabaseRow<ContentItem>(result.rows[0]) : null;
@@ -62,7 +62,7 @@ export class PostgresContentRepository implements ContentRepository {
   async findBySlug(slug: string, client?: PoolClient): Promise<ContentItem | null> {
     const executor = client || this.db.getPool();
     const result = await executor.query<ContentItem>(
-      'SELECT * FROM content_items WHERE slug = $1',
+      'SELECT * FROM content_items WHERE slug = $1 AND NOT class_private',
       [slug]
     );
     return result.rows[0] ? mapDatabaseRow<ContentItem>(result.rows[0]) : null;
@@ -71,7 +71,7 @@ export class PostgresContentRepository implements ContentRepository {
   async findAll(client?: PoolClient): Promise<ContentItem[]> {
     const executor = client || this.db.getPool();
     const result = await executor.query<ContentItem>(
-      'SELECT * FROM content_items ORDER BY created_at DESC'
+      'SELECT * FROM content_items WHERE NOT class_private ORDER BY created_at DESC'
     );
     return mapDatabaseRows<ContentItem>(result.rows);
   }
@@ -145,6 +145,7 @@ export class PostgresContentRepository implements ContentRepository {
     const result = await executor.query<ContentVersion>(
       `SELECT * FROM content_versions
        WHERE content_id = $1
+       AND EXISTS (SELECT 1 FROM content_items ci WHERE ci.id = content_id AND NOT ci.class_private)
        ORDER BY version DESC
        LIMIT 1`,
       [contentId]
@@ -155,7 +156,7 @@ export class PostgresContentRepository implements ContentRepository {
   async getVersion(contentId: string, version: number, client?: PoolClient): Promise<ContentVersion | null> {
     const executor = client || this.db.getPool();
     const result = await executor.query<ContentVersion>(
-      'SELECT * FROM content_versions WHERE content_id = $1 AND version = $2',
+      'SELECT * FROM content_versions WHERE content_id = $1 AND version = $2 AND EXISTS (SELECT 1 FROM content_items ci WHERE ci.id = content_id AND NOT ci.class_private)',
       [contentId, version]
     );
     return result.rows[0] ? mapDatabaseRow<ContentVersion>(result.rows[0]) : null;

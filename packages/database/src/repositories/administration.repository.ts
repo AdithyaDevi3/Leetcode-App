@@ -198,6 +198,7 @@ export class PostgresAdministrationRepository {
         ORDER BY cv.version DESC
         LIMIT 1
       ) latest ON true
+      WHERE NOT ci.class_private
       ORDER BY ci.updated_at DESC
       LIMIT $1
     `, [Math.max(1, Math.min(limit, 100))]);

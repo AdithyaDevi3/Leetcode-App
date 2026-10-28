@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   freezeQuestionVersion, freezeQuizQuestionSelection, questionVersionKey, reviewQuestionVersion,
   retireQuestionVersion, scoreMultipleChoiceQuiz, submitQuestionForReview, toLearnerQuestion,
-  type QuestionVersion,
+  freezeMultipleChoiceAnswers, type QuestionVersion,
 } from './question-bank';
 
 const authoredAt = '2026-10-26T10:00:00.000Z';
@@ -21,6 +21,18 @@ function input() {
 function reviewed(overrides: Partial<QuestionVersion> = {}): QuestionVersion {
   return reviewQuestionVersion(submitQuestionForReview(freezeQuestionVersion({ ...input(), ...overrides })), review);
 }
+
+it('canonicalizes saved choices in pinned order with explicit blanks and rejects foreign option or question keys', () => {
+  const snapshot = freezeQuizQuestionSelection([{ question: reviewed(), maxUnits: 125 }]);
+  const answers = freezeMultipleChoiceAnswers(snapshot, {});
+  expect(answers).toEqual({ 'pair-distinct-indices@1': null });
+  expect(Object.isFrozen(answers)).toBe(true);
+  expect(scoreMultipleChoiceQuiz(snapshot, answers).earnedUnits).toBe(0);
+  expect(freezeMultipleChoiceAnswers(snapshot, { 'pair-distinct-indices@1': 'lookup' })).toEqual({ 'pair-distinct-indices@1': 'lookup' });
+  expect(() => freezeMultipleChoiceAnswers(snapshot, { 'pair-distinct-indices@1': 'foreign' })).toThrow('unknown option');
+  expect(() => freezeMultipleChoiceAnswers(snapshot, { 'pair-distinct-indices@2': 'lookup' })).toThrow('unassigned');
+  expect(() => freezeMultipleChoiceAnswers(snapshot, { 'pair-distinct-indices@1': { correctOptionId: 'lookup' } })).toThrow();
+});
 
 describe('versioned question validation and review', () => {
   it('validates identities and isolates a deeply frozen version from later author edits', () => {

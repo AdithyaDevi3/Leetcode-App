@@ -1,5 +1,7 @@
 // Client
 export { DatabaseClient, createDatabaseClient, databaseConfigFromEnv } from './client.js';
+export { PostgresLearningEvidenceRepository, LearningEvidenceAccessError, LearningEvidenceConflictError, LearningEvidenceValidationError } from './repositories/learning-evidence.repository.js';
+export type { LearningReviewReceipt } from './repositories/learning-evidence.repository.js';
 export type { DatabaseConfig } from './client.js';
 
 // Base repository types

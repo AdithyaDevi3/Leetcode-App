@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { practiceCacheKey, readPracticeCache, writePracticeCache, reconcilePracticeCache, type PracticeCache } from './practice-cache';
+import { practiceCacheKey, readPracticeCache, writePracticeCache, reconcilePracticeCache, samePracticeWork, type PracticeCache } from './practice-cache';
 import type { PracticeSessionState } from './practice-session';
 const state: PracticeSessionState = { draft: 'Base approach.', mode: 'text', language: 'python', code: 'pass', codeChecked: false, completed: false, evaluation: null, codeGrade: null };
 const remote = { sessionId: 'session-1', revision: 5, latestRevisionNumber: 2, state, draft: state.draft };
@@ -27,5 +27,13 @@ describe('owner-scoped practice recovery', () => {
   });
   it('replays an unresolved receipt before treating a newer revision as a conflict', () => {
     expect(reconcilePracticeCache({ ...local, pending: { requestKey: 'retry-1', sessionId: 'session-1', expectedRevisionNumber: 2, draft: state.draft, currentStage: 'plan', state } }, { ...remote, latestRevisionNumber: 3 })).toBe('local');
+  });
+  it('compares inactive language drafts so a second-device edit cannot be overwritten', () => {
+    const first = { ...state, codeDraftVersion: 1 as const, codeByLanguage: { python: state.code, cpp: 'first implementation' } };
+    const second = { ...first, codeByLanguage: { ...first.codeByLanguage, cpp: 'edited elsewhere' } };
+    expect(samePracticeWork(state, { ...state, codeDraftVersion: 1, codeByLanguage: { python: state.code } })).toBe(true);
+    expect(samePracticeWork(first, second)).toBe(false);
+    expect(reconcilePracticeCache({ ...local, state: first }, { ...remote, latestRevisionNumber: 3, state: second })).toBe('conflict');
+    expect(reconcilePracticeCache({ ...local, state: first, base: { ...local.base!, state: first } }, { ...remote, latestRevisionNumber: 3, state: second })).toBe('remote');
   });
 });

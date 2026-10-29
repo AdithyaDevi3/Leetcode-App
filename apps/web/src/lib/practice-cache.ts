@@ -1,4 +1,4 @@
-import { deserializePracticeSession, type PracticeSessionState } from './practice-session';
+import { codingLanguages, deserializePracticeSession, practiceCodeDrafts, type PracticeSessionState } from './practice-session';
 import { readBrowserStorage, writeBrowserStorage } from './safe-browser-storage';
 import type { RemotePracticeSession } from './practice-sync';
 
@@ -52,8 +52,13 @@ export function writePracticeCache(contentId: string, scope: string, cache: Prac
   const sharedSaved = options.share === false ? false : writeBrowserStorage(key, serialized);
   return ownSaved || sharedSaved;
 }
-export const samePracticeWork = (a: PracticeSessionState | null, b: PracticeSessionState | null) =>
-  a?.draft === b?.draft && a?.code === b?.code && a?.language === b?.language && a?.mode === b?.mode;
+export const samePracticeWork = (a: PracticeSessionState | null, b: PracticeSessionState | null) => {
+  if (a?.draft !== b?.draft || a?.code !== b?.code || a?.language !== b?.language || a?.mode !== b?.mode) return false;
+  if (!a || !b) return a === b;
+  const first = practiceCodeDrafts(a);
+  const second = practiceCodeDrafts(b);
+  return codingLanguages.every(({ value }) => first[value] === second[value]);
+};
 
 /** Reconcile editable work; grading projections can change independently of a draft. */
 export function reconcilePracticeCache(local: PracticeCache | null, remote: RemotePracticeSession): 'local' | 'remote' | 'conflict' {

@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { defaultPracticeItem } from '../src/lib/content';
 
 const pageRoutes = [
   '/',
@@ -32,6 +33,13 @@ async function expectCleanLayout(page: Page) {
     const allControls = Array.from(document.querySelectorAll<HTMLElement>('a[href], button, input, select, textarea'));
     const mobileNavigation = document.querySelector('[aria-label="Mobile navigation"]');
     const underMobileNavigation: number[] = [];
+    const insideWorkspaceScroll: number[] = [];
+    const workspaceScrollPositions = Array.from(document.querySelectorAll<HTMLElement>('.practice-panels *'))
+      .filter(element => /auto|scroll/.test(getComputedStyle(element).overflowY) && element.scrollHeight > element.clientHeight)
+      .map((element, index) => {
+        element.dataset.layoutScrollIndex = String(index);
+        return { index, top: element.scrollTop, left: element.scrollLeft };
+      });
     const controls = allControls
       .filter((element) => {
         const style = window.getComputedStyle(element);
@@ -51,6 +59,21 @@ async function expectCleanLayout(page: Page) {
         const rect = element.getBoundingClientRect();
         const centerX = Math.max(0, Math.min(viewportWidth - 1, rect.left + rect.width / 2));
         const centerY = rect.top + rect.height / 2;
+        // Practice now has bounded, independently scrolling panels. A control
+        // outside its panel viewport must be reachable by scrolling that panel,
+        // rather than being treated as an overlapping on-screen control.
+        if (window.location.pathname === '/practice' && element.closest('.practice-panels')) {
+          for (let parent = element.parentElement; parent?.closest('.practice-panels'); parent = parent.parentElement) {
+            const bounds = parent.getBoundingClientRect();
+            const style = getComputedStyle(parent);
+            if (/auto|scroll/.test(style.overflowY) && (centerY < bounds.top || centerY >= bounds.bottom)) {
+              const index = allControls.indexOf(element);
+              element.dataset.layoutControlIndex = String(index);
+              insideWorkspaceScroll.push(index);
+              return false;
+            }
+          }
+        }
         if (centerY < 0 || centerY >= window.innerHeight) return false;
         const topElement = document.elementFromPoint(centerX, centerY);
         // Persistent navigation clips the scrolling content viewport. Verify
@@ -68,6 +91,8 @@ async function expectCleanLayout(page: Page) {
       outsideViewport,
       obstructed,
       underMobileNavigation,
+      insideWorkspaceScroll,
+      workspaceScrollPositions,
       scrollY: window.scrollY,
     };
   });
@@ -80,6 +105,24 @@ async function expectCleanLayout(page: Page) {
     await control.evaluate(element => element.scrollIntoView({ block: 'center' }));
     await control.click({ trial: true });
   }
+  for (const index of report.insideWorkspaceScroll) {
+    const control = page.locator(`[data-layout-control-index="${index}"]`);
+    await control.evaluate(element => element.scrollIntoView({ block: 'center', inline: 'nearest' }));
+    if (await control.isEnabled()) await control.click({ trial: true });
+    else {
+      expect(await control.evaluate(element => {
+        const bounds = element.getBoundingClientRect();
+        const top = document.elementFromPoint(bounds.left + bounds.width / 2, bounds.top + bounds.height / 2);
+        return top === element || element.contains(top);
+      }), 'Disabled workspace controls must still be visible without overlap').toBe(true);
+    }
+  }
+  await page.evaluate(positions => {
+    for (const { index, top, left } of positions) {
+      const element = document.querySelector<HTMLElement>(`[data-layout-scroll-index="${index}"]`);
+      if (element) element.scrollTo({ top, left });
+    }
+  }, report.workspaceScrollPositions);
   if (report.underMobileNavigation.length) await page.evaluate(y => window.scrollTo(0, y), report.scrollY);
 }
 
@@ -109,6 +152,7 @@ for (const viewport of [
 
       if (hasMobileMenu) await page.getByRole('button', { name: 'Close menu' }).click();
 
+      if (route === '/practice') await expect(page.locator('.code-editor-frame[data-editor-ready="true"]').first()).toBeVisible();
       await expectCleanLayout(page);
       if (route === '/' || route === '/practice') {
         await page.screenshot({ path: testInfo.outputPath(`${route === '/' ? 'landing' : 'practice'}-${viewport.name}.png`), fullPage: true });
@@ -172,7 +216,7 @@ test('shared navigation performs a reliable document navigation', async ({ page 
   await expect(page).toHaveURL(/\/practice$/);
   await expect(page.locator('html')).not.toHaveAttribute('data-navigation-sentinel');
   await expect(
-    page.getByRole('heading', { level: 1, name: 'Remember what you have seen' }),
+    page.getByRole('heading', { level: 1, name: defaultPracticeItem.problem.title }),
   ).toBeVisible();
 });
 

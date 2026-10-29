@@ -26,6 +26,18 @@ describe('trusted verification restoration', () => {
       .toMatchObject({ ...edited, codeGrade: null, codeChecked: false, completed: false });
   });
 
+  it('retains other language drafts without assigning a verified pass to them', () => {
+    const codeByLanguage = { python: snapshot.source, cpp: 'int answer() { return 7; }' };
+    const saved = { ...state, codeDraftVersion: 1, codeByLanguage };
+    expect(restoreVerifiedWorkspace({ verification: snapshot, workspaceState: saved }, 'pair-with-target-v1'))
+      .toMatchObject({ codeByLanguage, codeGrade: snapshot.grade, codeChecked: true });
+    expect(restoreVerifiedWorkspace({ verification: snapshot, workspaceState: {
+      ...saved, language: 'cpp', code: codeByLanguage.cpp, codeChecked: true, completed: true, codeGrade: snapshot.grade,
+    } }, 'pair-with-target-v1')).toMatchObject({
+      language: 'cpp', code: codeByLanguage.cpp, codeByLanguage, codeGrade: null, codeChecked: false, completed: false,
+    });
+  });
+
   it('ignores malformed or cross-activity verification data and preserves legacy drafts', () => {
     expect(readPracticeVerification(snapshot, 'other-activity')).toBeNull();
     expect(readPracticeVerification({ ...snapshot, grade: {} }, 'pair-with-target-v1')).toBeNull();

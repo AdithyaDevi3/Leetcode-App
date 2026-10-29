@@ -4,6 +4,13 @@ import { astProgramToBlocks, blockModelToDraft, draftToBlockModel } from "./ast-
 
 export type EditorMode = "text" | "blocks";
 export type CodingLanguage = "python" | "cpp" | "typescript";
+export type PracticeCodeDrafts = Partial<Record<CodingLanguage, string>>;
+
+export const practiceWorkspaceLimits = {
+  serializedCharacters: 250_000,
+  sourceBytes: 100_000,
+  combinedSourceBytes: 200_000,
+} as const;
 
 export const codingLanguages: Array<{ value: CodingLanguage; label: string; runtime: string }> = [
   { value: "python", label: "Python 3", runtime: "python3" },
@@ -23,6 +30,44 @@ export type PracticeSessionState = {
   completed: boolean;
   evaluation: Evaluation | null;
   codeGrade: CodeGrade | null;
+  /** Additive editor metadata. `code` remains authoritative for the active language. */
+  codeDraftVersion?: 1;
+  codeByLanguage?: PracticeCodeDrafts;
+};
+
+/** Legacy snapshots acquire their active draft without requiring a destructive migration. */
+export const practiceCodeDrafts = (state: Pick<PracticeSessionState, 'code' | 'language' | 'codeByLanguage'>): PracticeCodeDrafts => ({
+  ...state.codeByLanguage,
+  [state.language]: state.code,
+});
+
+/** Shared browser/API preflight. Reject oversized work explicitly; never truncate a draft. */
+export const practiceWorkspaceValidationError = (state: unknown): string | null => {
+  if (!state || typeof state !== 'object' || Array.isArray(state)) return 'Workspace state is invalid.';
+  const candidate = state as Partial<PracticeSessionState>;
+  if (candidate.codeByLanguage !== undefined || candidate.codeDraftVersion !== undefined) {
+    if (candidate.codeDraftVersion !== 1 || !candidate.codeByLanguage || typeof candidate.codeByLanguage !== 'object'
+      || Array.isArray(candidate.codeByLanguage)) return 'Language drafts have an unsupported format.';
+    if (typeof candidate.code !== 'string' || !['python', 'cpp', 'typescript'].includes(candidate.language ?? '')) {
+      return 'Language drafts require a supported active language and source.';
+    }
+    const encoder = new TextEncoder();
+    const entries = Object.entries(candidate.codeByLanguage);
+    if (entries.some(([language, source]) => !['python', 'cpp', 'typescript'].includes(language) || typeof source !== 'string')) {
+      return 'Language drafts contain an unsupported language or source.';
+    }
+    const sources = { ...candidate.codeByLanguage, ...(typeof candidate.code === 'string'
+      && ['python', 'cpp', 'typescript'].includes(candidate.language ?? '') ? { [candidate.language!]: candidate.code } : {}) };
+    const sourceSizes = Object.values(sources).map(source => encoder.encode(source).byteLength);
+    if (sourceSizes.some(size => size > practiceWorkspaceLimits.sourceBytes)) return 'A language draft exceeds the 100 KB source limit. Your current work has not been replaced.';
+    if (sourceSizes.reduce((total, size) => total + size, 0) > practiceWorkspaceLimits.combinedSourceBytes) {
+      return 'The language drafts exceed the combined 200 KB source limit. Your current work has not been replaced.';
+    }
+  }
+  try {
+    if (JSON.stringify(state).length > practiceWorkspaceLimits.serializedCharacters) return 'Workspace state exceeds the save limit. Your current work has not been replaced.';
+  } catch { return 'Workspace state is invalid.'; }
+  return null;
 };
 
 export const sessionStorageKey = (problemId: string) => `method:${problemId}:session`;
@@ -170,27 +215,36 @@ export const serializePracticeSession = (state: PracticeSessionState) => JSON.st
 
 export const deserializePracticeSession = (value: string): PracticeSessionState | null => {
   try {
+    if (value.length > practiceWorkspaceLimits.serializedCharacters) return null;
     const parsed = JSON.parse(value) as Partial<PracticeSessionState>;
     if (
+      !parsed || typeof parsed !== 'object' || Array.isArray(parsed) ||
       typeof parsed.draft !== "string" ||
       (parsed.mode !== "text" && parsed.mode !== "blocks") ||
       typeof parsed.code !== "string" ||
       typeof parsed.codeChecked !== "boolean" ||
-      typeof parsed.completed !== "boolean"
+      typeof parsed.completed !== "boolean" ||
+      practiceWorkspaceValidationError(parsed)
     ) {
       return null;
     }
 
-    return {
+    const language = parsed.language === "python" || parsed.language === "cpp" ? parsed.language : "typescript";
+    const restored: PracticeSessionState = {
       draft: parsed.draft,
       mode: parsed.mode,
-      language: parsed.language === "python" || parsed.language === "cpp" ? parsed.language : "typescript",
+      language,
       code: parsed.code,
       codeChecked: parsed.codeChecked,
       completed: parsed.completed && isCodeGrade(parsed.codeGrade) && parsed.codeGrade.passed,
       evaluation: parsed.evaluation && isEvaluation(parsed.evaluation) ? parsed.evaluation : null,
       codeGrade: isCodeGrade(parsed.codeGrade) ? parsed.codeGrade : null,
+      ...(parsed.codeByLanguage ? {
+        codeDraftVersion: 1 as const,
+        codeByLanguage: practiceCodeDrafts({ code: parsed.code, language, codeByLanguage: parsed.codeByLanguage }),
+      } : {}),
     };
+    return practiceWorkspaceValidationError(restored) ? null : restored;
   } catch {
     return null;
   }

@@ -137,6 +137,46 @@ describe('durable coding-only practice', () => {
     expect(after.rows).toEqual(before.rows);
   });
 
+  it('round-trips all language drafts through account revisions and source-bound verification', async () => {
+    const { owner, sessionId } = await createVerificationSession();
+    const codeByLanguage = { python: source, cpp: 'int answer() { return 7; }', typescript: 'const answer = () => 7;' };
+    const state: PracticeSessionState = { ...workspace(source), codeDraftVersion: 1, codeByLanguage };
+    await appendPracticeRevision({ owner, sessionId, draft: '', workspaceState: state });
+    const request = await beginPracticeVerification({ owner, sessionId, language: 'python', source });
+    await finishPracticeVerification({ owner, sessionId, requestId: request.requestId, grade: verificationGrade(true) });
+    const resumed = await startOrResumePracticeSession({ owner, contentId: 'pair-with-target-v1' });
+    expect(resumed.session.sessionMetadata.workspaceState).toMatchObject({
+      code: source, language: 'python', codeDraftVersion: 1, codeByLanguage, codeChecked: true, completed: true,
+    });
+    const switched = { ...state, code: codeByLanguage.cpp, language: 'cpp' as const };
+    await appendPracticeRevision({ owner, sessionId, draft: '', workspaceState: switched });
+    const next = await startOrResumePracticeSession({ owner, contentId: 'pair-with-target-v1' });
+    expect(next.session.sessionMetadata.workspaceState).toMatchObject({
+      ...switched, codeGrade: null, codeChecked: false, completed: false,
+    });
+    expect(next.session.sessionMetadata.verification).toMatchObject({ source, language: 'python', grade: verificationGrade(true) });
+  });
+
+  it('preserves other languages from older clients and accepts an explicit versioned reset', async () => {
+    const { owner, sessionId } = await createVerificationSession();
+    const cpp = 'int answer() { return 7; }';
+    await appendPracticeRevision({ owner, sessionId, draft: '', workspaceState: {
+      ...workspace(source), codeDraftVersion: 1, codeByLanguage: { python: source, cpp },
+    } });
+    const edited = 'def find_pair(values, target):\n    return []';
+    const legacyInput = { owner, sessionId, draft: '', workspaceState: workspace(edited), expectedRevisionNumber: 1, requestKey: 'legacy-tab-save' };
+    const receipt = await appendPracticeRevision(legacyInput);
+    const resumed = await startOrResumePracticeSession({ owner, contentId: 'pair-with-target-v1' });
+    expect(resumed.session.sessionMetadata.workspaceState).toMatchObject({ code: edited,
+      codeDraftVersion: 1, codeByLanguage: { python: edited, cpp } });
+    const reset = { ...workspace('def find_pair(values, target):\n    pass'), codeDraftVersion: 1 as const, codeByLanguage: { python: 'def find_pair(values, target):\n    pass' } };
+    await appendPracticeRevision({ owner, sessionId, draft: '', workspaceState: reset, expectedRevisionNumber: 2 });
+    await expect(appendPracticeRevision(legacyInput)).resolves.toEqual(receipt);
+    const after = await startOrResumePracticeSession({ owner, contentId: 'pair-with-target-v1' });
+    expect(after.session.sessionMetadata.workspaceState).toMatchObject(reset);
+    expect((after.session.sessionMetadata.workspaceState as PracticeSessionState).codeByLanguage).not.toHaveProperty('cpp');
+  });
+
   it('persists partial-test feedback without completing practice or scheduling reviews', async () => {
     const { owner, sessionId } = await createVerificationSession();
     const request = await beginPracticeVerification({ owner, sessionId, language: 'python', source });

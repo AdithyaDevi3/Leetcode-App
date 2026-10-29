@@ -83,6 +83,23 @@ signed-in dashboard estimates use account evidence across devices. A local save
 message does not establish account synchronization. Check the workspace's save status
 before changing devices; if persistence fails, retain the draft and retry.
 
+The practice workspace has separate **Approach**, **Feedback**, and **Code & test**
+stages. Stage navigation and browser Back/Forward retain the current draft.
+On desktop, drag the dividers or focus them and use arrow keys to resize the
+problem, editor and results panels. **Reset layout** restores their sizes.
+On phones, use **Problem**, **Workspace** and **Results** to switch panels.
+The context tabs keep the problem, current approach, feedback and notes available.
+Other pages remain reachable through the workspace's **More** menu.
+
+The editor supports Tab to indent, Shift+Tab to outdent, language-aware Enter,
+undo/redo, search, wrapping, font size and two/four-space indentation. Press
+Escape, then Tab or Shift+Tab to move keyboard focus out of the editor.
+**Reindent selection** adjusts whitespace; it does not repair program logic.
+Python, C++ and TypeScript keep separate saved source drafts. Resetting a session
+or replacing edited code with a plan asks for confirmation and retains a recovery
+copy. A language change clears the active verification display; run verification
+for the selected source. These editor features require no additional paid service.
+
 The signed-in dashboard uses released, eligible quiz results and newly recorded
 practice verification to suggest activities and explain **Why this question?**
 Concept estimates show evidence coverage and a model range; unknown concepts

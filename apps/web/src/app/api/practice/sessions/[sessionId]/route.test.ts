@@ -140,4 +140,38 @@ describe('/api/practice/sessions/[sessionId]', () => {
     }
     expect(appendPracticeRevision).not.toHaveBeenCalled();
   });
+
+  it('saves every supported language draft without trusting a stale active map entry', async () => {
+    getPracticeOwner.mockResolvedValue({ kind: 'user', id: 'user-1' });
+    appendPracticeRevision.mockResolvedValue({ revision: { revisionNumber: 1 } });
+    const workspace = {
+      draft: '', mode: 'text', language: 'python', code: 'def answer():\n    return 7',
+      codeChecked: false, completed: false, evaluation: null, codeGrade: null,
+      codeDraftVersion: 1, codeByLanguage: { python: 'stale copy', cpp: 'int answer() { return 7; }', typescript: 'const answer = () => 7;' },
+    };
+    const { POST } = await import('./route');
+    const response = await POST(new Request('http://localhost', {
+      method: 'POST', body: JSON.stringify({ draft: '', state: workspace }),
+    }), { params: Promise.resolve({ sessionId: 'session-1' }) });
+    expect(response.status).toBe(201);
+    expect(appendPracticeRevision).toHaveBeenCalledWith(expect.objectContaining({ workspaceState: {
+      ...workspace, codeByLanguage: { ...workspace.codeByLanguage, python: workspace.code },
+    } }));
+  });
+
+  it('rejects unsupported and oversized language drafts before writing', async () => {
+    getPracticeOwner.mockResolvedValue({ kind: 'user', id: 'user-1' });
+    const { POST } = await import('./route');
+    const workspace = {
+      draft: '', mode: 'text', language: 'python', code: 'pass',
+      codeChecked: false, completed: false, evaluation: null, codeGrade: null, codeDraftVersion: 1,
+    };
+    for (const codeByLanguage of [{ ruby: 'puts 7' }, { cpp: 7 }, { cpp: 'é'.repeat(50_001) }]) {
+      const response = await POST(new Request('http://localhost', {
+        method: 'POST', body: JSON.stringify({ draft: '', state: { ...workspace, codeByLanguage } }),
+      }), { params: Promise.resolve({ sessionId: 'session-1' }) });
+      expect(response.status).toBe(400);
+    }
+    expect(appendPracticeRevision).not.toHaveBeenCalled();
+  });
 });

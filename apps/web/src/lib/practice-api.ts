@@ -2,7 +2,7 @@ import { createDatabaseClient, databaseConfigFromEnv } from '@leetcode-app/datab
 import { evaluatePseudocode } from './evaluator';
 import { toPersistedContentId } from './content-id';
 import { fromPersistedContentId } from './content-id';
-import type { PracticeSessionState } from './practice-session';
+import { deserializePracticeSession, practiceCodeDrafts, practiceWorkspaceValidationError, type PracticeSessionState } from './practice-session';
 import { getPracticeItem } from './content';
 import { createReviewStore } from './review-store';
 import { restoreVerifiedWorkspace } from './practice-verification-state';
@@ -223,6 +223,17 @@ export async function appendPracticeRevision(
       if (input.expectedRevisionNumber !== undefined && input.expectedRevisionNumber !== nextRevisionNumber - 1) {
         throw new PracticeRevisionConflict(nextRevisionNumber - 1);
       }
+      let workspaceState = input.workspaceState;
+      // A tab opened before the editor upgrade cannot silently erase other languages.
+      const previousState = session.session_metadata.workspaceState
+        ? deserializePracticeSession(JSON.stringify(session.session_metadata.workspaceState)) : null;
+      if (workspaceState && workspaceState.codeDraftVersion === undefined && previousState?.codeByLanguage) {
+        workspaceState = { ...workspaceState, codeDraftVersion: 1,
+          codeByLanguage: { ...practiceCodeDrafts(previousState), [workspaceState.language]: workspaceState.code } };
+        if (practiceWorkspaceValidationError(workspaceState)) {
+          throw new PracticeRevisionConflict(nextRevisionNumber - 1, 'workspace_capacity');
+        }
+      }
       const result: AppendPracticeRevisionResult = {
         revision: {
           sessionId: session.id, revisionNumber: nextRevisionNumber, sessionRevision: session.revision + 1,
@@ -232,7 +243,7 @@ export async function appendPracticeRevision(
         },
       };
       const metadata = { ...session.session_metadata, draft: normalizedDraft, currentStage: stage,
-        ...(input.workspaceState ? { workspaceState: input.workspaceState } : {}),
+        ...(workspaceState ? { workspaceState } : {}),
         ...(input.requestKey ? { saveReceipts: [...receipts, { requestKey: input.requestKey, fingerprint, result }].slice(-64) } : {}),
       };
       await client.query(

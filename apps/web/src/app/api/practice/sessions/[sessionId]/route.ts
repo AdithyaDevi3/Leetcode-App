@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getPracticeOwner } from '@/lib/auth/session';
 import { appendPracticeRevision } from '@/lib/practice-api';
-import { deserializePracticeSession } from '@/lib/practice-session';
+import { deserializePracticeSession, practiceWorkspaceLimits, practiceWorkspaceValidationError } from '@/lib/practice-session';
 import { practiceOwnerMatches, PracticeRevisionConflict } from '@/lib/practice-sync-contract';
 
 export async function POST(
@@ -31,9 +31,11 @@ export async function POST(
     }
 
     const serializedState = body.state === undefined ? null : JSON.stringify(body.state);
-    if (serializedState && serializedState.length > 250_000) {
+    if (serializedState && serializedState.length > practiceWorkspaceLimits.serializedCharacters) {
       return NextResponse.json({ error: 'workspace state is too large' }, { status: 400 });
     }
+    const workspaceError = body.state === undefined ? null : practiceWorkspaceValidationError(body.state);
+    if (workspaceError) return NextResponse.json({ error: workspaceError }, { status: 400 });
     const workspaceState = serializedState ? deserializePracticeSession(serializedState) : undefined;
     if (body.state !== undefined && !workspaceState) {
       return NextResponse.json({ error: 'workspace state is invalid' }, { status: 400 });

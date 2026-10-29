@@ -18,6 +18,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const viewer = useViewer();
   const [menuOpen, setMenuOpen] = useState(false);
+  if (pathname === '/practice') return <ShellContext.Provider value={true}><a className="skip-link" href="#page-content">Skip to content</a><div id="page-content" tabIndex={-1}>{children}</div></ShellContext.Provider>;
   if (pathname === '/' || pathname === '/auth' || pathname.startsWith('/admin')) return children;
   const title = groups.flatMap(group => group.items).find(item => item.href === pathname)?.label ?? 'Your account';
   return <ShellContext.Provider value={true}><div className="learner-shell">

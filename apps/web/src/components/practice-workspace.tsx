@@ -53,6 +53,11 @@ import {
 import { useViewer } from '@/lib/use-viewer';
 import { usePracticeOwner } from '@/lib/use-practice-owner';
 import { usePracticePersistence } from '@/lib/use-practice-persistence';
+import { CodeEditor, type CodeEditorHandle } from '@/components/code-editor';
+import { PracticePanels, type PracticePanel } from '@/components/practice-panels';
+import { parsePracticeStage, practiceStageUrl, type PracticeStage } from '@/lib/practice-view';
+import { practiceCodeDrafts, practiceWorkspaceValidationError } from '@/lib/practice-session';
+import './practice-workspace.css';
 
 const formatElapsed = (seconds: number) => {
   const minutes = Math.floor(seconds / 60);
@@ -101,6 +106,13 @@ function OwnedPracticeWorkspace({ scope, assignmentRecipientId }: { scope: strin
   const [manualReasoningDraft, setManualReasoningDraft] = useState<string | null>(null);
   const [movingOn, setMovingOn] = useState(false);
   const [continuationMessage, setContinuationMessage] = useState<string | null>(null);
+  const [stage, setStage] = useState<PracticeStage>('approach');
+  const [mobilePanel, setMobilePanel] = useState<PracticePanel>('task');
+  const [contextTab, setContextTab] = useState<'problem' | 'approach' | 'feedback' | 'notes'>('problem');
+  const [codeByLanguage, setCodeByLanguage] = useState<PracticeSessionState['codeByLanguage']>();
+  const [editorMessage, setEditorMessage] = useState<string | null>(null);
+  const codeEditor = useRef<CodeEditorHandle>(null);
+  const stageHeading = useRef<HTMLHeadingElement>(null);
   const viewer = useViewer();
   const activePracticeItem = getPracticeItem(activePracticeId);
   const blockOptions = activePracticeItem.blockOptions;
@@ -109,6 +121,24 @@ function OwnedPracticeWorkspace({ scope, assignmentRecipientId }: { scope: strin
   const verificationGeneration = useRef(0);
   const workspaceMounted = useRef(true);
   const liveWorkspace = useRef({ practiceId: activePracticeItem.id, draft, code, language: codingLanguage, mode });
+
+  const changeStage = (next: PracticeStage) => {
+    if (next !== stage) window.history.pushState(null, '', practiceStageUrl(window.location.href, next));
+    setStage(next);
+    setMobilePanel('task');
+    window.requestAnimationFrame(() => stageHeading.current?.focus({ preventScroll: true }));
+  };
+
+  useEffect(() => {
+    const readStage = () => {
+      setStage(parsePracticeStage(new URLSearchParams(window.location.search).get('stage'), Boolean(assignmentRecipientId)));
+      setMobilePanel('task');
+    };
+    const timer = window.setTimeout(readStage, 0);
+    const onPopState = () => { readStage(); window.requestAnimationFrame(() => stageHeading.current?.focus({ preventScroll: true })); };
+    window.addEventListener('popstate', onPopState);
+    return () => { window.clearTimeout(timer); window.removeEventListener('popstate', onPopState); };
+  }, [assignmentRecipientId]);
 
   useEffect(() => {
     liveWorkspace.current = { practiceId: activePracticeItem.id, draft, code, language: codingLanguage, mode };
@@ -158,22 +188,27 @@ function OwnedPracticeWorkspace({ scope, assignmentRecipientId }: { scope: strin
 
   const workspaceState = useMemo<PracticeSessionState>(() => ({
     draft, mode, language: codingLanguage, code, codeChecked, completed, evaluation, codeGrade,
-  }), [draft, mode, codingLanguage, code, codeChecked, completed, evaluation, codeGrade]);
+    ...(codeByLanguage ? { codeDraftVersion: 1, codeByLanguage: { ...codeByLanguage, [codingLanguage]: code } } : {}),
+  }), [draft, mode, codingLanguage, code, codeChecked, completed, evaluation, codeGrade, codeByLanguage]);
   const restoreWorkspace = useCallback((state: PracticeSessionState) => {
     verificationGeneration.current += 1;
     setDraft(state.draft); setMode(state.mode); setCodingLanguage(state.language);
     setCode(state.code); setCodeChecked(state.codeChecked); setCompleted(state.completed);
     setEvaluation(state.evaluation); setCodeGrade(state.codeGrade);
+    setCodeByLanguage(state.codeByLanguage); setEditorMessage(null);
+    setEvaluationJobId(null); setEvaluationStatus(state.evaluation ? 'completed' : 'idle'); setEvaluationMessage(null);
+    setExecutionStatus('idle'); setExecutionOutput('');
   }, []);
   const persistenceStatus = useCallback((label: string, status: PracticeSyncStatus, revision?: number) => {
     setSavedAt(label); setSyncStatus(status);
     if (revision !== undefined) setRemoteRevision(revision);
   }, []);
+  const hasWorkspaceWork = Boolean(draft || mode !== 'text' || code !== defaultCode(activePracticeItem.codeFunction, activePracticeItem.codeSignature, codingLanguage) || evaluation || codeGrade || codeByLanguage);
   const persistence = usePracticePersistence({
     scope, contentId: activePracticeItem.id, state: workspaceState, enabled: localRestoreComplete,
     restore: restoreWorkspace, status: persistenceStatus,
     generation: verificationGeneration,
-    hasWork: Boolean(draft || mode !== 'text' || code !== defaultCode(activePracticeItem.codeFunction, activePracticeItem.codeSignature, codingLanguage) || evaluation || codeGrade),
+    hasWork: hasWorkspaceWork,
   });
 
   const blocks = mode === "blocks"
@@ -181,6 +216,10 @@ function OwnedPracticeWorkspace({ scope, assignmentRecipientId }: { scope: strin
     : splitDraftIntoBlocks(draft);
 
   const updateDraft = (nextDraft: string) => {
+    if (nextDraft.length > 50_000) { setEditorMessage('The approach exceeds the 50,000 character save limit. Your current work has not been replaced.'); return false; }
+    const error = practiceWorkspaceValidationError({ ...workspaceState, draft: nextDraft });
+    if (error) { setEditorMessage(error); return false; }
+    setEditorMessage(null);
     liveWorkspace.current = { ...liveWorkspace.current, draft: nextDraft };
     setDraft(nextDraft);
     setEvaluationStatus('idle');
@@ -193,6 +232,7 @@ function OwnedPracticeWorkspace({ scope, assignmentRecipientId }: { scope: strin
     setCompleted(false);
     setExecutionStatus('idle');
     setExecutionOutput('');
+    return true;
   };
 
   const addBlock = (block: string) => {
@@ -201,13 +241,33 @@ function OwnedPracticeWorkspace({ scope, assignmentRecipientId }: { scope: strin
 
   const chooseCodingLanguage = (language: CodingLanguage) => {
     if (language === codingLanguage) return;
+    const drafts = practiceCodeDrafts(workspaceState);
+    const nextCode = drafts[language] ?? defaultCode(activePracticeItem.codeFunction, activePracticeItem.codeSignature, language);
+    const nextState = { ...workspaceState, language, code: nextCode, codeDraftVersion: 1 as const, codeByLanguage: { ...drafts, [language]: nextCode } };
+    const error = practiceWorkspaceValidationError(nextState);
+    if (error) { setEditorMessage(error); return false; }
+    verificationGeneration.current += 1;
+    liveWorkspace.current = { ...liveWorkspace.current, language, code: nextCode };
+    setCodeByLanguage(nextState.codeByLanguage);
     setCodingLanguage(language);
-    setCode(defaultCode(activePracticeItem.codeFunction, activePracticeItem.codeSignature, language));
+    setCode(nextCode);
+    setEditorMessage(null);
     setCodeChecked(false);
     setCompleted(false);
     setCodeGrade(null);
     setExecutionStatus('idle');
     setExecutionOutput('');
+  };
+
+  const updateCode = (source: string) => {
+    const nextState = { ...workspaceState, code: source, codeDraftVersion: 1 as const, codeByLanguage: { ...practiceCodeDrafts(workspaceState), [codingLanguage]: source } };
+    const error = practiceWorkspaceValidationError(nextState);
+    if (error) { setEditorMessage(error); return false; }
+    liveWorkspace.current = { ...liveWorkspace.current, code: source };
+    setCode(source); setCodeByLanguage(nextState.codeByLanguage); setEditorMessage(null);
+    setCodeChecked(false); setCompleted(false); setCodeGrade(null);
+    setExecutionStatus('idle'); setExecutionOutput('');
+    return true;
   };
 
   const updateBlocks = (nextBlocks: string[]) => {
@@ -266,6 +326,7 @@ function OwnedPracticeWorkspace({ scope, assignmentRecipientId }: { scope: strin
     const stillCurrent = () => workspaceMounted.current && verificationGeneration.current === evaluated.generation
       && liveWorkspace.current.practiceId === evaluated.practiceId && liveWorkspace.current.draft === evaluated.draft;
     setEvaluation(localEvaluation);
+    changeStage('feedback');
     recordLocalPracticeEvidence({ item: activePracticeItem, reasoningScore: localEvaluation.score });
     const sessionId = readCachedPracticeSessionId(activePracticeItem.id, scope);
     if (!sessionId) {
@@ -360,7 +421,8 @@ function OwnedPracticeWorkspace({ scope, assignmentRecipientId }: { scope: strin
         });
       }
     } catch (error) {
-      if (verificationGeneration.current !== generation || liveWorkspace.current.practiceId !== submitted.practiceId) return;
+      const latest = liveWorkspace.current;
+      if (verificationGeneration.current !== generation || latest.practiceId !== submitted.practiceId || latest.code !== submitted.source || latest.language !== submitted.language) return;
       setExecutionStatus('unavailable');
       setExecutionOutput(error instanceof Error ? error.message : 'Unable to run verified execution.');
     }
@@ -441,6 +503,12 @@ function OwnedPracticeWorkspace({ scope, assignmentRecipientId }: { scope: strin
     }
   };
   const resetSession = () => {
+    if (hasWorkspaceWork
+      && !window.confirm('Reset this practice session? Your current workspace will be kept as a recovery copy.')) return;
+    const resetCode = defaultCode(activePracticeItem.codeFunction, activePracticeItem.codeSignature, codingLanguage);
+    const resetDrafts = { [codingLanguage]: resetCode };
+    persistence.restoreCopy({ ...workspaceState, draft: '', mode: 'text', code: resetCode, codeByLanguage: resetDrafts, codeDraftVersion: 1, evaluation: null, codeGrade: null, codeChecked: false, completed: false });
+    setCodeByLanguage(resetDrafts);
     verificationGeneration.current += 1;
     setDraft("");
     setMode("text");
@@ -457,43 +525,20 @@ function OwnedPracticeWorkspace({ scope, assignmentRecipientId }: { scope: strin
     setElapsedSeconds(0);
     setManualReasoningDraft(null);
     setContinuationMessage(null);
+    setEvaluationJobId(null); setEvaluationStatus('idle'); setEvaluationMessage(null);
     removeBrowserStorage(overrideKey);
   };
 
-  const switchPracticeItem = (practiceId: string) => {
+  const switchPracticeItem = async (practiceId: string) => {
     const nextPracticeItem = getPracticeItem(practiceId);
-    if (nextPracticeItem.id === activePracticeItem.id) {
-      return;
-    }
-    verificationGeneration.current += 1;
-
-    writeBrowserStorage(`${selectedPracticeItemKey}:${scope}`, nextPracticeItem.id);
-    setActivePracticeId(nextPracticeItem.id);
-    setDraft("");
-    setMode("text");
-    setEvaluation(null);
-    setCodeGrade(null);
-    setCode(defaultCode(nextPracticeItem.codeFunction, nextPracticeItem.codeSignature, codingLanguage));
-    setCodeChecked(false);
-    setCompleted(false);
-    setExecutionStatus('idle');
-    setExecutionOutput('');
-    setShowReferenceAnswer(false);
-    setSavedAt("Ready");
-    setSyncStatus("ready");
-    setElapsedSeconds(0);
-    setManualReasoningDraft(null);
-    setContinuationMessage(null);
-  };
-
-  const continueToNextPractice = async () => {
-    if (movingOn || !nextPracticeItem || activeAssignmentRecipientId || (!reasoningReady && !manualContinuation)) return;
+    if (movingOn || activeAssignmentRecipientId || nextPracticeItem.id === activePracticeItem.id) return;
+    if (persistence.conflict || syncStatus === 'conflict') { setContinuationMessage('Resolve the preserved draft conflict before changing activities.'); return; }
     setMovingOn(true); setContinuationMessage('Saving your work before continuing…');
     const snapshot = { ...liveWorkspace.current };
     const cache = readPracticeCache(activePracticeItem.id, scope);
     const keptLocally = writePracticeCache(activePracticeItem.id, scope, { version: 2, base: null, ...cache, state: workspaceState });
     try {
-      const hasWork = Boolean(draft || evaluation || codeGrade || code !== defaultCode(activePracticeItem.codeFunction, activePracticeItem.codeSignature, codingLanguage));
+      const hasWork = hasWorkspaceWork;
       const result = hasWork ? await syncPracticeSession({ contentId: activePracticeItem.id, scope, draft, currentStage: 'implement', state: workspaceState }) : null;
       const latest = liveWorkspace.current;
       if (!workspaceMounted.current || Object.entries(snapshot).some(([key, value]) => latest[key as keyof typeof latest] !== value)) {
@@ -511,26 +556,45 @@ function OwnedPracticeWorkspace({ scope, assignmentRecipientId }: { scope: strin
     } finally { if (workspaceMounted.current) setMovingOn(false); }
   };
 
+  const continueToNextPractice = () => {
+    if (nextPracticeItem && (reasoningReady || manualContinuation)) void switchPracticeItem(nextPracticeItem.id);
+  };
+
+  const seedFromPlan = () => {
+    const seeded = buildCodeFromPlanForLanguage(activePracticeItem.codeFunction, activePracticeItem.codeSignature, draft, codingLanguage);
+    if (code !== defaultCode(activePracticeItem.codeFunction, activePracticeItem.codeSignature, codingLanguage)
+      && code !== seeded && !window.confirm('Replace this language’s code with your plan? Your current workspace will be kept as a recovery copy.')) return;
+    const state = { ...workspaceState, code: seeded, codeDraftVersion: 1 as const,
+      codeByLanguage: { ...practiceCodeDrafts(workspaceState), [codingLanguage]: seeded },
+      codeChecked: false, completed: false, codeGrade: null };
+    const error = practiceWorkspaceValidationError(state);
+    if (error) { setEditorMessage(error); return; }
+    persistence.restoreCopy(state);
+    setExecutionStatus('idle'); setExecutionOutput('');
+    window.requestAnimationFrame(() => codeEditor.current?.focus());
+  };
+
   return (
-    <div className="practice-shell">
+    <div className="practice-shell practice-immersive">
       <main className="workspace">
-        <header className="topbar">
-          <div className="crumbs">
-            <span>Algorithms</span>
-            <span>/</span>
-            <strong>{activePracticeItem.label}</strong>
+        <header className="topbar practice-workbench-header">
+          <nav className="workbench-links" aria-label="Primary navigation">
+            <Link className="workbench-brand" href="/" aria-label="Method home">M</Link>
+            <Link href="/practice" aria-current="page">Practice</Link>
+            <Link href="/roadmap">Questions</Link>
+          </nav>
+          <div className="workbench-activity">
+            <h1>{activePracticeItem.problem.title}</h1>
+            <label className="workbench-picker"><span className="sr-only">Practice activity</span><select aria-label="Practice activity" disabled={Boolean(activeAssignmentRecipientId) || movingOn} value={activePracticeItem.id} onChange={event => void switchPracticeItem(event.target.value)}>{practiceItems.map((item, index) => <option key={item.id} value={item.id}>{index + 1}. {item.label}</option>)}</select></label>
           </div>
           <div className="top-actions">
-            <span className="status-pill" aria-live="polite">
-              <Save size={14} /> {savedAt}{syncStatus === "conflict" ? " · Resolve conflict" : ""}
-            </span>
-            <div className="avatar" aria-label={viewer ? `${viewer.displayName || viewer.email || 'Learner'} account` : 'Guest learner'}>
-              {initialsFor(viewer?.displayName || viewer?.email)}
-            </div>
+            <span className="status-pill" aria-live="polite"><Save size={14} /> {savedAt}{syncStatus === 'conflict' ? ' · Resolve conflict' : ''}</span>
+            <span className="workbench-timer" aria-label="Time this visit"><Clock3 size={14} />{formatElapsed(elapsedSeconds)}</span>
+            <Link className="avatar" href={viewer ? '/settings' : '/auth'} aria-label={viewer ? `${viewer.displayName || 'Learner'} account` : 'Sign in'}>{initialsFor(viewer?.displayName || viewer?.email)}</Link>
+            <details className="workbench-menu"><summary>More</summary><nav aria-label="Workspace links"><Link href="/dashboard">Dashboard</Link><Link href="/learn">Learning plan</Link><Link href="/system-design">System design</Link><Link href="/classes">Classes</Link><Link href="/teach">Instructor workspace</Link><Link href="/history">History</Link><Link href="/library">Library</Link><Link href="/settings">Settings</Link><Link href="/onboarding">Learning goals</Link><Link href="/requests">Feedback</Link>{viewer?.canAccessAdministration ? <Link href="/admin">Administration</Link> : null}</nav></details>
           </div>
         </header>
-
-        <div className="content">
+        <div className="practice-notices">
           {scope === 'device' ? <section className="mb-5 rounded-xl border border-[var(--line)] p-4" role="status">
             <p>Account connection unavailable. This draft stays on this device. Reconnect to open your account’s saved work.</p>
             <button className="button secondary" type="button" onClick={() => window.dispatchEvent(new Event('practice-owner-changed'))}>Reconnect</button>
@@ -561,28 +625,76 @@ function OwnedPracticeWorkspace({ scope, assignmentRecipientId }: { scope: strin
           </details> : null}
           {syncStatus === 'offline' && scope !== 'device' ? <button className="button secondary mb-5" type="button" onClick={persistence.retry}>Retry saving</button> : null}
           {syncStatus === 'conflict' && !persistence.conflict ? <button className="button secondary mb-5" type="button" onClick={persistence.retry}>Reload server copy</button> : null}
-          <div className="session-heading">
-            <div>
-              <p className="eyebrow"><span className="capitalize">{activePracticeItem.difficulty}</span> · {activePracticeItem.estimatedMinutes} min</p>
-              <h1>{activePracticeItem.lesson.title}</h1>
-              <p>{activePracticeItem.lesson.summary}</p>
-            </div>
-            <div className="metric">
-              <Clock3 size={19} />
-              <div>
-                <strong>{formatElapsed(elapsedSeconds)}</strong>
-                <div>time this visit</div>
-              </div>
-            </div>
-          </div>
 
-          {activeAssignmentRecipientId ? <section className="mb-5 flex flex-col gap-3 rounded-xl border border-[var(--moss)] bg-[var(--moss-soft)] p-4 sm:flex-row sm:items-center sm:justify-between" aria-label="Class assignment submission instructions">
-            <p className="mb-0 text-sm leading-6 text-[var(--ink)]"><strong>Class assignment.</strong> Complete the implementation, then choose <strong>Submit assigned task</strong> to send your work to your instructor for rubric-based grading. “Run verified tests” is a separate practice check and does not submit the assignment.</p>
-            <a className="inline-flex min-h-10 shrink-0 items-center justify-center rounded-md border border-[var(--moss)] bg-white px-4 font-bold text-[var(--moss)] no-underline" href="#coding-workspace">Go to submission →</a>
-          </section> : null}
-          <nav className="practice-stage-nav" aria-label="Practice stages"><a href="#workspace-title"><span>01</span>Write your approach</a><a href="#feedback-title"><span>02</span>Review feedback</a><a href="#coding-workspace"><span>03</span>Implement & test</a></nav>
-          <div className="work-grid">
-            <section className="pane problem-pane" aria-labelledby="lesson-title">
+          {editorMessage ? <p role="alert">{editorMessage}</p> : null}
+          {continuationMessage && stage !== 'feedback' ? <p role="status">{continuationMessage}</p> : null}
+        </div>
+        <div className="workbench-stagebar">
+          <nav className="practice-stage-nav" aria-label="Practice stages">
+            {([{value:'approach', label:'Approach'}, {value:'feedback', label:'Feedback'}, {value:'code', label:'Code & test'}] as const).map((item, index) => <button key={item.value} type="button" aria-label={`${String(index + 1).padStart(2, '0')} ${item.label}`} aria-current={stage === item.value ? 'step' : undefined} onClick={() => changeStage(item.value)}><span>{String(index + 1).padStart(2, '0')}</span>{item.label}</button>)}
+          </nav>
+          <h2 className="sr-only" ref={stageHeading} tabIndex={-1}>{stage === 'approach' ? 'Write your approach' : stage === 'feedback' ? 'Review reasoning feedback' : 'Implement and test'}</h2>
+          <span className="workbench-stage-detail">{activeAssignmentRecipientId ? 'Class assignment' : `${activePracticeItem.difficulty} · ${activePracticeItem.estimatedMinutes} min`}</span>
+        </div>
+        {activeAssignmentRecipientId ? <div className="workbench-assignment" aria-label="Class assignment submission instructions"><p><strong>Class assignment.</strong> Run verified tests checks your code. <strong>Submit assigned task</strong> sends it to your instructor for grading.</p>{stage !== 'code' ? <button className="text-button" type="button" onClick={() => changeStage('code')}>Go to submission →</button> : null}</div> : null}
+        <PracticePanels key={`${scope}:${activePracticeItem.id}:panels`} activePanel={mobilePanel} onPanelChange={setMobilePanel} results={stage === 'code' ? (
+              <div className="test-panel">
+                <div className="test-panel-heading">
+                  <div>
+                    <span>Server-owned suite</span>
+                    <strong>Verified code tests</strong>
+                  </div>
+                  <span className={`grader-state ${completed ? 'pass' : codeChecked ? 'revise' : ''}`}>
+                    {completed ? 'Passed' : codeChecked ? 'Revise' : 'Not run'}
+                  </span>
+                </div>
+                {(codeGrade?.tests ?? [{ name: 'Correct outputs and return contract', passed: false }, { name: 'Problem-specific edge cases', passed: false }, { name: 'Isolated time and memory limits', passed: false }]).map((check) => (
+                  <div className={`test-row ${codeChecked ? (check.passed ? "pass" : "revise") : ""}`} key={check.name}>
+                    <span className="test-icon">
+                      {codeChecked ? check.passed ? <Check size={12} /> : <X size={12} /> : null}
+                    </span>
+                    {check.name}
+                  </div>
+                ))}
+                {executionStatus !== 'idle' || executionOutput.length > 0 ? (
+                  <div className={`completion-panel ${executionStatus === 'idle' || executionStatus === 'failed' || executionStatus === 'timed_out' || executionStatus === 'unavailable' || (codeGrade && !codeGrade.passed) ? 'revise' : ''}`} aria-live="polite">
+                    {executionStatus === 'completed' && codeGrade?.passed ? <Check size={16} /> : <Clock3 size={16} />} {executionOutput || `Execution ${executionStatus}.`}
+                  </div>
+                ) : null}
+                {completed ? (
+                  <div className="completion-panel" aria-live="polite">
+                    <Check size={16} /> Verified and saved to your local progress.
+                  </div>
+                ) : codeChecked ? (
+                  <div className="completion-panel revise" aria-live="polite">
+                    <X size={16} /> Fix the failing cases and run verification again.
+                  </div>
+                ) : null}
+              </div>
+
+        ) : undefined} context={(
+          <div className="practice-context">
+            <div className="practice-context-tabs" role="tablist" aria-label="Problem context">
+              {([{value:'problem',label:'Problem'},{value:'approach',label:'My approach'},{value:'feedback',label:'Feedback'},{value:'notes',label:'Notes'}] as const).map(item => <button key={item.value} type="button" role="tab" id={`context-tab-${item.value}`} aria-controls={`context-${item.value}`} aria-selected={contextTab === item.value} onClick={() => setContextTab(item.value)}>{item.label}</button>)}
+            </div>
+            <div role="tabpanel" id="context-problem" aria-labelledby="context-tab-problem" hidden={contextTab !== 'problem'}>
+            <section className="pane problem-pane" aria-labelledby="problem-description-title">
+              <p className="eyebrow">Practice {String(activePracticeNumber).padStart(2, "0")}</p>
+              <h2 className="problem-title" id="problem-description-title">{activePracticeItem.problem.title}</h2>
+              <p className="lesson-copy">{activePracticeItem.problem.prompt}</p>
+              <div className="example">
+                <span>Input</span> {activePracticeItem.problem.example.input}
+                <br />
+                <span>Output</span> {activePracticeItem.problem.example.output}
+                <br />
+                <span>Why</span> {activePracticeItem.problem.example.note}
+              </div>
+              <ul className="constraint-list">
+                {activePracticeItem.problem.constraints.map((constraint) => (
+                  <li key={constraint}>{constraint}</li>
+                ))}
+              </ul>
+              <hr className="section-rule" />
               <div className="pane-header">
                 <div>
                   <h2>Concept & problem</h2>
@@ -615,24 +727,42 @@ function OwnedPracticeWorkspace({ scope, assignmentRecipientId }: { scope: strin
                   ))}
                 </div>
               </div>
-              <hr className="section-rule" />
-              <p className="eyebrow">Practice {String(activePracticeNumber).padStart(2, "0")}</p>
-              <h3 className="problem-title">{activePracticeItem.problem.title}</h3>
-              <p className="lesson-copy">{activePracticeItem.problem.prompt}</p>
-              <div className="example">
-                <span>Input</span> {activePracticeItem.problem.example.input}
-                <br />
-                <span>Output</span> {activePracticeItem.problem.example.output}
-                <br />
-                <span>Why</span> {activePracticeItem.problem.example.note}
-              </div>
-              <ul className="constraint-list">
-                {activePracticeItem.problem.constraints.map((constraint) => (
-                  <li key={constraint}>{constraint}</li>
-                ))}
-              </ul>
             </section>
 
+
+            </div>
+            <section className="pane" role="tabpanel" id="context-approach" aria-labelledby="context-tab-approach" hidden={contextTab !== 'approach'}><h2>Your current approach</h2><p className="pane-kicker">{evaluation ? 'Review the feedback before relying on this plan.' : 'This draft has not been evaluated.'}</p><pre className="approach-preview">{draft || 'Write an approach to keep it beside your implementation.'}</pre><button className="button secondary" type="button" onClick={() => changeStage('approach')}>Edit approach</button></section>
+            <section className="pane" role="tabpanel" id="context-feedback" aria-labelledby="context-tab-feedback" hidden={contextTab !== 'feedback'}><h2>Reasoning feedback</h2><p>{evaluation?.summary ?? 'Evaluate your approach to see feedback.'}</p>{evaluation ? <p>Reasoning score: {evaluation.score}</p> : null}<button className="button secondary" type="button" onClick={() => changeStage('feedback')}>Open full feedback</button></section>
+            <div role="tabpanel" className="context-notes" id="context-notes" aria-labelledby="context-tab-notes" hidden={contextTab !== 'notes'}>
+              <section className="study-capture" aria-labelledby="study-capture-title">
+                <div className="study-capture-heading">
+                  <div>
+                    <p className="pane-kicker">Keep the insight</p>
+                    <h3 id="study-capture-title">Study library</h3>
+                  </div>
+                  <button className="icon-button" aria-label={`Bookmark ${activePracticeItem.label}`} onClick={() => void saveBookmark()} type="button">
+                    <Bookmark size={17} />
+                  </button>
+                </div>
+                <textarea
+                  aria-label="Personal note for this practice item"
+                  className="study-note"
+                  maxLength={10000}
+                  onChange={(event) => setNoteDraft(event.target.value)}
+                  placeholder="Capture a pattern, edge case, or thing to revisit…"
+                  value={noteDraft}
+                />
+                <div className="study-capture-actions">
+                  <button className="text-button" disabled={!noteDraft.trim()} onClick={() => void saveNote()} type="button">Save note</button>
+                  <Link className="text-button muted" href="/library">View library</Link>
+                </div>
+                {libraryStatus ? <p className="study-status" aria-live="polite">{libraryStatus}</p> : null}
+              </section>
+
+            </div>
+          </div>
+        )}>
+          <div className="practice-stage-panel" hidden={stage !== 'approach'}>
             <section className="pane" aria-labelledby="workspace-title">
               <div className="pane-header">
                 <div>
@@ -698,31 +828,9 @@ function OwnedPracticeWorkspace({ scope, assignmentRecipientId }: { scope: strin
 
               <div className="editor-wrap">
                 {mode === "text" ? (
-                  <textarea
-                    aria-label="Pseudocode draft"
-                    className="editor"
-                    onChange={(event) => updateDraft(event.target.value)}
-                    placeholder={
-                      "Describe your state, loop, lookup, update, and return.\n\nNo programming language required."
-                    }
-                    spellCheck="true"
-                    value={draft}
-                  />
+                  <CodeEditor key={`${scope}:${activePracticeItem.id}:approach`} editorKey="approach" label="Pseudocode draft" language="text" value={draft} onChange={updateDraft} />
                 ) : (
                   <div className="block-builder" aria-label="Pseudocode block composer">
-                    <div className="practice-switcher" role="tablist" aria-label="Practice items">
-                      {practiceItems.map((item) => (
-                        <button
-                          key={item.id}
-                          aria-pressed={item.id === activePracticeItem.id}
-                          className={item.id === activePracticeItem.id ? "active" : ""}
-                          onClick={() => switchPracticeItem(item.id)}
-                          type="button"
-                        >
-                          {item.label}
-                        </button>
-                      ))}
-                    </div>
                     <div className="block-palette">
                       {blockOptions.map((block) => (
                         <button key={block.value} onClick={() => addBlock(block.value)} type="button">
@@ -810,6 +918,9 @@ function OwnedPracticeWorkspace({ scope, assignmentRecipientId }: { scope: strin
               </div>
             </section>
 
+
+          </div>
+          <div className="practice-stage-panel" hidden={stage !== 'feedback'}>
             <aside className="pane feedback-pane" aria-labelledby="feedback-title">
               <div className="pane-header">
                 <div>
@@ -857,38 +968,20 @@ function OwnedPracticeWorkspace({ scope, assignmentRecipientId }: { scope: strin
                 <h3 className="font-bold">Your next step</h3>
                 {!reasoningReady && !manualContinuation ? <button className="button secondary" type="button" onClick={() => { writeBrowserStorage(overrideKey, draft); setManualReasoningDraft(draft); setContinuationMessage('Manual continuation enabled. Your feedback is unchanged.'); }}>Continue anyway</button> : null}
                 {canAccessCoding ? <div className="flex flex-wrap gap-3">
-                  <button className="button secondary" type="button" onClick={() => { document.getElementById('coding-workspace')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); document.querySelector<HTMLTextAreaElement>('.code-editor')?.focus({ preventScroll: true }); }}>Continue to coding</button>
+                  <button className="button secondary" type="button" onClick={() => { changeStage('code'); window.requestAnimationFrame(() => codeEditor.current?.focus()); }}>Continue to coding</button>
                   {!activeAssignmentRecipientId && (reasoningReady || manualContinuation) ? nextPracticeItem ? <button className="button" type="button" disabled={movingOn} onClick={() => void continueToNextPractice()}>{movingOn ? 'Saving and continuing…' : 'Next practice question'}</button> : <Link className="button" href="/roadmap">Return to roadmap</Link> : null}
                 </div> : null}
                 {continuationMessage ? <p className="study-status" role="status" aria-label="Practice continuation status">{continuationMessage}</p> : null}
               </section>
-              <section className="study-capture" aria-labelledby="study-capture-title">
-                <div className="study-capture-heading">
-                  <div>
-                    <p className="pane-kicker">Keep the insight</p>
-                    <h3 id="study-capture-title">Study library</h3>
-                  </div>
-                  <button className="icon-button" aria-label={`Bookmark ${activePracticeItem.label}`} onClick={() => void saveBookmark()} type="button">
-                    <Bookmark size={17} />
-                  </button>
-                </div>
-                <textarea
-                  aria-label="Personal note for this practice item"
-                  className="study-note"
-                  maxLength={10000}
-                  onChange={(event) => setNoteDraft(event.target.value)}
-                  placeholder="Capture a pattern, edge case, or thing to revisit…"
-                  value={noteDraft}
-                />
-                <div className="study-capture-actions">
-                  <button className="text-button" disabled={!noteDraft.trim()} onClick={() => void saveNote()} type="button">Save note</button>
-                  <Link className="text-button muted" href="/library">View library</Link>
-                </div>
-                {libraryStatus ? <p className="study-status" aria-live="polite">{libraryStatus}</p> : null}
-              </section>
+              <div className="feedback-actions">
+                <button className="button secondary" type="button" onClick={() => changeStage('approach')}>Edit approach</button>
+                {evaluationStatus === 'failed' ? <button className="button" type="button" onClick={() => void submitEvaluation()}>Retry evaluation</button> : null}
+                {evaluationStatus === 'queued' || evaluationStatus === 'running' ? <button className="button secondary" type="button" onClick={() => void cancelEvaluation()}>Cancel evaluation</button> : null}
+              </div>
             </aside>
-          </div>
 
+          </div>
+          <div className="practice-stage-panel practice-code-stage" hidden={stage !== 'code'}>
           <section id="coding-workspace" className="coding-section" aria-labelledby="coding-title">
             <div className="pane-header">
               <div>
@@ -904,6 +997,7 @@ function OwnedPracticeWorkspace({ scope, assignmentRecipientId }: { scope: strin
               <div className="language-switch" role="group" aria-label="Solution language">
                 {codingLanguages.map((language) => (
                   <button
+                    aria-label={`${language.label} ${language.runtime}`}
                     aria-pressed={codingLanguage === language.value}
                     className={codingLanguage === language.value ? "active" : ""}
                     key={language.value}
@@ -917,94 +1011,23 @@ function OwnedPracticeWorkspace({ scope, assignmentRecipientId }: { scope: strin
               </div>
               <p><LockKeyhole size={14} /> Network denied · bounded CPU, memory, output, and runtime</p>
             </div>
-            <div className="coding-grid">
-              <textarea
-                aria-label={`${codingLanguage === 'python' ? 'Python' : codingLanguageLabel(codingLanguage)} implementation`}
-                className="editor code-editor"
-                disabled={!canAccessCoding}
-                onChange={(event) => {
-                  setCode(event.target.value);
-                  setCodeChecked(false);
-                  setCompleted(false);
-                  setCodeGrade(null);
-                  setExecutionStatus('idle');
-                  setExecutionOutput('');
-                }}
-                value={code}
-              />
-              <div className="test-panel">
-                <div className="test-panel-heading">
-                  <div>
-                    <span>Server-owned suite</span>
-                    <strong>Verified code tests</strong>
-                  </div>
-                  <span className={`grader-state ${completed ? 'pass' : codeChecked ? 'revise' : ''}`}>
-                    {completed ? 'Passed' : codeChecked ? 'Revise' : 'Not run'}
-                  </span>
-                </div>
-                {(codeGrade?.tests ?? [{ name: 'Correct outputs and return contract', passed: false }, { name: 'Problem-specific edge cases', passed: false }, { name: 'Isolated time and memory limits', passed: false }]).map((check) => (
-                  <div className={`test-row ${codeChecked ? (check.passed ? "pass" : "revise") : ""}`} key={check.name}>
-                    <span className="test-icon">
-                      {codeChecked ? check.passed ? <Check size={12} /> : <X size={12} /> : null}
-                    </span>
-                    {check.name}
-                  </div>
-                ))}
-                <button
-                  className="button secondary full-button"
-                  disabled={!canAccessCoding}
-                  onClick={() => {
-                    setCode(buildCodeFromPlanForLanguage(activePracticeItem.codeFunction, activePracticeItem.codeSignature, draft, codingLanguage));
-                    setCodeChecked(false);
-                    setCompleted(false);
-                    setCodeGrade(null);
-                    setExecutionStatus('idle');
-                    setExecutionOutput('');
-                  }}
-                  type="button"
-                >
-                  <Code2 size={15} /> Seed from plan
-                </button>
-                <button
-                  className="button full-button"
-                  disabled={!canAccessCoding || executionStatus === 'running'}
-                  onClick={() => void runInSandbox()}
-                  type="button"
-                >
-                  <Play size={15} /> {executionStatus === 'running' ? 'Running verified tests…' : completed ? 'Run verified tests again' : 'Run verified tests'}
-                </button>
-                {activeAssignmentRecipientId ? <>
-                  <button
-                    className="button secondary full-button"
-                    disabled={!code.trim() || assignmentSubmissionStatus === 'submitting' || assignmentSubmissionStatus === 'queued'}
-                    onClick={() => void submitAssignedTask()}
-                    type="button"
-                  >
-                    {assignmentSubmissionStatus === 'submitting' ? 'Submitting assignment…' : assignmentSubmissionStatus === 'queued' ? 'Verification queued' : assignmentSubmissionStatus === 'submitted' ? 'Submit another attempt' : 'Submit assigned task'}
-                  </button>
-                  {assignmentSubmissionMessage ? <div className={`completion-panel ${assignmentSubmissionStatus === 'error' ? 'revise' : ''}`} role={assignmentSubmissionStatus === 'error' ? 'alert' : 'status'}>{assignmentSubmissionMessage}</div> : null}
-                </> : null}
-                {executionStatus !== 'idle' || executionOutput.length > 0 ? (
-                  <div className={`completion-panel ${executionStatus === 'idle' || executionStatus === 'failed' || executionStatus === 'timed_out' || executionStatus === 'unavailable' || (codeGrade && !codeGrade.passed) ? 'revise' : ''}`} aria-live="polite">
-                    {executionStatus === 'completed' && codeGrade?.passed ? <Check size={16} /> : <Clock3 size={16} />} {executionOutput || `Execution ${executionStatus}.`}
-                  </div>
-                ) : null}
-                {completed ? (
-                  <div className="completion-panel" aria-live="polite">
-                    <Check size={16} /> Verified and saved to your local progress.
-                  </div>
-                ) : codeChecked ? (
-                  <div className="completion-panel revise" aria-live="polite">
-                    <X size={16} /> Fix the failing cases and run verification again.
-                  </div>
-                ) : null}
-              </div>
+
+            {!canAccessCoding ? <div className="coding-access-notice" role="status"><p>Get feedback on your approach, or continue manually to start coding.</p><button className="button secondary" type="button" onClick={() => { writeBrowserStorage(overrideKey, draft); setManualReasoningDraft(draft); }}>Continue anyway</button></div> : null}
+            <CodeEditor key={`${scope}:${activePracticeItem.id}:code`} ref={codeEditor} editorKey={codingLanguage} label={`${codingLanguage === 'python' ? 'Python' : codingLanguageLabel(codingLanguage)} implementation`} language={codingLanguage} value={code} onChange={updateCode} disabled={!canAccessCoding} className="code-editor" />
+            <div className="practice-code-actions">
+              <button className="button secondary" type="button" disabled={!canAccessCoding} onClick={seedFromPlan}><Code2 size={15} />Seed from plan</button>
+              <button className="button" disabled={!canAccessCoding || executionStatus === 'running'} onClick={() => { setMobilePanel('results'); void runInSandbox(); }} type="button"><Play size={15} />{executionStatus === 'running' ? 'Running verified tests…' : completed ? 'Run verified tests again' : 'Run verified tests'}</button>
+              {activeAssignmentRecipientId ? <button className="button secondary" disabled={!code.trim() || assignmentSubmissionStatus === 'submitting' || assignmentSubmissionStatus === 'queued'} onClick={() => void submitAssignedTask()} type="button">{assignmentSubmissionStatus === 'submitting' ? 'Submitting assignment…' : assignmentSubmissionStatus === 'queued' ? 'Verification queued' : assignmentSubmissionStatus === 'submitted' ? 'Submit another attempt' : 'Submit assigned task'}</button> : null}
             </div>
+            {assignmentSubmissionMessage ? <p className="completion-panel" role={assignmentSubmissionStatus === 'error' ? 'alert' : 'status'}>{assignmentSubmissionMessage}</p> : null}
           </section>
-        </div>
+          </div>
+        </PracticePanels>
+        <footer className="practice-workbench-footer">
+          <div><span>Practice {activePracticeNumber} of {practiceItems.length}</span>{stage !== 'approach' ? <button className="text-button" type="button" onClick={() => changeStage(stage === 'code' ? 'feedback' : 'approach')}>← Previous stage</button> : null}</div>
+          <div>{stage === 'approach' && !canAccessCoding ? <button className="button secondary" type="button" onClick={() => { writeBrowserStorage(overrideKey, draft); setManualReasoningDraft(draft); setContinuationMessage('Manual continuation enabled. Your feedback is unchanged.'); }}>Continue anyway</button> : null}{stage === 'approach' ? <button className="button secondary" type="button" onClick={() => changeStage('feedback')}>Review feedback →</button> : stage === 'feedback' && canAccessCoding ? <button className="button secondary" type="button" onClick={() => changeStage('code')}>Code & test →</button> : stage === 'code' && nextPracticeItem && !activeAssignmentRecipientId && (reasoningReady || manualContinuation) ? <button className="button secondary" type="button" disabled={movingOn} onClick={continueToNextPractice}>Next practice question</button> : null}</div>
+        </footer>
       </main>
-
-
     </div>
   );
 }

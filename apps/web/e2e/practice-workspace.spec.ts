@@ -1,4 +1,15 @@
 import { expect, test, type Page } from '@playwright/test';
+import { defaultPracticeItem } from '../src/lib/content';
+
+const workspaceEditor = (page: Page, label: string) => page.locator('[data-editor-ready="true"]').getByRole('textbox', { name: label, exact: true });
+async function expectEditorSource(page: Page, label: string, expected: string | RegExp) {
+  const input = workspaceEditor(page, label);
+  await expect(input).toBeAttached();
+  const actual = () => input.locator('.cm-line').evaluateAll(lines => lines.map(line => line.textContent ?? '').join('\n'));
+  if (typeof expected === 'string') await expect.poll(actual).toBe(expected);
+  else await expect.poll(actual).toMatch(expected);
+}
+const openStage = (page: Page, stage: 'approach' | 'feedback' | 'code') => page.getByRole('button', { name: stage === 'approach' ? '01 Approach' : stage === 'feedback' ? '02 Feedback' : '03 Code & test', exact: true }).click();
 
 test.beforeEach(async ({ page }) => {
   await page.route('**/api/practice/owner', route => route.fulfill({ json: { owner: { kind: 'guest', id: 'test-guest' } } }));
@@ -46,7 +57,7 @@ async function mockOwnedPractice(page: Page, metadata: Record<string, unknown>, 
 test('guest restores a server verification without any browser result snapshot', async ({ page }) => {
   await mockOwnedPractice(page, { verification }, false);
   await page.goto(assignedPracticePath);
-  await expect(page.getByLabel('Python implementation')).toHaveValue(verifiedSource);
+  await expectEditorSource(page, 'Python implementation', verifiedSource);
   await expect(page.locator('.grader-state')).toHaveText('Passed');
   await expect(page.getByText('Restored from account')).toBeVisible();
 });
@@ -65,12 +76,12 @@ test('reload restores verification even when both browser result saves are missi
     await route.fulfill({ json: { status: 'completed', grade: receivedGrade, durationMs: 20 } });
   });
   await page.goto(assignedPracticePath);
-  await expect(page.getByLabel('Python implementation')).toHaveValue(verifiedSource);
+  await expectEditorSource(page, 'Python implementation', verifiedSource);
   await expect.poll(() => page.evaluate(() => localStorage.getItem('method:user:verification-learner:pair-with-target-v1:remote-session'))).toBe('session-verified');
   await page.getByRole('button', { name: 'Run verified tests', exact: true }).click();
   await expect(page.locator('.grader-state')).toHaveText('Passed');
   await page.reload();
-  await expect(page.getByLabel('Python implementation')).toHaveValue(verifiedSource);
+  await expectEditorSource(page, 'Python implementation', verifiedSource);
   await expect(page.locator('.grader-state')).toHaveText('Passed');
 });
 
@@ -80,8 +91,10 @@ test('account verification preserves a newer local draft and does not grade its 
     localStorage.setItem('method:user:verification-learner:pair-with-target-v1:workspace-v2', JSON.stringify({ version: 2, state, base: null }));
   }, { ...cachedWorkspace, draft: 'Keep this newer local reasoning.', code: editedSource, codeChecked: true, completed: true, codeGrade: receivedGrade });
   await page.goto(assignedPracticePath);
-  await expect(page.getByLabel('Python implementation')).toHaveValue(editedSource);
-  await expect(page.getByLabel('Pseudocode draft')).toHaveValue('Keep this newer local reasoning.');
+  await expectEditorSource(page, 'Python implementation', editedSource);
+  await openStage(page, 'approach');
+  await expectEditorSource(page, 'Pseudocode draft', 'Keep this newer local reasoning.');
+  await openStage(page, 'code');
   await expect(page.locator('.grader-state')).toHaveText('Not run');
 });
 
@@ -94,23 +107,24 @@ test('a verification response cannot mark code edited during the run as passed',
     await route.fulfill({ json: { status: 'completed', grade: receivedGrade, durationMs: 20 } });
   });
   await page.goto(assignedPracticePath);
-  await page.getByLabel('Python implementation').fill(verifiedSource);
+  await workspaceEditor(page, 'Python implementation').fill(verifiedSource);
   await expect(page.getByText('Saved to server')).toBeVisible();
   await page.getByRole('button', { name: 'Run verified tests', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Running verified tests…' })).toBeVisible();
-  await page.getByLabel('Python implementation').fill(editedSource);
+  await workspaceEditor(page, 'Python implementation').fill(editedSource);
   release();
   await expect(page.getByText('The earlier submission finished. Run your edited code to verify it.')).toBeVisible();
-  await expect(page.getByLabel('Python implementation')).toHaveValue(editedSource);
+  await expectEditorSource(page, 'Python implementation', editedSource);
   await expect(page.locator('.grader-state')).toHaveText('Not run');
 });
 
 async function openHydratedWorkspace(page: Page) {
   await page.goto('/practice');
   await expect(
-    page.getByRole('heading', { level: 1, name: 'Remember what you have seen' }),
+    page.getByRole('heading', { level: 1, name: defaultPracticeItem.problem.title }),
   ).toBeVisible();
   await expect(page.getByText('Ready', { exact: true })).toBeVisible();
+  await expect(workspaceEditor(page, 'Pseudocode draft')).toBeVisible();
 }
 
 test('switching accounts opens only that owner’s cache and ignores delayed previous-owner responses', async ({ page }) => {
@@ -128,13 +142,13 @@ test('switching accounts opens only that owner’s cache and ignores delayed pre
     } else await route.fulfill({ status: 503, json: { error: 'offline' } });
   });
   await page.goto('/practice');
-  await expect(page.getByLabel('Pseudocode draft')).toHaveValue('account-a private draft');
-  await page.getByLabel('Pseudocode draft').fill('Unsaved edit belongs to account A.');
+  await expectEditorSource(page, 'Pseudocode draft', 'account-a private draft');
+  await workspaceEditor(page, 'Pseudocode draft').fill('Unsaved edit belongs to account A.');
   owner = 'account-b';
   await page.evaluate(() => window.dispatchEvent(new Event('focus')));
-  await expect(page.getByLabel('Pseudocode draft')).toHaveValue('account-b private draft');
+  await expectEditorSource(page, 'Pseudocode draft', 'account-b private draft');
   release();
-  await expect(page.getByLabel('Pseudocode draft')).toHaveValue('account-b private draft');
+  await expectEditorSource(page, 'Pseudocode draft', 'account-b private draft');
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem('method:user:account-a:pair-with-target-v1:workspace-v2')!).state.draft)).toBe('Unsaved edit belongs to account A.');
 });
 
@@ -162,18 +176,18 @@ for (const choice of ['server', 'local'] as const) {
     await page.goto('/practice');
     await expect(page.getByRole('alert', { name: 'Resolve practice conflict' })).toBeVisible();
     if (choice === 'server') expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
-    await expect(page.getByLabel('Pseudocode draft')).toHaveValue(local.draft);
+    await expectEditorSource(page, 'Pseudocode draft', local.draft);
     expect(writes).toHaveLength(0);
     await page.getByRole('button', { name: choice === 'server' ? 'Use server draft' : 'Continue with this draft', exact: true }).click();
     const selected = choice === 'server' ? server.draft : local.draft;
     const recovery = choice === 'server' ? local.draft : 'Updated second-device plan.';
-    await expect(page.getByLabel('Pseudocode draft')).toHaveValue(selected);
+    await expectEditorSource(page, 'Pseudocode draft', selected);
     if (choice === 'local') {
       await expect(page.getByText('Saved to server')).toBeVisible();
       expect(writes[0]).toMatchObject({ expectedRevisionNumber: 2, state: { draft: local.draft } });
     } else expect(writes).toHaveLength(0);
     await page.reload();
-    await expect(page.getByLabel('Pseudocode draft')).toHaveValue(selected);
+    await expectEditorSource(page, 'Pseudocode draft', selected);
     await page.getByText('Saved recovery copy', { exact: true }).click();
     await expect(page.getByText(recovery, { exact: false }).first()).toBeVisible();
   });
@@ -199,10 +213,10 @@ test('a lost save response can be retried after reload with its original receipt
     }
   });
   await openHydratedWorkspace(page);
-  await page.getByLabel('Pseudocode draft').fill('Persist this even if the response is lost.');
+  await workspaceEditor(page, 'Pseudocode draft').fill('Persist this even if the response is lost.');
   await expect(page.getByText('Offline draft')).toBeVisible();
   await page.reload();
-  await expect(page.getByLabel('Pseudocode draft')).toHaveValue('Persist this even if the response is lost.');
+  await expectEditorSource(page, 'Pseudocode draft', 'Persist this even if the response is lost.');
   await expect(page.getByText('Saved to server')).toBeVisible();
   expect(requests).toHaveLength(2);
   expect(requests[1]).toEqual(requests[0]);
@@ -218,10 +232,10 @@ test('a delayed remote load cannot overwrite work typed while it was loading', a
     await route.fulfill({ json: { session: { id: 'session-delayed', revision: 5, latestRevisionNumber: 3, sessionMetadata: { workspaceState: { ...cachedWorkspace, draft: 'Existing account plan.' } } } } });
   });
   await openHydratedWorkspace(page);
-  await page.getByLabel('Pseudocode draft').fill('New plan typed before the server responded.');
+  await workspaceEditor(page, 'Pseudocode draft').fill('New plan typed before the server responded.');
   release();
   await expect(page.getByRole('alert', { name: 'Resolve practice conflict' })).toBeVisible();
-  await expect(page.getByLabel('Pseudocode draft')).toHaveValue('New plan typed before the server responded.');
+  await expectEditorSource(page, 'Pseudocode draft', 'New plan typed before the server responded.');
   expect(writes).toBe(0);
 });
 
@@ -230,10 +244,10 @@ test('an older unscoped draft is kept for explicit recovery and never imported i
   await page.addInitScript(state => localStorage.setItem('method:pair-with-target-v1:session', JSON.stringify({ ...state, draft: 'Unclaimed older browser work.' })), cachedWorkspace);
   await page.route('**/api/practice/sessions**', route => route.fulfill({ status: 503 }));
   await openHydratedWorkspace(page);
-  await expect(page.getByLabel('Pseudocode draft')).toHaveValue('');
+  await expectEditorSource(page, 'Pseudocode draft', '');
   await page.getByText('Older draft saved in this browser', { exact: true }).click();
   await page.getByRole('button', { name: 'Import older browser draft' }).click();
-  await expect(page.getByLabel('Pseudocode draft')).toHaveValue('Unclaimed older browser work.');
+  await expectEditorSource(page, 'Pseudocode draft', 'Unclaimed older browser work.');
   expect(await page.evaluate(() => localStorage.getItem('method:pair-with-target-v1:session'))).toContain('Unclaimed older browser work.');
 });
 
@@ -248,14 +262,14 @@ test('work created without an account connection can be imported explicitly afte
     : route.fulfill({ status: 503 }));
   await page.goto('/practice');
   await expect(page.getByText('Account connection unavailable.', { exact: false })).toBeVisible();
-  await page.getByLabel('Pseudocode draft').fill('Offline work to retain.');
+  await workspaceEditor(page, 'Pseudocode draft').fill('Offline work to retain.');
   await expect(page.getByText('Offline draft', { exact: true })).toBeVisible();
   connected = true;
   await page.getByRole('button', { name: 'Reconnect', exact: true }).click();
-  await expect(page.getByLabel('Pseudocode draft')).toHaveValue('Existing account plan.');
+  await expectEditorSource(page, 'Pseudocode draft', 'Existing account plan.');
   await page.getByText('Offline draft from this browser', { exact: true }).click();
   await page.getByRole('button', { name: 'Import offline draft', exact: true }).click();
-  await expect(page.getByLabel('Pseudocode draft')).toHaveValue('Offline work to retain.');
+  await expectEditorSource(page, 'Pseudocode draft', 'Offline work to retain.');
   await page.getByText('Saved recovery copy', { exact: true }).click();
   await expect(page.getByText('Existing account plan.', { exact: false }).first()).toBeVisible();
 });
@@ -283,17 +297,17 @@ test('another tab cannot silently advance the base of an unsaved local edit', as
   const other = await context.newPage();
   await page.goto('/practice');
   await other.goto('/practice');
-  await expect(page.getByLabel('Pseudocode draft')).toHaveValue('Shared starting plan.');
-  await expect(other.getByLabel('Pseudocode draft')).toHaveValue('Shared starting plan.');
-  await page.getByLabel('Pseudocode draft').fill('First tab changed plan.');
+  await expectEditorSource(page, 'Pseudocode draft', 'Shared starting plan.');
+  await expectEditorSource(other, 'Pseudocode draft', 'Shared starting plan.');
+  await workspaceEditor(page, 'Pseudocode draft').fill('First tab changed plan.');
   await expect.poll(() => saving).toBe(true);
-  await other.getByLabel('Pseudocode draft').fill('Second tab unsaved plan.');
+  await workspaceEditor(other, 'Pseudocode draft').fill('Second tab unsaved plan.');
   release();
   await expect(page.getByText('Saved to server')).toBeVisible();
   await expect(other.getByRole('alert', { name: 'Resolve practice conflict' })).toBeVisible();
-  await expect(other.getByLabel('Pseudocode draft')).toHaveValue('Second tab unsaved plan.');
+  await expectEditorSource(other, 'Pseudocode draft', 'Second tab unsaved plan.');
   await other.reload();
-  await expect(other.getByLabel('Pseudocode draft')).toHaveValue('Second tab unsaved plan.');
+  await expectEditorSource(other, 'Pseudocode draft', 'Second tab unsaved plan.');
   await expect(other.getByRole('alert', { name: 'Resolve practice conflict' })).toBeVisible();
   expect(server.draft).toBe('First tab changed plan.');
   expect(writes).toHaveLength(1);
@@ -316,7 +330,7 @@ test('home practice button performs a document navigation into the workspace', a
   await expect(page).toHaveURL(/\/practice$/);
   await expect(page.locator('html')).not.toHaveAttribute('data-navigation-sentinel');
   await expect(
-    page.getByRole('heading', { level: 1, name: 'Remember what you have seen' }),
+    page.getByRole('heading', { level: 1, name: defaultPracticeItem.problem.title }),
   ).toBeVisible();
   await expect(page.getByText('Ready', { exact: true })).toBeVisible();
 });
@@ -332,8 +346,10 @@ test('assigned task can be submitted from its practice workspace', async ({ page
   await page.goto(`/practice?problem=pair-with-target-v1&assignment=${recipientId}`);
   await expect(page.getByRole('button', { name: 'Submit assigned task' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Complete your coding assignment' })).toBeVisible();
+  await openStage(page, 'feedback');
   await expect(page.getByText('Assignment coding is open')).toBeVisible();
-  await expect(page.getByLabel('Python implementation')).toBeEnabled();
+  await openStage(page, 'code');
+  await expect(workspaceEditor(page, 'Python implementation')).toBeEnabled();
   await expect(page.getByRole('button', { name: /Run verified tests/i })).toBeEnabled();
   await page.getByRole('button', { name: 'Submit assigned task' }).click();
 
@@ -385,16 +401,17 @@ test('local preferences choose a working personalized algorithm', async ({ page 
   await practiceLink.click();
 
   await expect(page).toHaveURL(/\/practice\?problem=island-count-v1$/);
-  await expect(page.getByRole('heading', { name: 'Island Count' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Island Count', level: 1 })).toBeVisible();
   await page.getByRole('button', { name: 'Insert example answer' }).click();
-  await expect(page.getByLabel('Pseudocode draft')).toHaveValue(/For each cell in the grid/);
+  await expectEditorSource(page, 'Pseudocode draft', /For each cell in the grid/);
   await page.getByRole('button', { name: 'Evaluate reasoning' }).click();
   await expect(page.getByText('Implementation unlocked')).toBeVisible();
-  await expect(page.getByLabel('Python implementation')).toHaveValue(/def count_islands\(grid: list\[list\[int\]\]\):/);
+  await openStage(page, 'code');
+  await expectEditorSource(page, 'Python implementation', /def count_islands\(grid: list\[list\[int\]\]\):/);
   await page.getByRole('button', { name: /C\+\+ C\+\+20/ }).click();
-  await expect(page.getByLabel('C++ implementation')).toHaveValue(/int countIslands\(vector<vector<int>> grid\)/);
+  await expectEditorSource(page, 'C++ implementation', /int countIslands\(vector<vector<int>> grid\)/);
   await page.getByRole('button', { name: /Python 3 python3/ }).click();
-  await expect(page.getByLabel('Python implementation')).toHaveValue(/def count_islands/);
+  await expectEditorSource(page, 'Python implementation', /def count_islands/);
 });
 
 test('signed-in learner carries onboarding and completed practice into the dashboard', async ({ page }) => {
@@ -466,9 +483,9 @@ test('signed-in learner carries onboarding and completed practice into the dashb
 test('guest can open the workspace and autosave a draft locally', async ({ page }) => {
   await openHydratedWorkspace(page);
 
-  await expect(page.getByLabel('Pseudocode draft')).toBeVisible();
+  await expect(workspaceEditor(page, 'Pseudocode draft')).toBeVisible();
 
-  await page.getByLabel('Pseudocode draft').fill('Create a map.\nCheck the complement.');
+  await workspaceEditor(page, 'Pseudocode draft').fill('Create a map.\nCheck the complement.');
 
   await expect(page.getByText('Offline draft')).toBeVisible();
 
@@ -484,7 +501,7 @@ test('guest can open the workspace and autosave a draft locally', async ({ page 
 test('guest can reveal and use the reference pseudocode without replacing their draft automatically', async ({ page }) => {
   await openHydratedWorkspace(page);
 
-  const editor = page.getByLabel('Pseudocode draft');
+  const editor = workspaceEditor(page, 'Pseudocode draft');
   await editor.fill('My own approach stays here.');
   await page.getByRole('button', { name: 'Show example answer' }).click();
 
@@ -492,10 +509,10 @@ test('guest can reveal and use the reference pseudocode without replacing their 
   await expect(answer).toBeVisible();
   await expect(answer).toContainText('Create an empty map from value to position.');
   await expect(answer).toContainText('Why it works');
-  await expect(editor).toHaveValue('My own approach stays here.');
+  await expectEditorSource(page, 'Pseudocode draft', 'My own approach stays here.');
 
   await answer.getByRole('button', { name: 'Use as my draft' }).click();
-  await expect(editor).toHaveValue(/Let complement be target minus value/);
+  await expectEditorSource(page, 'Pseudocode draft', /Let complement be target minus value/);
   await page.getByRole('button', { name: 'Hide example answer' }).click();
   await expect(answer).toBeHidden();
 });
@@ -507,10 +524,11 @@ test('guest can insert the example answer and pass the reasoning check', async (
   await page.getByRole('button', { name: 'Evaluate reasoning' }).click();
 
   await expect(page.getByText('Implementation unlocked')).toBeVisible();
+  await openStage(page, 'code');
   await expect(page.getByRole('button', { name: /Run verified tests/i })).toBeEnabled();
 
   await page.getByRole('button', { name: /TypeScript Node\.js/ }).click();
-  await page.getByLabel('TypeScript implementation').fill(`function findPair(values: number[], target: number) {
+  await workspaceEditor(page, 'TypeScript implementation').fill(`function findPair(values: number[], target: number) {
   const map = new Map<number, number>();
   for (let index = 0; index < values.length; index += 1) {
     const complement = target - values[index];
@@ -555,12 +573,12 @@ test('guest can insert the example answer and pass the reasoning check', async (
 test('guest draft resumes after reload', async ({ page }) => {
   await openHydratedWorkspace(page);
 
-  await page.getByLabel('Pseudocode draft').fill('Create a map.\nStore values as you go.');
+  await workspaceEditor(page, 'Pseudocode draft').fill('Create a map.\nStore values as you go.');
   await expect(page.getByText('Offline draft')).toBeVisible();
 
   await page.reload();
 
-  await expect(page.getByLabel('Pseudocode draft')).toHaveValue('Create a map.\nStore values as you go.');
+  await expectEditorSource(page, 'Pseudocode draft', 'Create a map.\nStore values as you go.');
   await expect(page.getByText('Restored locally')).toBeVisible();
 });
 
@@ -606,8 +624,9 @@ test('signed-in learner resumes the complete workspace from another device', asy
 
   await page.goto('/practice');
 
-  await expect(page.getByLabel('Pseudocode draft')).toHaveValue('Restore the complete learner plan.');
-  await expect(page.getByLabel('TypeScript implementation')).toHaveValue(/function findPair/);
+  await expectEditorSource(page, 'Pseudocode draft', 'Restore the complete learner plan.');
+  await openStage(page, 'code');
+  await expectEditorSource(page, 'TypeScript implementation', /function findPair/);
   await expect(page.getByText('Restored from account')).toBeVisible();
   await page.waitForTimeout(600);
   expect(revisionWrites).toBe(0);
@@ -619,8 +638,9 @@ test('unavailable execution never records an unverified completion', async ({ pa
   await page.getByRole('button', { name: 'Insert example answer' }).click();
   await page.getByRole('button', { name: 'Evaluate reasoning' }).click();
 
+  await openStage(page, 'code');
   await page.getByRole('button', { name: /TypeScript Node\.js/ }).click();
-  await page.getByLabel('TypeScript implementation').fill(`function findPair(values: number[], target: number) {
+  await workspaceEditor(page, 'TypeScript implementation').fill(`function findPair(values: number[], target: number) {
   const map = new Map<number, number>();
   for (let index = 0; index < values.length; index += 1) {
     const complement = target - values[index];
@@ -651,7 +671,7 @@ test('sync helper reports offline draft without a signed-in session', async ({ p
     window.fetch = async () => new Response('', { status: 401 });
   });
 
-  await page.getByLabel('Pseudocode draft').fill('Draft that stays local.');
+  await workspaceEditor(page, 'Pseudocode draft').fill('Draft that stays local.');
 
   await expect(page.getByText('Offline draft')).toBeVisible();
 });
@@ -681,7 +701,7 @@ test('guest sees a server save when sync succeeds', async ({ page }) => {
     };
   });
 
-  await page.getByLabel('Pseudocode draft').fill('Save this on the server.');
+  await workspaceEditor(page, 'Pseudocode draft').fill('Save this on the server.');
 
   await expect(page.getByText('Saved to server')).toBeVisible();
 });
@@ -708,9 +728,9 @@ test('guest sees a conflict when sync reports one', async ({ page }) => {
     };
   });
 
-  await page.getByLabel('Pseudocode draft').fill('Conflict this draft.');
+  await workspaceEditor(page, 'Pseudocode draft').fill('Conflict this draft.');
 
-  await expect(page.getByText('Conflict')).toBeVisible();
+  await expect(page.locator('.status-pill')).toContainText('Conflict');
   await expect(page.getByText('Resolve conflict')).toBeVisible();
 });
 
@@ -746,9 +766,11 @@ test('queued evaluation cannot be submitted twice', async ({ page }) => {
   await evaluateButton.dblclick();
 
   await expect(page.getByText('Implementation unlocked')).toBeVisible();
-  await expect(page.getByLabel('Python implementation')).toBeEnabled();
+  await openStage(page, 'approach');
   await expect(page.getByRole('button', { name: 'Saving evaluation…' })).toBeDisabled();
   await expect(page.getByRole('button', { name: 'Cancel evaluation' })).toBeVisible();
+  await openStage(page, 'code');
+  await expect(workspaceEditor(page, 'Python implementation')).toBeEnabled();
   await expect.poll(() => page.evaluate(() => (window as typeof window & { evaluationRequests?: number }).evaluationRequests)).toBe(1);
 });
 
@@ -799,6 +821,7 @@ test('rate-limited evaluation exposes a retry that recovers', async ({ page }) =
   await expect(page.getByText('Too many submissions. Try again in 2 seconds. Your on-device evaluation is still available.')).toBeVisible();
   await page.getByRole('button', { name: 'Retry evaluation' }).click();
 
-  await expect(page.getByText('Recovered evaluation completed.')).toBeVisible();
+  await openStage(page, 'feedback');
+  await expect(page.locator('.feedback-summary')).toHaveText('Recovered evaluation completed.');
   await expect.poll(() => page.evaluate(() => (window as typeof window & { evaluationRequests?: number }).evaluationRequests)).toBe(2);
 });

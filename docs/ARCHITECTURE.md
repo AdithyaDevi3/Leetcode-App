@@ -58,6 +58,18 @@ completion. Guarded browser storage buffers local work and supports guest use;
 an offline cache is not proof of a server save. Account resume and merge code
 must resolve ownership and revision conflicts without silently replacing work.
 
+The practice route uses an immersive staged workspace rather than the global
+sidebar. Its validated stage URL is view state, separate from persisted academic
+workflow state. A local, client-loaded CodeMirror editor buffers bounded undo
+state for the current owner/activity; a textarea supports loading or failure.
+Session JSON optionally carries versioned per-language source drafts while the
+active `code` and `language` remain compatible with existing execution contracts.
+Payload limits and revision conflict comparisons cover inactive drafts too.
+Legacy client saves retain existing inactive languages; a versioned reset can
+explicitly replace the set without changing trusted verification records.
+Editor navigation, layout preferences and manual continuation never establish
+verification, a grade or learning evidence.
+
 The deterministic evaluator uses activity-specific rubrics. Evaluation jobs
 support polling, cancellation, retry accounting, and lease recovery. Runtime
 selection can use PostgreSQL or instance-local memory; durable operation needs

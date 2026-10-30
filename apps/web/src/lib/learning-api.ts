@@ -2,14 +2,16 @@ import { NextResponse } from 'next/server';
 import {
   createDatabaseClient, databaseConfigFromEnv, PostgresLearningEvidenceRepository,
   LearningEvidenceAccessError, LearningEvidenceConflictError, LearningEvidenceValidationError,
+  learningDecisionKey,
 } from '@leetcode-app/database';
-import { buildLearningPlan, type LearningEvidenceSnapshot, type LearningPracticeDescriptor } from '@leetcode-app/domain';
+import { buildLearningDecision, type LearningEvidenceSnapshot, type LearningPracticeDescriptor } from '@leetcode-app/domain';
 import { getSession } from './auth/session';
 import { practiceItems } from './content';
 import { toPersistedContentId } from './content-id';
 import { CODE_GRADING_VERSION } from './code-grading';
 import { decodeLearningReviewRequest, LearningInputError } from './learning-input';
-import type { LearningApiResponse, LearningReviewResponse } from './learning-api-types';
+import type { LearningApiResponse, LearningRecommendationResponse, LearningReviewResponse } from './learning-api-types';
+import { decodeLearningRecommendationRequest } from './learning-recommendation-input';
 
 const responseHeaders = { 'Cache-Control': 'private, no-store, max-age=0', Vary: 'Cookie, x-learning-owner' };
 
@@ -45,11 +47,30 @@ export function learningApiResponse(learnerId: string, source: LearningEvidenceS
     })),
     recentActivityIds: [...source.recentActivityIds],
     sourceSummary: { releasedQuizItems: source.sourceSummary.releasedQuizItems,
-      verifiedPracticeItems: source.sourceSummary.verifiedPracticeItems, independentItems: source.sourceSummary.independentItems },
+      verifiedPracticeItems: source.sourceSummary.verifiedPracticeItems, independentItems: source.sourceSummary.independentItems,
+      ...(source.sourceSummary.diagnosticItems === undefined ? {} : { diagnosticItems: source.sourceSummary.diagnosticItems }) },
     processing: { pending: source.processing.pending, processedSources: source.processing.processedSources,
       remainingSources: source.processing.remainingSources },
   };
-  return { learnerId, snapshot, plan: buildLearningPlan(snapshot, learningPracticeCatalog) };
+  const decision = buildLearningDecision(snapshot, learningPracticeCatalog);
+  return { learnerId, snapshot, plan: decision.plan, decisionKey: snapshot.optOut ? null : learningDecisionKey(decision) };
+}
+
+export async function selectAccountRecommendation(request: Request): Promise<LearningRecommendationResponse> {
+  const userId = await authenticatedOwner(request, true);
+  const input = await decodeLearningRecommendationRequest(request);
+  const db = createDatabaseClient(databaseConfigFromEnv());
+  try {
+    const repository = new PostgresLearningEvidenceRepository(db, { userId, practiceCatalog: learningPracticeCatalog, practiceGradeVersion: CODE_GRADING_VERSION });
+    const receipt = await repository.selectRecommendation(input);
+    return { learnerId: userId, receipt: {
+      requestKey: receipt.requestKey, decisionKey: receipt.decisionKey, selectionId: receipt.selectionId,
+      practiceId: receipt.practiceId, selectedAt: receipt.selectedAt,
+    } };
+  } catch (error) {
+    if (error instanceof LearningEvidenceConflictError) throw new LearningApiError(409, 'recommendation_conflict', 'Your recommended practice changed. Load the latest plan before choosing again.');
+    throw error;
+  } finally { await db.close(); }
 }
 
 export async function readAccountLearning(request: Request): Promise<LearningApiResponse> {
@@ -76,7 +97,7 @@ export async function snoozeAccountLearning(request: Request): Promise<LearningR
   } finally { await db.close(); }
 }
 
-export function learningJson(value: LearningApiResponse | LearningReviewResponse) {
+export function learningJson(value: LearningApiResponse | LearningReviewResponse | LearningRecommendationResponse) {
   return NextResponse.json(value, { headers: responseHeaders });
 }
 

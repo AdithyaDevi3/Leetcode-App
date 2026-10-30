@@ -16,17 +16,17 @@ const selectedQuestions = (page: Page) => page.getByRole('list', { name: 'Select
 test('teacher searches the reviewed bank, orders questions, sets exact points, and previews without answer keys', async ({ page }) => {
   await page.goto(fixturePath);
   await page.getByLabel('Quiz title', { exact: true }).fill('Reasoning fundamentals quiz');
-  await expect(page.getByText('20 matching questions', { exact: true })).toBeVisible();
+  await expect(page.getByText('60 matching questions', { exact: true })).toBeVisible();
   await page.getByLabel('Search questions', { exact: true }).fill('Pair With Target');
   await page.getByLabel('Concept', { exact: true }).selectOption('hash-maps');
   await page.getByLabel('Difficulty', { exact: true }).selectOption('intermediate');
-  await expect(page.getByText('1 matching questions', { exact: true })).toBeVisible();
+  await expect(page.getByText('2 matching questions', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Add Account for the map', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Add Account for the map', exact: true })).toBeDisabled();
   await page.getByLabel('Search questions', { exact: true }).fill('');
   await page.getByLabel('Difficulty', { exact: true }).selectOption('');
   await page.getByLabel('Concept', { exact: true }).selectOption('tree-recursion');
-  await expect(page.getByText('2 matching questions', { exact: true })).toBeVisible();
+  await expect(page.getByText('6 matching questions', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Add Define the empty-tree depth', exact: true }).click();
   await expect(selectedQuestions(page).getByRole('listitem')).toHaveCount(2);
   await page.getByRole('button', { name: 'Move question 2 up', exact: true }).click();

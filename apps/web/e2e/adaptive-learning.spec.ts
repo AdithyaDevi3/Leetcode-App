@@ -1,10 +1,11 @@
 import { expect, test, type Page } from '@playwright/test';
-import type { LearningApiResponse, LearningReviewReceipt, LearningReviewRequest } from '../src/lib/learning-api-types';
+import type { LearningApiResponse, LearningRecommendationReceipt, LearningRecommendationRequest, LearningReviewReceipt, LearningReviewRequest } from '../src/lib/learning-api-types';
 
 const fixture = '/test-support/adaptive-learning';
 const first = '11111111-1111-4111-8111-111111111111';
 const second = '22222222-2222-4222-8222-222222222222';
 const cacheKey = `method:learning-review:${first}`;
+const selectionCacheKey = `method:learning-selection:${first}`;
 const generatedAt = '2026-10-27T12:00:00.000Z';
 const profile = { goal: 'coursework', experience: 'new', weeklyMinutes: 180, preferredLanguage: 'python', timezone: 'UTC', diagnosticOptIn: false, personalizationOptOut: false };
 
@@ -65,6 +66,129 @@ async function connect(page: Page, state: Model) {
     await route.fulfill({ json: { ...account, reviewReceipt: receipt } });
   });
 }
+
+async function connectSelections(page: Page, state: Model) {
+  state.accounts.get(first)!.decisionKey = 'a'.repeat(64);
+  const selections = { requests: [] as LearningRecommendationRequest[], receipts: new Map<string, LearningRecommendationReceipt>(),
+    reply: 'ok' as 'ok' | 'lost' | 'missing' | 'mismatch' | 'owner' | 'foreign' | 'stale' };
+  await connect(page, state);
+  await page.route('**/practice?problem=*', route => route.fulfill({ contentType: 'text/html', body: '<h1>Practice destination</h1>' }));
+  await page.route('**/api/learner/learning/recommendations', async route => {
+    const owner = route.request().headers()['x-learning-owner'];
+    expect(owner).toBe(first);
+    const request = route.request().postDataJSON() as LearningRecommendationRequest;
+    expect(Object.keys(request).sort()).toEqual(['expectedDecisionKey', 'practiceId', 'requestKey']);
+    selections.requests.push(request);
+    if (selections.reply === 'owner') {
+      await route.fulfill({ status: 409, json: { code: 'owner_changed', error: 'Your signed-in account changed.' } }); return;
+    }
+    if (selections.reply === 'stale') {
+      selections.reply = 'ok'; state.accounts.get(first)!.decisionKey = 'b'.repeat(64);
+      await route.fulfill({ status: 409, json: { code: 'recommendation_conflict', error: 'Your recommended practice changed. Load the latest plan.' } }); return;
+    }
+    let receipt = selections.receipts.get(request.requestKey);
+    if (!receipt) {
+      receipt = { requestKey: request.requestKey, decisionKey: request.expectedDecisionKey, practiceId: request.practiceId,
+        selectionId: '33333333-3333-4333-8333-333333333333', selectedAt: '2026-10-29T12:00:00.000Z' };
+      selections.receipts.set(request.requestKey, receipt);
+    }
+    const reply = selections.reply; selections.reply = 'ok';
+    if (reply === 'lost') { await route.abort('failed'); return; }
+    await route.fulfill({ json: { learnerId: reply === 'foreign' ? second : first, ...(reply === 'missing' ? {} : { receipt: reply === 'mismatch' ? { ...receipt, requestKey: 'wrong-key' } : receipt }) } });
+  });
+  return selections;
+}
+
+test('recommendation viewing and plan refresh do not record choices; an explicit start confirms its receipt before navigation', async ({ page }) => {
+  const state = model(); const selections = await connectSelections(page, state);
+  await page.goto(fixture);
+  await expect(page.getByRole('link', { name: 'Open skills check', exact: true })).toHaveAttribute('href', '/diagnostic');
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.getByRole('button', { name: 'Refresh plan', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Recommended algorithms', exact: true })).toBeVisible();
+  expect(selections.requests).toHaveLength(0);
+  await page.getByRole('link', { name: 'Start Pair With Target', exact: true }).click();
+  await expect(page).toHaveURL(/\/practice\?problem=pair-with-target-v1$/);
+  expect(selections.requests).toHaveLength(1); expect(selections.receipts.size).toBe(1);
+  expect(selections.requests[0]).toMatchObject({ practiceId: 'pair-with-target-v1', expectedDecisionKey: 'a'.repeat(64) });
+  expect(await page.evaluate(key => sessionStorage.getItem(key), selectionCacheKey)).toBeNull();
+});
+
+test('an accepted recommendation with a lost reply resumes the exact command after reload', async ({ page }) => {
+  const state = model(); const selections = await connectSelections(page, state); selections.reply = 'lost';
+  await page.goto(fixture); await page.getByRole('link', { name: 'Start Pair With Target', exact: true }).click();
+  await expect(page.getByRole('alert', { name: 'Practice selection error' })).toBeVisible();
+  await expect(page).toHaveURL(new RegExp(fixture + '$'));
+  const original = selections.requests[0];
+  expect(await page.evaluate(key => JSON.parse(sessionStorage.getItem(key)!), selectionCacheKey)).toEqual(original);
+  await page.reload();
+  await expect(page.getByRole('link', { name: 'Open practice without confirming selection' })).toHaveAttribute('href', '/practice?problem=pair-with-target-v1');
+  await page.getByRole('button', { name: 'Retry practice selection' }).click();
+  await expect(page).toHaveURL(/\/practice\?problem=pair-with-target-v1$/);
+  expect(selections.requests).toEqual([original, original]); expect(selections.receipts.size).toBe(1);
+  expect(await page.evaluate(key => sessionStorage.getItem(key), selectionCacheKey)).toBeNull();
+});
+
+for (const reply of ['missing', 'mismatch'] as const) {
+  test(`${reply} recommendation receipts preserve a retry and cannot trigger navigation`, async ({ page }) => {
+    const state = model(); const selections = await connectSelections(page, state); selections.reply = reply;
+    await page.goto(fixture); await page.getByRole('link', { name: 'Start Pair With Target', exact: true }).click();
+    await expect(page.getByRole('alert', { name: 'Practice selection error' })).toContainText('could not confirm');
+    await expect(page).toHaveURL(new RegExp(fixture + '$'));
+    await page.getByRole('button', { name: 'Retry practice selection' }).click();
+    await expect(page).toHaveURL(/\/practice\?problem=pair-with-target-v1$/);
+    expect(selections.requests[1]).toEqual(selections.requests[0]); expect(selections.receipts.size).toBe(1);
+  });
+}
+
+test('a rejected stale recommendation requires a refreshed plan and records only its later accepted selection', async ({ page }) => {
+  const state = model(); const selections = await connectSelections(page, state); selections.reply = 'stale';
+  await page.goto(fixture); await page.getByRole('link', { name: 'Start Pair With Target', exact: true }).click();
+  await expect(page.getByRole('alert', { name: 'Practice selection error' })).toContainText('changed');
+  await expect(page.getByRole('button', { name: 'Retry practice selection' })).toHaveCount(0);
+  expect(await page.evaluate(key => sessionStorage.getItem(key), selectionCacheKey)).toBeNull();
+  await page.getByRole('button', { name: 'Load latest practice plan' }).click();
+  await expect(page.getByRole('heading', { name: 'Recommended algorithms', exact: true })).toBeVisible();
+  await page.getByRole('link', { name: 'Start Pair With Target', exact: true }).click();
+  await expect(page).toHaveURL(/\/practice\?problem=pair-with-target-v1$/);
+  expect(selections.requests[1].expectedDecisionKey).toBe('b'.repeat(64));
+  expect(selections.requests[1].requestKey).not.toBe(selections.requests[0].requestKey);
+  expect(selections.receipts.size).toBe(1);
+});
+
+for (const reply of ['owner', 'foreign'] as const) {
+  test(`${reply} account response denies recommendation navigation and retains only the original owner recovery command`, async ({ page }) => {
+    const state = model(); const selections = await connectSelections(page, state); selections.reply = reply;
+    await page.goto(fixture); await page.getByRole('link', { name: 'Start Pair With Target', exact: true }).click();
+    await expect(page.getByRole('alert', { name: 'Learning account changed' })).toBeVisible();
+    await expect(page.getByRole('list', { name: 'Account practice recommendations' })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Retry practice selection' })).toHaveCount(0);
+    await expect(page).toHaveURL(new RegExp(fixture + '$'));
+    expect(await page.evaluate(key => JSON.parse(sessionStorage.getItem(key)!), selectionCacheKey)).toEqual(selections.requests[0]);
+    expect(selections.receipts.size).toBe(reply === 'owner' ? 0 : 1);
+  });
+}
+
+test('a delayed earlier-owner recommendation receipt cannot navigate another account or erase recovery', async ({ page }) => {
+  const state = model(); await connectSelections(page, state);
+  let release!: () => void; const held = new Promise<void>(resolve => { release = resolve; });
+  let original: LearningRecommendationRequest | null = null;
+  await page.route('**/api/learner/learning/recommendations', async route => {
+    original = route.request().postDataJSON() as LearningRecommendationRequest;
+    await held;
+    await route.fulfill({ json: { learnerId: first, receipt: { requestKey: original.requestKey, decisionKey: original.expectedDecisionKey,
+      practiceId: original.practiceId, selectionId: '33333333-3333-4333-8333-333333333333', selectedAt: '2026-10-29T12:00:00.000Z' } } });
+  });
+  await page.goto(fixture); await page.getByRole('link', { name: 'Start Pair With Target', exact: true }).click();
+  await page.getByRole('button', { name: 'Second sample account' }).click();
+  await expect(page.getByText('No account evidence yet.', { exact: false })).toBeVisible();
+  const response = page.waitForResponse(reply => reply.url().endsWith('/api/learner/learning/recommendations'));
+  release(); await (await response).finished();
+  await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => resolve())));
+  await expect(page).toHaveURL(new RegExp(fixture + '$'));
+  expect(await page.evaluate(key => JSON.parse(sessionStorage.getItem(key)!), selectionCacheKey)).toEqual(original);
+  expect(await page.evaluate(key => sessionStorage.getItem(key), `method:learning-selection:${second}`)).toBeNull();
+});
 
 const capture = async (page: Page, name: string) => {
   if (process.env.METHOD_CAPTURE_UI === '1') {

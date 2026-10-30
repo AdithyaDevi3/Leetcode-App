@@ -73,6 +73,7 @@ is also expected in the default setup.
   connected to a coding activity offer verified code practice.
 - Use /onboarding and /settings for preferences, /dashboard for recommendations
   and due reviews, and /history for prior practice.
+- Use /diagnostic for an optional signed-in, ten-question skills check.
 - Use /library for study resources, notes, and bookmarks.
 - Use /auth for account signup, confirmation, sign-in, and sign-out.
 - Use /classes to join with a class code and open assigned work. Published grades
@@ -100,12 +101,33 @@ or replacing edited code with a plan asks for confirmation and retains a recover
 copy. A language change clears the active verification display; run verification
 for the selected source. These editor features require no additional paid service.
 
-The signed-in dashboard uses released, eligible quiz results and newly recorded
-practice verification to suggest activities and explain **Why this question?**
+The signed-in dashboard uses released, eligible quiz results, answered skills-check
+items, and newly recorded practice verification to suggest activities and explain
+**Why this question?**
 Concept estimates show evidence coverage and a model range; unknown concepts
 have no inferred weakness. Repeating the same question or activity updates its
 evidence without adding independent coverage. Older practice history remains
 available but may not contribute to estimates until a new verification.
+
+Open **Optional skills check** on the dashboard or visit /diagnostic. Each account
+has one saved ten-question check per question-set version, covering one idea from
+each coding activity. Navigate one question at a time, choose **Save answers** to
+resume across devices, then **Review and submit** and confirm the final submission.
+Submission freezes your choices and reveals explanations from a separate practice
+pool; class-quiz answers stay private. Results show correct answers out of answered
+items, with skipped items listed separately. Skips add no learning evidence and
+do not imply a weakness. The check creates no class grade. Personalization opt-out
+still allows saving and reviewing the check while excluding its results from your
+learning plan.
+
+Starting a recommended activity records that explicit choice and its current plan
+when personalization is enabled. Viewing or refreshing a plan records no choice.
+An uncertain reply offers **Retry practice selection**, preserving the original
+request across reloads; **Open practice without confirming selection** keeps
+practice accessible. A changed recommendation requires loading the latest plan.
+A later trusted verification for the same activity within fourteen days may be
+associated with the latest matching choice. This is an observed result, not proof
+that the recommendation caused improvement.
 
 Due concept reviews follow account evidence. **Tomorrow** moves a review without
 changing an estimate or class grade; an interrupted request can safely be retried.
@@ -155,11 +177,11 @@ grade can be corrected by saving and publishing a new revision.
 
 Class workspaces also provide **Quiz drafts** for instructors and administrators
 with class-management permission. Choose **Create a quiz draft** to search the
-20-question starter bank, preview questions, set their order and points, and save
+60-question bank, preview questions, set their order and points, and save
 instructions and optional opening/due/closing times. Drafts resume from the class
 workspace and stay private to authorized authors; saving does not assign them to
 learners or publish grades. Conflicts retain entered work for comparison, and
-retries can recover an unconfirmed save. Starter questions have independent
+retries can recover an unconfirmed save. Catalog questions have independent
 automated content review; teacher validation remains outstanding.
 
 On a saved quiz, choose **Load class audience**, select all current learners or

@@ -1,7 +1,7 @@
 // Client
 export { DatabaseClient, createDatabaseClient, databaseConfigFromEnv } from './client.js';
-export { PostgresLearningEvidenceRepository, LearningEvidenceAccessError, LearningEvidenceConflictError, LearningEvidenceValidationError } from './repositories/learning-evidence.repository.js';
-export type { LearningReviewReceipt } from './repositories/learning-evidence.repository.js';
+export { PostgresLearningEvidenceRepository, LearningEvidenceAccessError, LearningEvidenceConflictError, LearningEvidenceValidationError, learningDecisionKey } from './repositories/learning-evidence.repository.js';
+export type { LearningReviewReceipt, LearningRecommendationReceipt, LearningRecommendationOutcome, StoredLearningRecommendation } from './repositories/learning-evidence.repository.js';
 export type { DatabaseConfig } from './client.js';
 
 // Base repository types
@@ -75,3 +75,5 @@ export type {
   StudentAssignment,
   StudentClassroom,
 } from './repositories/classroom.repository.js';
+export { PostgresPracticeDiagnosticRepository, DiagnosticAccessError, DiagnosticConflictError, DiagnosticValidationError } from './repositories/practice-diagnostic.repository.js';
+export type { DiagnosticView, DiagnosticAnswerDraft, DiagnosticSubmissionReceipt, DiagnosticSaveReceipt, DiagnosticFeedback, DiagnosticHistory } from './repositories/practice-diagnostic.repository.js';

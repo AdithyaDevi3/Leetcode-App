@@ -3,14 +3,14 @@ import { runner } from 'node-pg-migrate';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { GenericContainer, type StartedTestContainer } from 'testcontainers';
 import type { PoolClient } from 'pg';
-import { freezeQuestionVersion, freezeQuizQuestionSelection, type LearningPracticeDescriptor } from '@leetcode-app/domain';
+import { buildLearningDecision, freezeQuestionVersion, freezeQuizQuestionSelection, scoreMultipleChoiceQuiz, type LearningPracticeDescriptor } from '@leetcode-app/domain';
 import { createDatabaseClient, type DatabaseClient, type DatabaseConfig } from '../src/client.js';
 import { runMigrations } from '../src/migrations/index.js';
 import { PostgresAssessmentDraftRepository } from '../src/repositories/assessment-draft.repository.js';
 import { PostgresClassroomRepository } from '../src/repositories/classroom.repository.js';
 import { PostgresGradebookRepository } from '../src/repositories/gradebook.repository.js';
 import { PostgresQuizAssignmentRepository } from '../src/repositories/quiz-assignment.repository.js';
-import { LearningEvidenceAccessError, LearningEvidenceConflictError, PostgresLearningEvidenceRepository } from '../src/repositories/learning-evidence.repository.js';
+import { LearningEvidenceAccessError, LearningEvidenceConflictError, LearningEvidenceValidationError, learningDecisionKey, PostgresLearningEvidenceRepository } from '../src/repositories/learning-evidence.repository.js';
 import { prepareSupabaseTestDatabase } from './support/supabase.js';
 
 let container:StartedTestContainer,database:DatabaseClient,config:DatabaseConfig;
@@ -67,6 +67,22 @@ async function consent(userId:string,optOut:boolean){
   await database.query(`INSERT INTO learner_profiles(user_id,goal,experience,preferred_language,weekly_minutes,timezone,personalization_opt_out)
     VALUES($1,'interview','beginner','typescript',60,'UTC',$2) ON CONFLICT(user_id) DO UPDATE SET personalization_opt_out=EXCLUDED.personalization_opt_out`,[userId,optOut]);
 }
+async function diagnosticFixture(userId:string,answer:string|null='yes',submitted=true){
+  const snapshot=freezeQuizQuestionSelection(Array.from({length:10},(_,index)=>{
+    const questionId=index===0?'synthetic-invariant':`synthetic-diagnostic-${index}`;
+    return {maxUnits:100,question:freezeQuestionVersion({questionId,version:1,versionId:`${questionId}@1`,kind:'multiple_choice',status:'reviewed',title:`Synthetic diagnostic ${index}`,prompt:'Choose the invariant.',difficulty:'foundation',activityIds:['synthetic-pairs'],conceptIds:['hash-maps'],
+      options:[{id:'yes',text:'The invariant holds.',misconceptionTags:[]},{id:'no',text:'The invariant does not hold.',misconceptionTags:['synthetic-misconception']}],correctOptionId:'yes',explanation:'Synthetic explanation.',provenance:{kind:'original',authorId:'synthetic-author',authoredAt:'2026-10-26T10:00:00.000Z'},review:{reviewerId:'synthetic-reviewer',reviewedAt:'2026-10-26T11:00:00.000Z',notes:'Synthetic review.'}})};
+  }));
+  const blank=Object.fromEntries(snapshot.questions.map(item=>[item.question.versionId,null]));
+  const id=(await database.query<{id:string}>(`INSERT INTO practice_diagnostics(user_id,selection_version,snapshot,snapshot_hash,answers)
+    VALUES($1,$2,$3,encode(sha256(convert_to(($3::jsonb)::text,'UTF8')),'hex'),$4) RETURNING id`,[userId,`synthetic-${randomUUID()}`,snapshot,blank])).rows[0].id;
+  if(submitted){
+    const answers={...blank,'synthetic-invariant@1':answer};
+    await database.query('UPDATE practice_diagnostics SET answers=$2,answer_revision=1 WHERE id=$1',[id,answers]);
+    await database.query('UPDATE practice_diagnostics SET result=$2,submitted_at=clock_timestamp(),submit_request_key=$3 WHERE id=$1',[id,scoreMultipleChoiceQuiz(snapshot,answers),randomUUID()]);
+  }
+  return{id,snapshot};
+}
 function deferred(){let resolve!:()=>void;const promise=new Promise<void>(accept=>{resolve=accept;});return{promise,resolve};}
 async function waitUntilBlocked(waiter:number,blocker:number){
   const deadline=Date.now()+5_000;
@@ -79,6 +95,145 @@ async function waitUntilBlocked(waiter:number,blocker:number){
 }
 
 describe('durable owner learning evidence',()=>{
+  it('builds stable decision keys from ranking inputs and records only explicit selections',async()=>{
+    const f=await practiceFixture();
+    const snapshot=await f.repo.readSnapshot();
+    const decision=buildLearningDecision(snapshot,f.catalog);
+    const key=learningDecisionKey(decision);
+    expect(learningDecisionKey({...decision,generatedAt:'2099-01-01T00:00:00.000Z'})).toBe(key);
+    expect((await database.query('SELECT * FROM learning_recommendation_selections')).rows).toEqual([]);
+    const input={practiceId:'synthetic-pairs',expectedDecisionKey:key,requestKey:randomUUID()};
+    const receipt=await f.repo.selectRecommendation(input);
+    expect(receipt).toMatchObject({practiceId:input.practiceId,decisionKey:key,requestKey:input.requestKey});
+    const history=await f.repo.readRecommendationSelections();
+    expect(history).toHaveLength(1);
+    expect(history[0]).toMatchObject({receipt,observedOutcome:null,decision:{decisionVersion:'learning-decision-v1',curriculumVersion:'practice-catalog-v1'}});
+    expect(history[0].decision.candidates[0].factors).toMatchObject({unknownConceptIds:['hash-maps'],knownConcepts:[],basePriority:45,unknownBonus:10});
+    await expect(repository(f.userId,f.catalog).selectRecommendation(input)).resolves.toEqual(receipt);
+    await expect(f.repo.selectRecommendation({...input,practiceId:'not-the-recommended-task'})).rejects.toBeInstanceOf(LearningEvidenceConflictError);
+    await expect(f.repo.selectRecommendation({...input,requestKey:randomUUID(),expectedDecisionKey:'0'.repeat(64)})).rejects.toBeInstanceOf(LearningEvidenceConflictError);
+    await expect(f.repo.selectRecommendation({...input,requestKey:'',expectedDecisionKey:key})).rejects.toBeInstanceOf(LearningEvidenceValidationError);
+    expect((await database.query('SELECT * FROM learning_recommendation_selections')).rows).toHaveLength(1);
+  });
+
+  it('retains compact idempotent receipts after bounding detailed decisions to one hundred',async()=>{
+    const f=await practiceFixture();
+    const key=learningDecisionKey(buildLearningDecision(await f.repo.readSnapshot(),f.catalog));
+    const input={practiceId:'synthetic-pairs',expectedDecisionKey:key,requestKey:randomUUID()};
+    const first=await f.repo.selectRecommendation(input);
+    for(let index=0;index<100;index++) await f.repo.selectRecommendation({...input,requestKey:randomUUID()});
+    expect((await database.query('SELECT * FROM learning_recommendation_selections WHERE user_id=$1',[f.userId])).rows).toHaveLength(100);
+    expect((await database.query('SELECT * FROM learning_recommendation_selections WHERE id=$1',[first.selectionId])).rows).toEqual([]);
+    await expect(f.repo.selectRecommendation(input)).resolves.toEqual(first);
+    expect((await database.query('SELECT * FROM learning_recommendation_receipts WHERE user_id=$1',[f.userId])).rows).toHaveLength(101);
+  });
+
+  it('attributes one trusted observed result to the latest matching selection without falling back to older clicks',async()=>{
+    const f=await practiceFixture(),sessionId=await session(f.userId,f.contentId);
+    await verify(sessionId,0);
+    const key=learningDecisionKey(buildLearningDecision(await f.repo.readSnapshot(),f.catalog));
+    const first=await f.repo.selectRecommendation({practiceId:'synthetic-pairs',expectedDecisionKey:key,requestKey:randomUUID()});
+    const second=await f.repo.selectRecommendation({practiceId:'synthetic-pairs',expectedDecisionKey:key,requestKey:randomUUID()});
+    const report=await verify(sessionId,2,new Date(Date.now()+10).toISOString());
+    const history=await f.repo.readRecommendationSelections();
+    expect(history.find(item=>item.receipt.selectionId===first.selectionId)?.observedOutcome).toBeNull();
+    expect(history.find(item=>item.receipt.selectionId===second.selectionId)?.observedOutcome).toMatchObject({kind:'observed_practice_verification',requestId:report.requestId,score:100,passedCount:2,totalCount:2});
+    await verify(sessionId,1,new Date(Date.now()+20).toISOString());
+    const repeated=await f.repo.readRecommendationSelections();
+    expect(repeated.filter(item=>item.observedOutcome)).toHaveLength(1);
+    expect(repeated.find(item=>item.receipt.selectionId===second.selectionId)?.observedOutcome?.requestId).toBe(report.requestId);
+  });
+
+  it('excludes reports outside the fourteen-day selection window and clears private decisions on opt-out',async()=>{
+    const f=await practiceFixture(),sessionId=await session(f.userId,f.contentId);
+    const key=learningDecisionKey(buildLearningDecision(await f.repo.readSnapshot(),f.catalog));
+    const input={practiceId:'synthetic-pairs',expectedDecisionKey:key,requestKey:randomUUID()};
+    const selected=await f.repo.selectRecommendation(input);
+    await database.query("UPDATE learning_recommendation_selections SET selected_at=clock_timestamp()-interval '15 days' WHERE id=$1",[selected.selectionId]);
+    await verify(sessionId,2,new Date().toISOString());
+    expect((await f.repo.readRecommendationSelections())[0].observedOutcome).toBeNull();
+    const other=await person();
+    expect(await repository(other,f.catalog).readRecommendationSelections()).toEqual([]);
+    await consent(f.userId,true);
+    expect((await database.query('SELECT * FROM learning_recommendation_selections WHERE user_id=$1',[f.userId])).rows).toEqual([]);
+    expect((await database.query('SELECT * FROM learning_recommendation_receipts WHERE user_id=$1',[f.userId])).rows).toEqual([]);
+    await expect(f.repo.selectRecommendation(input)).rejects.toBeInstanceOf(LearningEvidenceConflictError);
+    expect(await f.repo.readRecommendationSelections()).toEqual([]);
+  });
+
+  it('keeps PostgreSQL microsecond precision when choosing the latest same-millisecond selection',async()=>{
+    const f=await practiceFixture(),sessionId=await session(f.userId,f.contentId);
+    const key=learningDecisionKey(buildLearningDecision(await f.repo.readSnapshot(),f.catalog));
+    const input={practiceId:'synthetic-pairs',expectedDecisionKey:key};
+    const older=await f.repo.selectRecommendation({...input,requestKey:randomUUID()});
+    const latest=await f.repo.selectRecommendation({...input,requestKey:randomUUID()});
+    await database.query("UPDATE learning_recommendation_selections SET selected_at='2026-10-29T10:00:00.000000Z' WHERE id=$1",[older.selectionId]);
+    await database.query("UPDATE learning_recommendation_selections SET selected_at='2026-10-29T10:00:00.000600Z' WHERE id=$1",[latest.selectionId]);
+    const report=await verify(sessionId,2,'2026-10-29T10:00:00.000800Z');
+    const history=await f.repo.readRecommendationSelections();
+    expect(history.find(item=>item.receipt.selectionId===older.selectionId)?.observedOutcome).toBeNull();
+    expect(history.find(item=>item.receipt.selectionId===latest.selectionId)?.observedOutcome).toMatchObject({requestId:report.requestId,score:100});
+  });
+
+  it('does not let repeated reports for a finished selection starve another eligible observed outcome',async()=>{
+    const first=await practiceFixture();
+    const initialKey=learningDecisionKey(buildLearningDecision(await first.repo.readSnapshot(),first.catalog));
+    await first.repo.selectRecommendation({practiceId:'synthetic-pairs',expectedDecisionKey:initialKey,requestKey:randomUUID()});
+    const latest=await first.repo.selectRecommendation({practiceId:'synthetic-pairs',expectedDecisionKey:initialKey,requestKey:randomUUID()});
+    await verify(await session(first.userId,first.contentId),2,new Date(Date.now()+100).toISOString());
+    await first.repo.readRecommendationSelections();
+    const reportBase=Date.now()+1_000;
+    for(let index=0;index<101;index++) await verify(await session(first.userId,first.contentId),2,new Date(reportBase+index).toISOString());
+    const contentId=(await database.query<{id:string}>("INSERT INTO content_items(slug,type,status,difficulty,estimated_minutes,tags)VALUES($1,'problem','published','beginner',15,'{}')RETURNING id",[`synthetic-second-${randomUUID()}`])).rows[0].id;
+    const second={...first.catalog[0],practiceId:'synthetic-second',contentId,label:'Synthetic second'};
+    const catalog=[...first.catalog,second],repo=repository(first.userId,catalog);
+    let snapshot=await repo.readSnapshot();
+    while(snapshot.processing.pending) snapshot=await repo.readSnapshot();
+    const key=learningDecisionKey(buildLearningDecision(snapshot,catalog));
+    const selected=await repo.selectRecommendation({practiceId:second.practiceId,expectedDecisionKey:key,requestKey:randomUUID()});
+    const sessionId=await session(first.userId,contentId),request={id:randomUUID(),source:'synthetic second source',language:'typescript',workspaceRevision:2};
+    await database.query("UPDATE practice_sessions SET session_metadata=jsonb_build_object('verificationRequest',$2::jsonb)WHERE id=$1",[sessionId,request]);
+    const verification={requestId:request.id,source:request.source,language:request.language,verifiedAt:new Date(reportBase+5_000).toISOString(),grade:{problemId:second.practiceId,version:'synthetic-v1',passed:true,passedCount:2,totalCount:2,tests:[{passed:true},{passed:true}]}};
+    await database.query("UPDATE practice_sessions SET session_metadata=session_metadata||jsonb_build_object('verification',$2::jsonb)WHERE id=$1",[sessionId,verification]);
+    const history=await repo.readRecommendationSelections();
+    expect(history.find(item=>item.receipt.selectionId===latest.selectionId)?.observedOutcome).toBeTruthy();
+    expect(history.find(item=>item.receipt.selectionId===selected.selectionId)?.observedOutcome).toMatchObject({requestId:request.id,practiceId:second.practiceId,score:100});
+    expect(history.filter(item=>item.observedOutcome)).toHaveLength(2);
+  });
+
+  it('deduplicates diagnostic/class copies, ignores unsubmitted and omitted answers, and keeps academic grades unchanged',async()=>{
+    const f=await quizFixture();await f.release();
+    await diagnosticFixture(f.userId,'yes',false);
+    expect((await f.repo.readSnapshot()).sourceSummary).toMatchObject({releasedQuizItems:1,independentItems:1});
+    await diagnosticFixture(f.userId,null);
+    expect((await f.repo.readSnapshot()).concepts[0]).toMatchObject({score:40,independentItems:1});
+    const diagnostic=await diagnosticFixture(f.userId,'yes');
+    const result=await f.repo.readSnapshot();
+    expect(result.concepts[0]).toMatchObject({score:60,independentItems:1});
+    expect(result.sourceSummary).toMatchObject({releasedQuizItems:0,diagnosticItems:1,independentItems:1});
+    expect((await database.query('SELECT earned_units FROM gradebook_grade_revisions WHERE id=$1',[f.grade.id])).rows[0].earned_units).toBe('0');
+    await database.query('DELETE FROM practice_diagnostics WHERE id=$1',[diagnostic.id]);
+    expect((await f.repo.readSnapshot()).concepts[0]).toMatchObject({score:40,independentItems:1});
+  });
+
+  it('keeps recommendation details and receipts private even if broad grants are accidentally added',async()=>{
+    const f=await practiceFixture();
+    const key=learningDecisionKey(buildLearningDecision(await f.repo.readSnapshot(),f.catalog));
+    await f.repo.selectRecommendation({practiceId:'synthetic-pairs',expectedDecisionKey:key,requestKey:randomUUID()});
+    const tables=['learning_recommendation_selections','learning_recommendation_receipts'];
+    for(const table of tables){
+      expect((await database.query<{allowed:boolean}>("SELECT has_table_privilege('authenticated',$1,'SELECT') AS allowed",[table])).rows[0].allowed).toBe(false);
+      expect((await database.query<{relrowsecurity:boolean}>('SELECT relrowsecurity FROM pg_class WHERE relname=$1',[table])).rows[0].relrowsecurity).toBe(true);
+    }
+    await expect(database.transaction(async client=>{
+      await client.query('GRANT SELECT,INSERT,UPDATE,DELETE ON learning_recommendation_selections,learning_recommendation_receipts TO authenticated');
+      await client.query('SET LOCAL ROLE authenticated');await client.query("SELECT set_config('request.jwt.claim.sub',$1,true)",[f.userId]);
+      for(const table of tables) expect((await client.query(`SELECT * FROM ${table}`)).rows).toEqual([]);
+      await client.query('INSERT INTO learning_recommendation_receipts(user_id,request_key,input_fingerprint,receipt)VALUES($1,$2,$3,$4)',[f.userId,randomUUID(),'0'.repeat(64),{}]);
+    })).rejects.toMatchObject({code:'42501'});
+    expect((await database.query<{allowed:boolean}>("SELECT has_function_privilege('authenticated','learning_clear_recommendation_consent()','EXECUTE') AS allowed")).rows[0].allowed).toBe(false);
+  });
+
   it('captures only reserved server practice reports, persists across clients, replaces repeats, and preserves legacy mastery/reviews',async()=>{
     const f=await practiceFixture();
     await database.query("INSERT INTO concept_mastery(user_id,concept_id,score,confidence)VALUES($1,'hash-maps',99,0.99)",[f.userId]);

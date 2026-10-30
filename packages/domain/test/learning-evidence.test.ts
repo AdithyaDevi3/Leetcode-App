@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildLearningPlan, estimateLearningConcepts, LEARNING_ALGORITHM_VERSION, type LearningEvidenceSnapshot, type LearningObservation } from '../src/learning-evidence';
+import { buildLearningDecision, buildLearningPlan, estimateLearningConcepts, LEARNING_ALGORITHM_VERSION, type LearningEvidenceSnapshot, type LearningObservation } from '../src/learning-evidence';
 
 const observation = (changes: Partial<LearningObservation> = {}): LearningObservation => ({ logicalItemId:'quiz:invariant',conceptId:'hash-maps',score:0,sourceKind:'quiz',occurredAt:'2026-10-26T10:00:00.000Z',sourceId:'a',activityIds:['pairs'],...changes });
 const snapshot = (changes: Partial<LearningEvidenceSnapshot> = {}): LearningEvidenceSnapshot => ({algorithmVersion:LEARNING_ALGORITHM_VERSION,generatedAt:'2026-10-29T10:00:00.000Z',optOut:false,concepts:estimateLearningConcepts([observation()]).map(item=>({...item,reviewRevision:1})),recentActivityIds:[],sourceSummary:{releasedQuizItems:1,verifiedPracticeItems:0,independentItems:1},processing:{pending:false,processedSources:1,remainingSources:0},...changes});
@@ -46,5 +46,38 @@ describe('versioned account learning estimates',()=>{
     expect(buildLearningPlan(snapshot({concepts:[]}),catalog).recommendations[0]).toMatchObject({reasonKind:'diagnostic',evidenceStatus:'unknown'});
     expect(buildLearningPlan(snapshot({optOut:true}),catalog)).toMatchObject({status:'disabled',recommendations:[]});
     expect(buildLearningPlan(snapshot({processing:{pending:true,processedSources:100,remainingSources:1}}),catalog).status).toBe('collecting');
+  });
+  it('records enough factors and alternatives to reproduce the same ranked plan',()=>{
+    const catalog=[{practiceId:'pairs',label:'Pair lookup',conceptIds:['hash-maps'],difficulty:'foundation' as const,estimatedMinutes:15},
+      {practiceId:'advanced-pairs',label:'Advanced pairs',conceptIds:['hash-maps','ordering'],difficulty:'advanced' as const,estimatedMinutes:25},
+      {practiceId:'graph',label:'Graph traversal',conceptIds:['graphs'],difficulty:'foundation' as const,estimatedMinutes:15},
+      {practiceId:'arrays',label:'Array traversal',conceptIds:['arrays'],difficulty:'foundation' as const,estimatedMinutes:10}];
+    const input=snapshot({recentActivityIds:['pairs']});
+    const decision=buildLearningDecision(input,catalog);
+    expect(decision.plan).toEqual(buildLearningPlan(input,catalog));
+    expect(decision.candidates.filter(candidate=>candidate.selected)).toHaveLength(3);
+    expect(decision.candidates.map(candidate=>candidate.rank)).toEqual([1,2,3,4]);
+    for(const candidate of decision.candidates){
+      const f=candidate.factors;
+      expect(candidate.priority).toBe(f.basePriority+f.dueBonus+f.unknownBonus-f.recentPenalty-f.difficultyPenalty);
+    }
+    const advanced=decision.candidates.find(candidate=>candidate.activity.practiceId==='advanced-pairs')!;
+    expect(advanced.factors).toMatchObject({unknownConceptIds:['ordering'],difficultyPenalty:30,weakestConceptId:'hash-maps'});
+    expect(advanced.factors.knownConcepts[0].uncertainty).toEqual(input.concepts[0].uncertainty);
+    expect(buildLearningDecision(input,[...catalog].reverse())).toEqual(decision);
+    expect(buildLearningDecision(snapshot({optOut:true}),catalog).candidates).toEqual([]);
+  });
+  it('changes recovery recommendations when demonstrated weaknesses differ',()=>{
+    const catalog=[{practiceId:'pairs',label:'Pair lookup',conceptIds:['hash-maps'],difficulty:'foundation' as const,estimatedMinutes:15},
+      {practiceId:'graphs',label:'Graph exploration',conceptIds:['graphs'],difficulty:'foundation' as const,estimatedMinutes:20}];
+    const estimate=(conceptId:string,score:number)=>({...snapshot().concepts[0],conceptId,score,reviewDueAt:'2026-12-01T00:00:00.000Z'});
+    expect(buildLearningDecision(snapshot({concepts:[estimate('hash-maps',40),estimate('graphs',80)]}),catalog).plan.recommendations[0].practiceId).toBe('pairs');
+    expect(buildLearningDecision(snapshot({concepts:[estimate('hash-maps',80),estimate('graphs',40)]}),catalog).plan.recommendations[0].practiceId).toBe('graphs');
+  });
+  it('diagnostic and class copies of one question share independent coverage',()=>{
+    const classAnswer=observation({score:0});
+    const diagnostic=observation({sourceKind:'diagnostic',score:100,occurredAt:'2026-10-28T10:00:00.000Z',sourceId:'diagnostic-new'});
+    expect(estimateLearningConcepts([classAnswer,diagnostic])[0]).toMatchObject({independentItems:1,score:60,confidence:0.2});
+    expect(estimateLearningConcepts([classAnswer,diagnostic])).toEqual(estimateLearningConcepts([diagnostic]));
   });
 });

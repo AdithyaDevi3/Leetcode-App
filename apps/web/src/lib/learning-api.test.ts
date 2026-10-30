@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { LearningEvidenceSnapshot } from '@leetcode-app/domain';
 
 const mocks = vi.hoisted(() => ({
-  session: vi.fn(), database: vi.fn(), construct: vi.fn(), read: vi.fn(), snooze: vi.fn(), close: vi.fn(),
+  session: vi.fn(), database: vi.fn(), construct: vi.fn(), read: vi.fn(), snooze: vi.fn(), select: vi.fn(), decisionKey: vi.fn(), close: vi.fn(),
   AccessError: class LearningEvidenceAccessError extends Error {},
   ConflictError: class LearningEvidenceConflictError extends Error {},
   ValidationError: class LearningEvidenceValidationError extends Error {},
@@ -14,15 +14,18 @@ vi.mock('@leetcode-app/database', () => ({
   LearningEvidenceAccessError: mocks.AccessError,
   LearningEvidenceConflictError: mocks.ConflictError,
   LearningEvidenceValidationError: mocks.ValidationError,
+  learningDecisionKey: mocks.decisionKey,
   PostgresLearningEvidenceRepository: class {
     readSnapshot = mocks.read;
     snoozeReview = mocks.snooze;
+    selectRecommendation = mocks.select;
     constructor(database: unknown, principal: unknown) { mocks.construct(database, principal); }
   },
 }));
 
 import { GET } from '@/app/api/learner/learning/route';
 import { POST } from '@/app/api/learner/learning/reviews/route';
+import { POST as SELECT } from '@/app/api/learner/learning/recommendations/route';
 import { learningApiResponse, learningPracticeCatalog } from './learning-api';
 
 const owner = '11111111-1111-4111-8111-111111111111';
@@ -37,6 +40,9 @@ const snapshot = (): LearningEvidenceSnapshot => ({
 });
 const input = () => ({ conceptId: 'hashing', expectedRevision: 4, days: 3, requestKey: 'review-retry-1' });
 const receipt = () => ({ conceptId: 'hashing', requestKey: 'review-retry-1', previousRevision: 4, revision: 5, dueAt: '2026-10-30T12:00:00.000Z' });
+const selection = () => ({ practiceId: 'pair-with-target-v1', expectedDecisionKey: 'a'.repeat(64), requestKey: 'practice-retry-1' });
+const selectionReceipt = () => ({ practiceId: selection().practiceId, requestKey: selection().requestKey,
+  decisionKey: selection().expectedDecisionKey, selectionId: '33333333-3333-4333-8333-333333333333', selectedAt: '2026-10-29T12:00:00.000Z' });
 const getRequest = (expectedOwner?: string) => new Request('http://localhost/api/learner/learning?learnerId=' + otherOwner, {
   headers: expectedOwner === undefined ? {} : { 'x-learning-owner': expectedOwner },
 });
@@ -54,6 +60,8 @@ beforeEach(() => {
   mocks.database.mockReturnValue({ close: mocks.close });
   mocks.read.mockResolvedValue(snapshot());
   mocks.snooze.mockResolvedValue({ snapshot: snapshot(), receipt: receipt() });
+  mocks.select.mockResolvedValue(selectionReceipt());
+  mocks.decisionKey.mockReturnValue(selection().expectedDecisionKey);
 });
 
 describe('account learning API authorization and persistence boundary', () => {
@@ -194,5 +202,85 @@ describe('account learning response privacy allowlist', () => {
     const disabled = snapshot(); disabled.optOut = true; disabled.concepts = []; disabled.recentActivityIds = [];
     disabled.sourceSummary = { releasedQuizItems: 0, verifiedPracticeItems: 0, independentItems: 0 };
     expect(learningApiResponse(owner, disabled).plan).toEqual({ algorithmVersion: 'learning-evidence-v1', status: 'disabled', recommendations: [] });
+    expect(learningApiResponse(owner, disabled).decisionKey).toBeNull();
+  });
+
+  it('returns an opaque selection key and only the optional diagnostic count from new source metadata', async () => {
+    const source = snapshot();
+    Object.assign(source.sourceSummary, { diagnosticItems: 3, answerKeys: ['private'], sourceIds: ['private'] });
+    mocks.read.mockResolvedValue(source);
+    const body = await (await GET(getRequest())).json();
+    expect(body.decisionKey).toBe(selection().expectedDecisionKey);
+    expect(body.snapshot.sourceSummary).toEqual({ ...snapshot().sourceSummary, diagnosticItems: 3 });
+    expect(mocks.decisionKey).toHaveBeenCalledWith(expect.objectContaining({
+      decisionVersion: 'learning-decision-v1', candidates: expect.any(Array), plan: body.plan,
+    }));
+    expect(body).not.toHaveProperty('candidates');
+    expect(JSON.stringify(body)).not.toMatch(/answerKeys|sourceIds|knownConcepts|recentPenalty/);
+  });
+});
+
+describe('explicit account recommendation selections', () => {
+  it('records only the verified owner command and returns an explicit receipt allowlist', async () => {
+    mocks.select.mockResolvedValue({ ...selectionReceipt(), decision: { private: 'internal evidence' }, sourceId: 'internal' });
+    const response = await SELECT(postRequest(JSON.stringify(selection())));
+    expect(response.status).toBe(200); privateResponse(response);
+    expect(await response.json()).toEqual({ learnerId: owner, receipt: selectionReceipt() });
+    expect(mocks.select).toHaveBeenCalledWith(selection());
+    expect(mocks.construct).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ userId: owner }));
+    expect(mocks.read).not.toHaveBeenCalled();
+    expect(mocks.close).toHaveBeenCalledOnce();
+  });
+
+  it('returns the same accepted receipt on a repeated request', async () => {
+    const first = await (await SELECT(postRequest(JSON.stringify(selection())))).json();
+    const repeated = await (await SELECT(postRequest(JSON.stringify(selection())))).json();
+    expect(repeated).toEqual(first);
+    expect(mocks.select.mock.calls.map(call => call[0])).toEqual([selection(), selection()]);
+  });
+
+  it.each([null, otherOwner])('checks write ownership before decoding or persistence (%s)', async expectedOwner => {
+    const request = postRequest('{', expectedOwner);
+    const reader = vi.spyOn(request.body!, 'getReader');
+    const response = await SELECT(request);
+    expect(response.status).toBe(409); privateResponse(response);
+    expect(await response.json()).toMatchObject({ code: 'owner_changed' });
+    expect(reader).not.toHaveBeenCalled(); expect(mocks.database).not.toHaveBeenCalled();
+  });
+
+  it('rejects guests before decoding a selection', async () => {
+    mocks.session.mockResolvedValue(null);
+    const response = await SELECT(postRequest('{'));
+    expect(response.status).toBe(401); privateResponse(response);
+    expect(mocks.database).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    '{', JSON.stringify({ ...selection(), learnerId: otherOwner }), JSON.stringify({ ...selection(), score: 100 }),
+    JSON.stringify({ ...selection(), redirectUrl: 'https://example.test' }),
+    '{"practiceId":"pair-with-target-v1","practiceId":"coin-change-lite-v1","expectedDecisionKey":"' + 'a'.repeat(64) + '","requestKey":"key"}',
+  ])('rejects ambiguous or client-authoritative selection data', async body => {
+    const response = await SELECT(postRequest(body));
+    expect(response.status).toBe(400); privateResponse(response);
+    expect(mocks.database).not.toHaveBeenCalled();
+  });
+
+  it('bounds selection input and hides private failure details', async () => {
+    const tooLarge = await SELECT(postRequest(JSON.stringify({ ...selection(), padding: 'x'.repeat(4_001) })));
+    expect(tooLarge.status).toBe(413); privateResponse(tooLarge);
+    expect(mocks.database).not.toHaveBeenCalled();
+    mocks.select.mockRejectedValue(new Error('private SQL, source answers and configuration'));
+    const response = await SELECT(postRequest(JSON.stringify(selection())));
+    expect(response.status).toBe(503); privateResponse(response);
+    expect(await response.text()).not.toMatch(/SQL|answers|configuration/);
+    expect(mocks.close).toHaveBeenCalledOnce();
+  });
+
+  it('requires a new plan after a stale decision or rejected key instead of retrying as a new selection', async () => {
+    mocks.select.mockRejectedValue(new mocks.ConflictError('private decision factors'));
+    const response = await SELECT(postRequest(JSON.stringify(selection())));
+    expect(response.status).toBe(409); privateResponse(response);
+    expect(await response.json()).toEqual({ code: 'recommendation_conflict', error: 'Your recommended practice changed. Load the latest plan before choosing again.' });
+    expect(mocks.close).toHaveBeenCalledOnce();
   });
 });

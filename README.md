@@ -5,9 +5,10 @@ an approach, receive deterministic feedback, and optionally verify Python 3,
 C++20, or TypeScript code against server-owned tests.
 
 The application includes ten original coding activities, a 48-question analysis
-roadmap, and a 20-question multiple-choice bank. Guests can practice locally;
-signed-in learners retain their work and receive explained recommendations and
-spaced reviews from released quiz results and newly verified practice.
+roadmap, and a 60-question assignable multiple-choice bank. Guests can practice
+locally; signed-in learners retain their work and can take a separate ten-question
+skills check. Released quiz results, answered skills-check items, and newly
+verified practice inform explained recommendations and spaced reviews.
 
 Instructors and authorized administrators can draft and assign quizzes to a class
 or selected enrolled learners. Learners save answers, submit once, and see scores

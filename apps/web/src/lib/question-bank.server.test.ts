@@ -5,16 +5,18 @@ import { practiceItems } from './content';
 vi.mock('server-only', () => ({}));
 import { getQuestionBankCandidates, getReviewedQuestionVersion, getReviewedQuestionVersions } from './question-bank.server';
 
-describe('original starter question bank', () => {
-  it('provides twenty distinct versioned candidates, covering every existing coding activity twice', () => {
+describe('original assignable question bank', () => {
+  it('provides sixty distinct versioned candidates, covering every existing coding activity six times', () => {
     const candidates = getQuestionBankCandidates();
-    expect(candidates).toHaveLength(20);
-    expect(new Set(candidates.map(question => question.questionId)).size).toBe(20);
-    expect(new Set(candidates.map(question => question.versionId)).size).toBe(20);
-    for (const activity of practiceItems) expect(candidates.filter(question => question.activityIds.includes(activity.id))).toHaveLength(2);
+    expect(candidates).toHaveLength(60);
+    expect(new Set(candidates.map(question => question.questionId)).size).toBe(60);
+    expect(new Set(candidates.map(question => question.versionId)).size).toBe(60);
+    expect(candidates.filter(question => question.provenance.authorId === 'automated-curriculum-author-v1')).toHaveLength(20);
+    expect(candidates.filter(question => question.provenance.authorId === 'automated-curriculum-author-v2')).toHaveLength(40);
+    for (const activity of practiceItems) expect(candidates.filter(question => question.activityIds.includes(activity.id))).toHaveLength(6);
     for (const question of candidates) {
       expect(question.status).toBe('in_review');
-      expect(question.provenance).toMatchObject({ kind: 'original', authorId: 'automated-curriculum-author-v1' });
+      expect(question.provenance.kind).toBe('original');
       expect(question.review).toBeNull();
       expect(question.options.filter(option => option.id === question.correctOptionId)).toHaveLength(1);
       expect(question.options.find(option => option.id === question.correctOptionId)?.misconceptionTags).toEqual([]);
@@ -23,12 +25,13 @@ describe('original starter question bank', () => {
   });
 
   it('keeps lookup restricted to independently reviewed versions and rejects stale IDs', () => {
-    expect(getReviewedQuestionVersions()).toHaveLength(20);
+    expect(getReviewedQuestionVersions()).toHaveLength(60);
     for (const question of getReviewedQuestionVersions()) {
       expect(question.status).toBe('reviewed');
       expect(question.review?.reviewerId).not.toBe(question.provenance.authorId);
       expect(question.review?.notes).toContain('automated');
       expect(question.review?.notes).toContain('Teacher validation remains pending');
+      expect(question.review!.reviewedAt >= question.provenance.authoredAt).toBe(true);
       expect(getReviewedQuestionVersion(question.versionId)).toEqual(question);
     }
     expect(getReviewedQuestionVersion('pair-distinct-indices@999')).toBeNull();

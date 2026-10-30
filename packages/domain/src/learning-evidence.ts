@@ -1,5 +1,7 @@
 /** Account learning estimates are separate from academic grades. */
 export const LEARNING_ALGORITHM_VERSION = 'learning-evidence-v1' as const;
+export const LEARNING_DECISION_VERSION = 'learning-decision-v1' as const;
+export const LEARNING_CURRICULUM_VERSION = 'practice-catalog-v1' as const;
 
 export type LearningPracticeDescriptor = {
   practiceId: string;
@@ -29,7 +31,7 @@ export type LearningEvidenceSnapshot = {
   optOut: boolean;
   concepts: LearningConceptEstimate[];
   recentActivityIds: string[];
-  sourceSummary: { releasedQuizItems: number; verifiedPracticeItems: number; independentItems: number };
+  sourceSummary: { releasedQuizItems: number; verifiedPracticeItems: number; diagnosticItems?: number; independentItems: number };
   processing: { pending: boolean; processedSources: number; remainingSources: number };
 };
 
@@ -50,11 +52,41 @@ export type LearningPlan = {
   recommendations: LearningRecommendation[];
 };
 
+export type LearningDecisionCandidate = {
+  activity: LearningPracticeDescriptor;
+  recommendation: LearningRecommendation;
+  rank: number;
+  selected: boolean;
+  priority: number;
+  factors: {
+    basePriority: number;
+    dueBonus: number;
+    unknownBonus: number;
+    recentPenalty: number;
+    difficultyPenalty: number;
+    weakestConceptId: string | null;
+    knownConcepts: LearningConceptEstimate[];
+    unknownConceptIds: string[];
+    dueConceptIds: string[];
+    recentlyPracticed: boolean;
+  };
+};
+
+/** A complete server decision can be retained only after an explicit selection. */
+export type LearningDecision = {
+  decisionVersion: typeof LEARNING_DECISION_VERSION;
+  algorithmVersion: typeof LEARNING_ALGORITHM_VERSION;
+  curriculumVersion: typeof LEARNING_CURRICULUM_VERSION;
+  generatedAt: string;
+  plan: LearningPlan;
+  candidates: LearningDecisionCandidate[];
+};
+
 export type LearningObservation = {
   logicalItemId: string;
   conceptId: string;
   score: number;
-  sourceKind: 'quiz' | 'practice';
+  sourceKind: 'quiz' | 'practice' | 'diagnostic';
   occurredAt: string;
   /** Stable tie breaker, so replay order cannot change the estimate. */
   sourceId: string;
@@ -93,7 +125,14 @@ export function estimateLearningConcepts(observations: readonly LearningObservat
 }
 
 export function buildLearningPlan(snapshot: LearningEvidenceSnapshot, catalog: readonly LearningPracticeDescriptor[]): LearningPlan {
-  if (snapshot.optOut) return { algorithmVersion: LEARNING_ALGORITHM_VERSION, status: 'disabled', recommendations: [] };
+  return buildLearningDecision(snapshot, catalog).plan;
+}
+
+/** Keep every ranking input, including the alternatives, without inventing a proficiency score. */
+export function buildLearningDecision(snapshot: LearningEvidenceSnapshot, catalog: readonly LearningPracticeDescriptor[]): LearningDecision {
+  const base = { decisionVersion: LEARNING_DECISION_VERSION, algorithmVersion: LEARNING_ALGORITHM_VERSION,
+    curriculumVersion: LEARNING_CURRICULUM_VERSION, generatedAt: snapshot.generatedAt };
+  if (snapshot.optOut) return { ...base, plan: { algorithmVersion: LEARNING_ALGORITHM_VERSION, status: 'disabled', recommendations: [] }, candidates: [] };
   const concepts = new Map(snapshot.concepts.map(concept => [concept.conceptId, concept]));
   const recent = new Set(snapshot.recentActivityIds);
   const candidates = catalog.map(activity => {
@@ -105,10 +144,24 @@ export function buildLearningPlan(snapshot: LearningEvidenceSnapshot, catalog: r
     const reason = reasonKind === 'recovery' ? `Build ${weakest.conceptId} with targeted practice; the current estimate is ${weakest.score}% from ${weakest.independentItems} independent item${weakest.independentItems === 1 ? '' : 's'}.`
       : reasonKind === 'review' ? 'A delayed review is due for concepts you have practiced.'
         : reasonKind === 'diagnostic' ? 'Build initial evidence for concepts with limited or unknown coverage.' : 'Broaden your evidence with another practice activity.';
-    const priority = (weakest ? 100 - weakest.score : 45) + (due ? 25 : 0) + (unknown ? 10 : 0) - (recent.has(activity.practiceId) ? 45 : 0) - (activity.difficulty === 'advanced' && (!weakest || weakest.score < 65) ? 30 : 0);
-    return { priority, value: { practiceId: activity.practiceId, label: activity.label, conceptIds: [...activity.conceptIds], difficulty: activity.difficulty, estimatedMinutes: activity.estimatedMinutes,
-      reason, reasonKind, evidenceStatus: weakest?.evidenceStatus ?? 'unknown' } satisfies LearningRecommendation };
+    const factors = {
+      basePriority: weakest ? 100 - weakest.score : 45,
+      dueBonus: due ? 25 : 0, unknownBonus: unknown ? 10 : 0,
+      recentPenalty: recent.has(activity.practiceId) ? 45 : 0,
+      difficultyPenalty: activity.difficulty === 'advanced' && (!weakest || weakest.score < 65) ? 30 : 0,
+      weakestConceptId: weakest?.conceptId ?? null,
+      knownConcepts: [...known].sort((a,b) => a.conceptId.localeCompare(b.conceptId)).map(concept => ({ ...concept, uncertainty: { ...concept.uncertainty } })),
+      unknownConceptIds: activity.conceptIds.filter(id => !concepts.has(id)).sort(),
+      dueConceptIds: known.filter(concept => concept.reviewDueAt <= snapshot.generatedAt).map(concept => concept.conceptId).sort(),
+      recentlyPracticed: recent.has(activity.practiceId),
+    };
+    const priority = factors.basePriority + factors.dueBonus + factors.unknownBonus - factors.recentPenalty - factors.difficultyPenalty;
+    return { priority, factors, activity: { ...activity, conceptIds: [...activity.conceptIds] },
+      recommendation: { practiceId: activity.practiceId, label: activity.label, conceptIds: [...activity.conceptIds], difficulty: activity.difficulty, estimatedMinutes: activity.estimatedMinutes,
+        reason, reasonKind, evidenceStatus: weakest?.evidenceStatus ?? 'unknown' } satisfies LearningRecommendation };
   });
-  return { algorithmVersion: LEARNING_ALGORITHM_VERSION, status: snapshot.processing.pending ? 'collecting' : 'ready',
-    recommendations: candidates.sort((a, b) => b.priority - a.priority || a.value.practiceId.localeCompare(b.value.practiceId)).slice(0, 3).map(value => value.value) };
+  const ranked = candidates.sort((a,b) => b.priority - a.priority || a.activity.practiceId.localeCompare(b.activity.practiceId))
+    .map((candidate,index) => ({ ...candidate, rank: index + 1, selected: index < 3 }));
+  return { ...base, candidates: ranked, plan: { algorithmVersion: LEARNING_ALGORITHM_VERSION, status: snapshot.processing.pending ? 'collecting' : 'ready',
+    recommendations: ranked.slice(0,3).map(candidate => candidate.recommendation) } };
 }

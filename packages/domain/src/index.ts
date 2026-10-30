@@ -26,3 +26,4 @@ export * from './notifications';
 export * from './gradebook';
 export * from './question-bank';
 export * from './learning-evidence';
+export * from './diagnostic.js';

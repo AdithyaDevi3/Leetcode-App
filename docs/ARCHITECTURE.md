@@ -81,8 +81,9 @@ outbox records eligible source changes atomically; authenticated owner reads
 process a bounded batch and derive versioned concept estimates and explained
 practice recommendations using the existing database and deterministic rules.
 
-Released multiple-choice results and newly captured practice verification supply
-evidence. Logical questions deduplicate across versions and assignment copies;
+Released multiple-choice results, finalized personal diagnostic answers, and newly
+captured practice verification supply evidence. Omitted answers supply no learning
+observation. Logical questions deduplicate across versions and assignment copies;
 practice activities deduplicate across sessions and retries. Limited evidence
 produces broad model ranges, while unknown concepts remain unknown. Current
 release, applicability, dispute, and personalization consent are checked before
@@ -91,12 +92,33 @@ revisions, and immutable retry receipts. These estimates never change gradebook
 scores. No additional hosted worker or model provider is required for this flow.
 
 Learning APIs return owner-scoped aggregate allowlists with private/no-store
-headers. Answer keys, per-question scoring evidence, and private instructor notes
-remain server-only. Historical practice metadata is not sufficient provenance for
-backfill; existing history remains visible, and newly guarded server captures add
+headers. Class answer keys, private per-question scoring evidence, and instructor
+notes remain server-only. Historical practice metadata is not sufficient provenance
+for backfill; existing history remains visible, and newly guarded server captures add
 evidence. Execution reports retain the coding harness's existing trust boundary.
 Guest recommendations remain device-local. Personalization opt-out suppresses
 account recommendations in favor of the standard curriculum.
+
+Personal diagnostics use ten dedicated questions disjoint from the sixty-question
+class-assignable catalog. One diagnostic per owner and selection version pins a
+reviewed snapshot; private answer drafts use expected revisions and replayable
+receipts. A final submission freezes saved answers, validates deterministic scoring
+in PostgreSQL, and atomically queues eligible learning evidence. Only the owner can
+read its post-submission answer explanations. Diagnostic work creates no class
+recipient, grade revision, or publication. Opt-out preserves the personal work but
+clears its learning projection; opting in can rebuild eligible submitted evidence.
+
+Recommendation reads return an opaque decision key alongside the existing top
+three activities. An explicit owner-guarded selection checks that key and current
+eligibility before storing the complete versioned ranking inputs, alternatives,
+and a retry receipt. Rendering or resizing the UI creates no selection. Detailed
+decisions are bounded to the latest hundred per account; compact receipts survive
+pruning so an old accepted retry cannot become another choice. A trusted later
+verification can attach once to the latest matching selection within fourteen
+days, without falling back to an older completed choice. This association records
+an observed outcome and makes no causal claim. Opt-out deletes selection details
+and receipts. These records are private server tables protected by RLS and revoked
+browser-role grants.
 
 ## Classes and gradebook
 
@@ -153,8 +175,9 @@ ordered question-version references and integer point units; they contain no
 answer keys and create no learner recipients or grades. Browser draft recovery is
 scoped to the verified author and retains an alternate copy across reload.
 
-The starter multiple-choice catalog is server-owned, explicitly versioned, and
-records original provenance plus automated author/reviewer separation. The client
+The sixty-question class-assignable multiple-choice catalog is server-owned,
+explicitly versioned, and records original provenance plus automated
+author/reviewer separation. The client
 receives an allowlisted question projection without keys, explanations, or
 misconception tags. Immutable scoring snapshots pin reviewed versions and use
 exact integer point arithmetic. Catalog review does not imply teacher validation.
@@ -204,6 +227,10 @@ Repositories own transactions and object-level authorization. Validate external
 inputs, make retried mutations idempotent, and return optimistic conflicts for
 stale writes. Published content and grading evidence retain exact versions.
 Use additive migrations and separately reviewed destructive changes.
+Apply pending node-pg-migrate migrations before running code that reads diagnostic
+or recommendation-selection storage. Once these sources or receipts are in use,
+preserve them through a forward migration; the migrations reject reversal that
+would discard used learning records.
 
 Server errors and queue health expose privacy-bounded context and correlation
 IDs. Exclude raw submissions, personal notes, emails, tokens, and cookies from

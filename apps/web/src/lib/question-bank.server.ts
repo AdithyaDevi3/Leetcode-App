@@ -3,6 +3,8 @@ import {
   freezeQuestionVersion, questionVersionKey, reviewQuestionVersion,
   type QuestionDifficulty, type QuestionOption, type QuestionReview, type QuestionVersion,
 } from '@leetcode-app/domain';
+import { expandedQuestionBankCandidates } from './question-bank-expansion.server';
+import { expandedQuestionBankReviews } from './question-bank-expansion-review.server';
 
 const authoredAt = '2026-10-26T15:25:41.000Z';
 const authorId = 'automated-curriculum-author-v1';
@@ -161,6 +163,7 @@ export const questionBankCandidates: readonly QuestionVersion[] = Object.freeze(
     options: [option('a', 'Any first array value must appear at least twice.', 'assuming-first-value-duplicates'), option('b', 'The answer must always be the middle index.', 'assuming-position-determines-uniqueness'), option('c', 'A frequency map automatically sorts values, so the array must be sorted first.', 'assuming-map-provides-required-order'), option('d', 'A later occurrence can make that value non-unique; count all values, then scan the original order for count 1.')],
     correctOptionId: 'd', explanation: 'At its first occurrence, 8 has only a provisional count. The last element raises that count to two. Counting the full input before an ordered selection pass identifies 3 at index 1 as the earliest unique value.',
   }),
+  ...expandedQuestionBankCandidates,
 ]);
 
 // These exact versions passed independent automated content review. New versions
@@ -177,10 +180,10 @@ const approvedVersionIds = [
   'coin-change-greedy-counterexample@1', 'coin-change-unreachable-state@1',
   'unique-index-original-order@1', 'unique-count-before-selecting@1',
 ] as const;
-const approvedReviews: Readonly<Record<string, QuestionReview>> = Object.freeze(Object.fromEntries(approvedVersionIds.map(versionId => [versionId, Object.freeze({
+const approvedReviews: Readonly<Record<string, QuestionReview>> = Object.freeze({ ...expandedQuestionBankReviews, ...Object.fromEntries(approvedVersionIds.map(versionId => [versionId, Object.freeze({
   reviewerId: 'automated-curriculum-review-v1', reviewedAt: '2026-10-26T15:31:28.000Z',
   notes: 'Independent automated content review; corrected negative-window initialization ambiguity and expected-time wording. Teacher validation remains pending.',
-})])));
+})])) });
 const reviewedQuestions: readonly QuestionVersion[] = Object.freeze(questionBankCandidates.flatMap(question => {
   const review = approvedReviews[question.versionId];
   return review ? [reviewQuestionVersion(question, review)] : [];

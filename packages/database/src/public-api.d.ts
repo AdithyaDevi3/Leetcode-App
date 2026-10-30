@@ -1,7 +1,7 @@
 import type { PostgresGradebookRepository as GradebookRepository, GradebookPrincipal } from './repositories/gradebook.repository.js';
 import type { DatabaseClient } from './client.js';
-export { PostgresLearningEvidenceRepository, LearningEvidenceAccessError, LearningEvidenceConflictError, LearningEvidenceValidationError } from './repositories/learning-evidence.repository.js';
-export type { LearningReviewReceipt } from './repositories/learning-evidence.repository.js';
+export { PostgresLearningEvidenceRepository, LearningEvidenceAccessError, LearningEvidenceConflictError, LearningEvidenceValidationError, learningDecisionKey } from './repositories/learning-evidence.repository.js';
+export type { LearningReviewReceipt, LearningRecommendationReceipt, LearningRecommendationOutcome, StoredLearningRecommendation } from './repositories/learning-evidence.repository.js';
 
 export type { DatabaseClient, DatabaseConfig } from './client.js';
 export { createDatabaseClient, databaseConfigFromEnv } from './client.js';
@@ -244,3 +244,5 @@ export class PostgresGuestIdentityRepository {
   create(guest: any): Promise<any>;
   upgradeToUser(guestId: string, userId: string): Promise<void>;
 }
+export { PostgresPracticeDiagnosticRepository, DiagnosticAccessError, DiagnosticConflictError, DiagnosticValidationError } from './repositories/practice-diagnostic.repository.js';
+export type { DiagnosticView, DiagnosticAnswerDraft, DiagnosticSubmissionReceipt, DiagnosticSaveReceipt, DiagnosticFeedback, DiagnosticHistory } from './repositories/practice-diagnostic.repository.js';

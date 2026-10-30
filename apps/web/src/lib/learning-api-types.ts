@@ -5,6 +5,27 @@ export type LearningApiResponse = {
   learnerId: string;
   snapshot: LearningEvidenceSnapshot;
   plan: LearningPlan;
+  /** Absent only for older clients/fixtures; never contains private ranking inputs. */
+  decisionKey?: string | null;
+};
+
+export type LearningRecommendationRequest = {
+  practiceId: string;
+  expectedDecisionKey: string;
+  requestKey: string;
+};
+
+export type LearningRecommendationReceipt = {
+  requestKey: string;
+  decisionKey: string;
+  selectionId: string;
+  practiceId: string;
+  selectedAt: string;
+};
+
+export type LearningRecommendationResponse = {
+  learnerId: string;
+  receipt: LearningRecommendationReceipt;
 };
 
 export type LearningSnapshotResponse = LearningApiResponse;

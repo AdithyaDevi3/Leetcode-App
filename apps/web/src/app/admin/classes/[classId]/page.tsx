@@ -32,7 +32,7 @@ export default async function AdminClassDetailPage({ params, searchParams }: {
 
   return <div className="space-y-7">
     <Link className="inline-flex text-sm font-bold text-[var(--moss)] underline underline-offset-4" href="/admin/classes">← All classes</Link>
-    <AdminPageHeader eyebrow="Class workspace" title={classroom.name} description={classroom.description || 'Share the code, assign activities, and follow learner progress.'} />
+    <AdminPageHeader eyebrow="Class workspace" title={classroom.name} description={classroom.description || 'Share the code, assign activities, and follow learner progress.'} action={<Link className="inline-flex min-h-11 items-center rounded-md border border-[var(--line)] bg-[var(--surface)] px-4 font-bold text-[var(--ink)] no-underline" href={`/admin/classes/${classId}/insights`}>Concept insights</Link>} />
     {notice.error ? <p role="alert" className="rounded-lg border border-[var(--coral)] bg-[var(--coral-soft)] px-4 py-3 text-sm text-red-950">{notice.error}</p> : null}
     {notice.created ? <p role="status" className="rounded-lg border border-[var(--moss)] bg-[var(--moss-soft)] px-4 py-3 text-sm text-[var(--moss)]">{notice.created}</p> : null}
 

@@ -132,6 +132,32 @@ history, applicability changes, and grade-review events. It does not infer grade
 from a learner's private practice. Published policies pin content, rubric or
 verifier versions, maximum points, and attempt rules.
 
+Class concept insights are read-only aggregates over current enrollment and
+eligible released MCQ assessments. A repeatable-read transaction checks actor,
+class ownership or the separate `classes.insights.read` capability, current score
+publication, applicability and dispute state. Item correctness is recomputed from
+the frozen publication and immutable submitted answers, rather than trusting
+per-item result JSON. Latest eligible answered logical questions replace repeats;
+a later skipped copy does not erase an earlier answered item. Manual corrections
+without matching item evidence are excluded. Personal diagnostic, practice and
+account-learning projections are never queried for class reports.
+
+Owner views expose class-level observed correctness and coverage. Administrator
+views suppress every numeric concept field below five distinct answered learners.
+Ranking and follow-up selection consume this sanitized report, preventing hidden
+statistics from influencing default focus, ordering or reasons. APIs explicitly
+project aggregates and safe question previews; they return no learner identities,
+individual responses, private notes or answer keys. This introduces no broader
+gradebook permission and requires no new table or service.
+
+Follow-up proposals select at most six unused reviewed nonadvanced logical items
+for up to three concepts. Public curriculum identifiers enter the authoring URL;
+the server rechecks scope and computes an editable seed. Stable owner/class/focus
+browser keys isolate this work from unrelated new drafts and retain original
+requests across source changes. A proposal creates nothing until the author
+explicitly saves through the existing draft repository. Publication retains its
+existing frozen audience, revision, receipt and grade-release contracts.
+
 Points use integer hundredths. Totals use published numeric outcomes and expose
 coverage; ranking requires a comparable finalized assignment set. Excused work
 changes a learner's denominator. An active dispute keeps the published score

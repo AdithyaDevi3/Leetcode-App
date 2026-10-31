@@ -190,6 +190,28 @@ Publication freezes the questions, points, and recipients. Later draft edits and
 class joins do not change that assignment; a later cohort needs a new draft.
 Administrative class-management permission does not grant private-grade access.
 
+Open **Class insights** from a class workspace to review concept coverage from
+released quiz answers by currently enrolled learners. Counts distinguish answered
+items, different logical questions, and learner coverage. Skips do not indicate
+weakness, and repeated questions count once per learner. Corrections, excusals,
+grade disputes and enrollment changes affect the next refreshed report. Personal
+practice and skills-check results are excluded. Observed correctness is not a
+mastery score or a learner ranking; limited coverage calls for more evidence.
+
+The administrator view requires class-insight permission and hides all concept
+statistics when fewer than five learners have answered evidence for that concept.
+Hidden statistics do not determine the suggested focus. This aggregate view
+grants no access to individual grades or responses.
+
+Choose up to three concepts and **Preview selected concepts**, then **Open editable
+quiz draft**. Suggestions favor unused, reviewed foundation/intermediate questions
+from the class bank. The editor checks the current class context again; edit the
+questions, points, instructions and dates before saving. Suggestions do not create
+assignments automatically. Use the saved draft's existing audience preview to
+assign the whole class or selected enrolled learners. If unused questions are
+exhausted, choose other concepts or create a quiz from the full bank. Focused
+browser drafts use separate recovery buffers, preserving other unfinished quizzes.
+
 Learners open quizzes from /classes, choose answers, and use **Save answers** to
 resume across devices. **Review and submit** shows unanswered questions before
 one final submission. Closing time blocks new saves/submissions; accepted retries

@@ -5,17 +5,18 @@ export type AssessmentDraftForm = {
   title: string; instructions: string; availableAt: string; dueAt: string; closesAt: string;
   questions: { questionVersionId: string; points: string }[];
 };
+export type AssessmentDraftSeed = Pick<AssessmentDraftInput, 'title' | 'instructions' | 'questions'> & { key: string };
 export const displayAssessmentPoints = (units: number) => (units / 100).toFixed(2).replace(/\.00$/, '');
 function localTime(value: string | null): string {
   if (!value) return '';
   const date = new Date(value);
   return new Date(date.valueOf() - date.getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
 }
-export function assessmentDraftForm(draft: StoredAssessmentDraft | null): AssessmentDraftForm {
+export function assessmentDraftForm(draft: StoredAssessmentDraft | null, seed?: AssessmentDraftSeed | null): AssessmentDraftForm {
   return {
-    title: draft?.title ?? '', instructions: draft?.instructions ?? '', availableAt: localTime(draft?.availableAt ?? null),
+    title: draft?.title ?? seed?.title ?? '', instructions: draft?.instructions ?? seed?.instructions ?? '', availableAt: localTime(draft?.availableAt ?? null),
     dueAt: localTime(draft?.dueAt ?? null), closesAt: localTime(draft?.closesAt ?? null),
-    questions: draft?.questions.map(question => ({ questionVersionId: question.questionVersionId, points: displayAssessmentPoints(question.maxUnits) })) ?? [],
+    questions: (draft?.questions ?? seed?.questions)?.map(question => ({ questionVersionId: question.questionVersionId, points: displayAssessmentPoints(question.maxUnits) })) ?? [],
   };
 }
 export function assessmentFormInput(classId: string, form: AssessmentDraftForm): AssessmentDraftInput {

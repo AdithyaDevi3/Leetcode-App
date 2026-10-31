@@ -77,3 +77,5 @@ export type {
 } from './repositories/classroom.repository.js';
 export { PostgresPracticeDiagnosticRepository, DiagnosticAccessError, DiagnosticConflictError, DiagnosticValidationError } from './repositories/practice-diagnostic.repository.js';
 export type { DiagnosticView, DiagnosticAnswerDraft, DiagnosticSubmissionReceipt, DiagnosticSaveReceipt, DiagnosticFeedback, DiagnosticHistory } from './repositories/practice-diagnostic.repository.js';
+export { PostgresClassInsightsRepository, ClassInsightsAccessError } from './repositories/class-insights.repository.js';
+export type { ClassInsightsPrincipal, ClassInsightsData } from './repositories/class-insights.repository.js';

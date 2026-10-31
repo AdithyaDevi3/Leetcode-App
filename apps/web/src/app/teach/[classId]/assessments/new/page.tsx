@@ -1,5 +1,5 @@
 import { AssessmentDraftPage } from '@/components/assessments/assessment-draft-page';
-export default async function NewInstructorQuizDraft({ params }: { params: Promise<{ classId: string }> }) {
-  const { classId } = await params;
-  return <AssessmentDraftPage workspace="teach" classId={classId} />;
+export default async function NewInstructorQuizDraft({ params, searchParams }: { params: Promise<{ classId: string }>; searchParams: Promise<{ focus?: string | string[] }> }) {
+  const [{ classId }, { focus }] = await Promise.all([params, searchParams]);
+  return <AssessmentDraftPage workspace="teach" classId={classId} focus={focus} />;
 }

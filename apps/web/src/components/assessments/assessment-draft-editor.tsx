@@ -6,7 +6,7 @@ import Link from 'next/link';
 import type { AssessmentDraftInput, StoredAssessmentDraft } from '@leetcode-app/database';
 import type { LearnerQuestion } from '@leetcode-app/domain';
 import { AdminBadge, AdminSection } from '@/components/admin/admin-ui';
-import { assessmentDraftForm, assessmentFormInput, displayAssessmentPoints, type AssessmentDraftForm } from '@/lib/assessment-draft-form';
+import { assessmentDraftForm, assessmentFormInput, displayAssessmentPoints, type AssessmentDraftForm, type AssessmentDraftSeed } from '@/lib/assessment-draft-form';
 import { AssessmentPublicationPanel } from './assessment-publication-panel';
 
 const field = 'min-h-11 w-full rounded-md border border-[var(--line)] bg-white px-3 font-normal focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--moss)]';
@@ -18,11 +18,11 @@ function validForm(value: unknown): value is AssessmentDraftForm {
   return ['title', 'instructions', 'availableAt', 'dueAt', 'closesAt'].every(key => typeof form[key as keyof AssessmentDraftForm] === 'string')
     && Array.isArray(form.questions) && form.questions.length <= 30 && form.questions.every(question => typeof question.questionVersionId === 'string' && typeof question.points === 'string');
 }
-export function AssessmentDraftEditor({ classId, authorId, workspace, questions, initialDraft = null }: {
-  classId: string; authorId: string; workspace: 'teach' | 'admin'; questions: readonly LearnerQuestion[]; initialDraft?: StoredAssessmentDraft | null;
+export function AssessmentDraftEditor({ classId, authorId, workspace, questions, initialDraft = null, initialSeed = null }: {
+  classId: string; authorId: string; workspace: 'teach' | 'admin'; questions: readonly LearnerQuestion[]; initialDraft?: StoredAssessmentDraft | null; initialSeed?: AssessmentDraftSeed | null;
 }) {
   const router = useRouter();
-  const [form, setForm] = useState(() => assessmentDraftForm(initialDraft));
+  const [form, setForm] = useState(() => assessmentDraftForm(initialDraft, initialSeed));
   const [stored, setStored] = useState(initialDraft);
   const [savedSignature, setSavedSignature] = useState(() => initialDraft ? JSON.stringify(assessmentFormInput(classId, assessmentDraftForm(initialDraft))) : '');
   const [busy, setBusy] = useState(false);
@@ -38,7 +38,7 @@ export function AssessmentDraftEditor({ classId, authorId, workspace, questions,
   const pending = useRef<PendingSave | null>(null);
   const inFlight = useRef(false);
   const cacheClosed = useRef(false);
-  const key = `method:assessment:${authorId}:${classId}:${initialDraft?.id ?? 'new'}`;
+  const key = `method:assessment:${authorId}:${classId}:${initialDraft?.id ?? (initialSeed ? `new:${initialSeed.key}` : 'new')}`;
   const basePath = workspace === 'admin' ? `/admin/classes/${classId}` : `/teach/${classId}`;
   const editUrl = stored ? `${basePath}/assessments/${stored.id}` : null;
   const parsed = useMemo(() => {

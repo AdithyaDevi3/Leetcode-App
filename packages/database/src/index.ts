@@ -57,7 +57,7 @@ export type { QuizAnswers, QuizAssignmentPrincipal, QuizAudience, StoredQuizPubl
 
 // Classroom repository
 export { PostgresAssessmentDraftRepository, AssessmentDraftAccessError, AssessmentDraftConflictError, AssessmentDraftValidationError } from './repositories/assessment-draft.repository.js';
-export type { AssessmentDraftPrincipal, AssessmentDraftQuestion, AssessmentDraftInput, StoredAssessmentDraft } from './repositories/assessment-draft.repository.js';
+export type { AssessmentDraftPrincipal, AssessmentDraftQuestion, AssessmentDraftInput, AssessmentDraftCopyInput, StoredAssessmentDraft } from './repositories/assessment-draft.repository.js';
 
 export {
   ClassCodeNotFoundError,

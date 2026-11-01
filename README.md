@@ -16,6 +16,10 @@ after instructor release. Coding assignments, rubric grades, corrections, and
 grade-review requests have separate durable histories. Administration permissions
 remain separate from access to private grades.
 
+Authors can copy a saved quiz into a new private draft in an authorized class.
+Copies preserve questions and points, clear dates, and require their own audience
+preview and explicit assignment.
+
 Class owners can inspect released-quiz concept coverage and open editable
 follow-up quizzes. Authorized administrators have a separate aggregate view that
 hides concept statistics below the minimum learner count. Personal practice and

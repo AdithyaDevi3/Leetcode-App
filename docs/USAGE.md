@@ -190,6 +190,22 @@ Publication freezes the questions, points, and recipients. Later draft edits and
 class joins do not change that assignment; a later cohort needs a new draft.
 Administrative class-management permission does not grant private-grade access.
 
+Choose **Copy draft** beside a saved quiz or in its editor. Review the saved
+revision, ordered questions and points, choose the destination class, then select
+**Create private copy**. Both source and destination require current authoring
+permission. The copy preserves instructions, order and exact points, starts with
+“Copy of” in its title, and clears dates. It copies the saved draft version;
+unsaved edits and an assigned quiz's frozen publication may differ. The original
+quiz, audience, submissions and grade history stay unchanged.
+
+Open the copied draft to edit it, set new dates and use the ordinary audience
+preview and assignment flow. Creating a copy assigns nothing. Unavailable question
+versions block a new copy and link to the source editor for repair. If the reply
+is uncertain, **Retry earlier copy** recovers the same request and saved draft,
+including after a reload or later source edits. Refresh and review a changed
+source before starting a new request. Browser recovery belongs to the original
+account, workspace and source; account changes pause the preview and copy actions.
+
 Open **Class insights** from a class workspace to review concept coverage from
 released quiz answers by currently enrolled learners. Counts distinguish answered
 items, different logical questions, and learner coverage. Skips do not indicate

@@ -12,6 +12,10 @@ export type AssessmentDraftInput = {
 export type StoredAssessmentDraft = AssessmentDraftInput & {
   id: string; revision: number; status: 'draft'; maxUnits: number; createdBy: string | null; createdAt: string; updatedAt: string;
 };
+export type AssessmentDraftCopyInput = {
+  sourceDraftId: string; sourceClassId: string; destinationClassId: string;
+  expectedRevision: number; requestKey: string; reason: string; requestId?: string | null;
+};
 type DraftMutation = { draft: AssessmentDraftInput; requestKey: string; reason: string; requestId?: string | null };
 
 export class AssessmentDraftAccessError extends Error {
@@ -85,14 +89,19 @@ const mapDraft = (row: DraftRow): StoredAssessmentDraft => ({
 export class PostgresAssessmentDraftRepository {
   constructor(private readonly db: DatabaseClient, private readonly principal: AssessmentDraftPrincipal) {}
 
-  private async authorizeClass(client: PoolClient, classId: string): Promise<void> {
-    if (!this.principal || !uuid.test(this.principal.userId) || !['instructor', 'administrator'].includes(this.principal.role) || !uuid.test(classId)) throw new AssessmentDraftAccessError();
+  private async authorizePrincipal(client: PoolClient): Promise<void> {
+    if (!this.principal || !uuid.test(this.principal.userId) || !['instructor', 'administrator'].includes(this.principal.role)) throw new AssessmentDraftAccessError();
     const user = await client.query<{ role: string }>('SELECT role FROM users WHERE id = $1 FOR SHARE', [this.principal.userId]);
     if (!user.rows[0]) throw new AssessmentDraftAccessError();
     if (this.principal.role === 'administrator') {
       const roles = await client.query<{ role: AdministrationRole }>('SELECT role FROM administration_role_assignments WHERE user_id = $1 AND revoked_at IS NULL FOR SHARE', [this.principal.userId]);
       if (!canPerformAdministrationAction(roles.rows.map(row => row.role), 'classes.manage')) throw new AssessmentDraftAccessError();
     } else if (!['instructor', 'admin'].includes(user.rows[0].role)) throw new AssessmentDraftAccessError();
+  }
+
+  private async authorizeClass(client: PoolClient, classId: string): Promise<void> {
+    if (!uuid.test(classId)) throw new AssessmentDraftAccessError();
+    await this.authorizePrincipal(client);
     const classroom = await client.query(`SELECT id FROM classrooms WHERE id = $1 AND archived_at IS NULL
       AND ($2::boolean OR created_by = $3) FOR SHARE`, [classId, this.principal.role === 'administrator', this.principal.userId]);
     if (!classroom.rows[0]) throw new AssessmentDraftAccessError();
@@ -114,12 +123,72 @@ export class PostgresAssessmentDraftRepository {
     return result.rows[0].snapshot;
   }
 
-  private async record(client: PoolClient, saved: StoredAssessmentDraft, input: ReturnType<PostgresAssessmentDraftRepository['mutation']>, fingerprint: string, action: string): Promise<void> {
+  private async record(client: PoolClient, saved: StoredAssessmentDraft, input: ReturnType<PostgresAssessmentDraftRepository['mutation']>, fingerprint: string, action: string,
+    source?: { sourceDraftId: string; sourceClassId: string; sourceRevision: number }): Promise<void> {
     await client.query('INSERT INTO assessment_draft_mutations (actor_id, request_key, draft_id, fingerprint, snapshot) VALUES ($1,$2,$3,$4,$5)',
       [this.principal.userId, input.requestKey, saved.id, fingerprint, saved]);
     await client.query(`INSERT INTO administration_audit_events (actor_id, action, target_type, target_id, reason, request_id, metadata)
       VALUES ($1,$2,'assessment_draft',$3,$4,$5,$6)`, [this.principal.userId, action, saved.id, input.reason, input.requestId,
-      { classId: saved.classId, revision: saved.revision, questionCount: saved.questions.length, maxUnits: saved.maxUnits }]);
+      { classId: saved.classId, revision: saved.revision, questionCount: saved.questions.length, maxUnits: saved.maxUnits, ...source }]);
+  }
+
+  /** The picker receives class identities only, never enrollment data or join codes. */
+  async listCopyDestinations(): Promise<{ id: string; name: string }[]> {
+    return this.db.transaction(async client => {
+      await this.authorizePrincipal(client);
+      const result = await client.query<{ id: string; name: string }>(`SELECT id,name FROM classrooms
+        WHERE archived_at IS NULL AND ($1::boolean OR created_by=$2) ORDER BY lower(name),id`,
+      [this.principal.role === 'administrator', this.principal.userId]);
+      return result.rows.map(row => ({ id: row.id, name: row.name }));
+    });
+  }
+
+  /** Copy an acknowledged saved revision into a new private draft; assign nothing. */
+  async copyDraft(input: AssessmentDraftCopyInput, availableQuestionVersionIds: readonly string[]): Promise<StoredAssessmentDraft> {
+    if (!input || typeof input !== 'object' || Array.isArray(input)
+      || Object.keys(input).some(key => !['sourceDraftId', 'sourceClassId', 'destinationClassId', 'expectedRevision', 'requestKey', 'reason', 'requestId'].includes(key))) throw new AssessmentDraftValidationError();
+    if (!this.principal || !uuid.test(this.principal.userId) || !['instructor', 'administrator'].includes(this.principal.role)) throw new AssessmentDraftAccessError();
+    for (const id of [input.sourceDraftId, input.sourceClassId, input.destinationClassId]) {
+      if (typeof id !== 'string' || !uuid.test(id)) throw new AssessmentDraftAccessError();
+    }
+    if (!Number.isSafeInteger(input.expectedRevision) || input.expectedRevision < 1) throw new AssessmentDraftValidationError('A valid source draft revision is required.');
+    if (typeof input.requestKey !== 'string' || !input.requestKey.trim() || input.requestKey.length > 128) throw new AssessmentDraftValidationError('A valid copy key is required.');
+    if (typeof input.reason !== 'string' || input.reason.trim().length < 8 || input.reason.trim().length > 500) throw new AssessmentDraftValidationError('Give an authoring reason of 8–500 characters.');
+    if (input.requestId !== undefined && input.requestId !== null && (typeof input.requestId !== 'string' || input.requestId.length > 100)) throw new AssessmentDraftValidationError('Invalid request identifier.');
+    const sourceDraftId = input.sourceDraftId.toLowerCase(), sourceClassId = input.sourceClassId.toLowerCase();
+    const destinationClassId = input.destinationClassId.toLowerCase(), requestKey = input.requestKey.trim(), reason = input.reason.trim();
+    const fingerprint = createHash('sha256').update(JSON.stringify({ operation: 'copy', sourceDraftId, sourceClassId,
+      destinationClassId, expectedRevision: input.expectedRevision, reason })).digest('hex');
+    return this.db.transaction(async client => {
+      await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [`assessment-draft-request:${this.principal.userId}:${requestKey}`]);
+      // Authorize and lock both parents before any dependent draft. The stable
+      // ordering also supports simultaneous A→B and B→A copies.
+      for (const classId of [...new Set([sourceClassId, destinationClassId])].sort()) await this.authorizeClass(client, classId);
+      const result = await client.query<DraftRow>('SELECT * FROM assessment_drafts WHERE id=$1 AND class_id=$2 FOR SHARE', [sourceDraftId, sourceClassId]);
+      if (!result.rows[0]) throw new AssessmentDraftAccessError();
+      // An acknowledged copy survives later source/copy edits or bank retirement.
+      // Authorization is rechecked even when returning this immutable receipt.
+      const previous = await this.previous(client, requestKey, fingerprint);
+      if (previous) return previous;
+      const source = result.rows[0];
+      if (source.revision !== input.expectedRevision) throw new AssessmentDraftConflictError(source.revision);
+      if (!Array.isArray(availableQuestionVersionIds) || availableQuestionVersionIds.some(id => typeof id !== 'string' || !versionId.test(id))) throw new AssessmentDraftValidationError('Use reviewed question versions for the copy.');
+      const available = new Set(availableQuestionVersionIds);
+      if (source.questions.some(question => !available.has(question.questionVersionId))) {
+        throw new AssessmentDraftValidationError('A source question is no longer available. Edit the saved source draft to replace it with a reviewed question, then review the copy again.');
+      }
+      const draft = validatedDraft({ classId: destinationClassId,
+        title: `Copy of ${source.title}`.slice(0, 160).replace(/[\uD800-\uDBFF]$/, ''), instructions: source.instructions,
+        questions: source.questions.map(question => ({ questionVersionId: question.questionVersionId, maxUnits: question.maxUnits })),
+        availableAt: null, dueAt: null, closesAt: null });
+      const copied = await client.query<DraftRow>(`INSERT INTO assessment_drafts (class_id,title,instructions,questions,created_by)
+        VALUES ($1,$2,$3,$4::jsonb,$5) RETURNING *`,
+      [draft.classId, draft.title, draft.instructions, JSON.stringify(draft.questions), this.principal.userId]);
+      const saved = mapDraft(copied.rows[0]);
+      await this.record(client, saved, { draft, requestKey, reason, requestId: input.requestId ?? null }, fingerprint, 'assessments.draft.copy',
+        { sourceDraftId, sourceClassId, sourceRevision: source.revision });
+      return saved;
+    });
   }
 
   async createDraft(input: DraftMutation): Promise<StoredAssessmentDraft> {

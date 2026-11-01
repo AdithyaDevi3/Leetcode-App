@@ -201,6 +201,24 @@ ordered question-version references and integer point units; they contain no
 answer keys and create no learner recipients or grades. Browser draft recovery is
 scoped to the verified author and retains an alternate copy across reload.
 
+Quiz duplication copies a saved draft revision into a fresh private draft. Source
+and destination class authority are checked independently inside one transaction,
+with class parents locked in a stable order before the source draft. First
+execution requires the expected source revision and currently reviewed exact
+question versions; it preserves ordered references, integer points and authored
+instructions while clearing dates. An unavailable version requires explicit
+source repair. Copies do not inherit publication, audience, attempts or grades.
+
+Copy commands share the draft mutation advisory-lock and immutable receipt
+namespace with create/update commands. The fingerprint binds source, destination
+and expected revision. After rechecking access, a retry recovers the original
+receipt before checking later source edits or catalog retirement. Copy audits
+record identifiers/counts, not authored text or learner records. HTTP input is
+byte-bounded, rejects duplicate/unknown fields and requires the verified actor;
+responses allowlist class metadata and public question projections. Owner-bound
+preview checks hide stale browser data on revalidation and preserve uncertain
+commands. The workflow uses existing tables and introduces no migration or worker.
+
 The sixty-question class-assignable multiple-choice catalog is server-owned,
 explicitly versioned, and records original provenance plus automated
 author/reviewer separation. The client

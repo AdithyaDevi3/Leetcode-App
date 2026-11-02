@@ -1,20 +1,21 @@
 'use client';
 
 import { useEffect, useId, useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent, type ReactNode } from 'react';
-import { ChevronDown, ChevronUp, RotateCcw } from 'lucide-react';
+import { ChevronDown, ChevronUp, Maximize2, Minimize2, PanelLeftClose, PanelLeftOpen, RotateCcw } from 'lucide-react';
 import { readBrowserStorage, writeBrowserStorage } from '@/lib/safe-browser-storage';
 import './practice-panels.css';
 
 export type PracticePanel = 'context' | 'task' | 'results';
 
-type LayoutPreferences = { contextWidth: number; taskHeight: number; resultsCollapsed: boolean };
-const defaults: LayoutPreferences = { contextWidth: 42, taskHeight: 74, resultsCollapsed: false };
+type LayoutPreferences = { contextWidth: number; taskHeight: number; contextCollapsed: boolean; resultsCollapsed: boolean };
+const defaults: LayoutPreferences = { contextWidth: 42, taskHeight: 74, contextCollapsed: false, resultsCollapsed: true };
 const preferenceKey = 'method:practice-layout:v1';
+const dividerSize = 12;
 
 const limit = (value: number, minimum: number, maximum: number) => Math.min(maximum, Math.max(minimum, value));
 const boundedRatio = (ratio: number, size: number, firstMinimum: number, lastMinimum: number, low: number, high: number) => {
   // Keep both panels usable when space permits, without overflowing short windows.
-  const available = Math.max(1, size - 8);
+  const available = Math.max(1, size - dividerSize);
   const min = Math.min(high, Math.max(low, Math.min(firstMinimum, available * .35) / available * 100));
   const max = Math.max(min, Math.min(high, (available - Math.min(lastMinimum, available * .35)) / available * 100));
   return limit(ratio, min, max);
@@ -24,6 +25,7 @@ export function PracticePanels({
   context,
   children,
   results,
+  navigation,
   contextLabel = 'Problem & context',
   taskLabel = 'Workspace',
   resultsLabel = 'Test results',
@@ -33,6 +35,7 @@ export function PracticePanels({
   context: ReactNode;
   children: ReactNode;
   results?: ReactNode;
+  navigation?: ReactNode;
   contextLabel?: string;
   taskLabel?: string;
   resultsLabel?: string;
@@ -43,11 +46,13 @@ export function PracticePanels({
   const gridRef = useRef<HTMLDivElement>(null);
   const taskStackRef = useRef<HTMLDivElement>(null);
   const dragging = useRef<'context' | 'results' | null>(null);
+  const beforeFocus = useRef<LayoutPreferences | null>(null);
   const [resizing, setResizing] = useState<'context' | 'results' | null>(null);
   const [preferences, setPreferences] = useState<LayoutPreferences>(defaults);
   const [preferencesLoaded, setPreferencesLoaded] = useState(false);
   const [localPanel, setLocalPanel] = useState<PracticePanel>('task');
   const hasResults = results !== undefined && results !== null;
+  const focusMode = preferences.contextCollapsed && (!hasResults || preferences.resultsCollapsed);
   const requestedPanel = activePanel ?? localPanel;
   const selectedPanel = !hasResults && requestedPanel === 'results' ? 'task' : requestedPanel;
   const contextId = `${id}-context`;
@@ -62,7 +67,8 @@ export function PracticePanels({
           setPreferences({
             contextWidth: typeof stored.contextWidth === 'number' && Number.isFinite(stored.contextWidth) ? limit(stored.contextWidth, 28, 65) : defaults.contextWidth,
             taskHeight: typeof stored.taskHeight === 'number' && Number.isFinite(stored.taskHeight) ? limit(stored.taskHeight, 25, 85) : defaults.taskHeight,
-            resultsCollapsed: stored.resultsCollapsed === true,
+            contextCollapsed: stored.contextCollapsed === true,
+            resultsCollapsed: typeof stored.resultsCollapsed === 'boolean' ? stored.resultsCollapsed : defaults.resultsCollapsed,
           });
         }
       } catch { /* Invalid layout preferences never prevent opening saved work. */ }
@@ -88,11 +94,22 @@ export function PracticePanels({
     onPanelChange?.(panel);
   };
 
+  const toggleFocus = () => {
+    selectPanel('task');
+    if (focusMode) {
+      setPreferences(beforeFocus.current ?? { ...preferences, contextCollapsed: false, resultsCollapsed: defaults.resultsCollapsed });
+      beforeFocus.current = null;
+    } else {
+      beforeFocus.current = preferences;
+      setPreferences((current) => ({ ...current, contextCollapsed: true, resultsCollapsed: true }));
+    }
+  };
+
   const updateRatio = (axis: 'context' | 'results', ratio: number) => {
     const size = axis === 'context' ? gridRef.current?.clientWidth ?? 1 : taskStackRef.current?.clientHeight ?? 1;
     const value = axis === 'context'
-      ? boundedRatio(ratio, size, 250, 320, 28, 65)
-      : boundedRatio(ratio, size, 180, 120, 25, 85);
+      ? boundedRatio(ratio, size, 300, 400, 28, 65)
+      : boundedRatio(ratio, size, 240, 120, 25, 85);
     setPreferences((current) => ({ ...current, [axis === 'context' ? 'contextWidth' : 'taskHeight']: value }));
   };
 
@@ -112,7 +129,7 @@ export function PracticePanels({
     if (!bounds) return;
     const size = axis === 'context' ? bounds.width : bounds.height;
     const position = axis === 'context' ? event.clientX - bounds.left : event.clientY - bounds.top;
-    updateRatio(axis, (position - 4) / Math.max(1, size - 8) * 100);
+    updateRatio(axis, (position - dividerSize / 2) / Math.max(1, size - dividerSize) * 100);
   };
 
   const finishResize = () => {
@@ -154,17 +171,23 @@ export function PracticePanels({
 
   const styles = { '--practice-context-width': `${preferences.contextWidth}%`, '--practice-task-height': `${preferences.taskHeight}%` } as CSSProperties;
 
-  return <div className="practice-panels" style={styles} data-mobile-panel={selectedPanel} data-resizing={resizing ?? undefined}>
+  return <div className="practice-panels" style={styles} data-mobile-panel={selectedPanel} data-context-collapsed={preferences.contextCollapsed} data-focus-mode={focusMode} data-resizing={resizing ?? undefined}>
     <div className="practice-panels-toolbar">
+      {navigation}
       <nav className="practice-panels-mobile-nav" aria-label="Workspace panels">
         {([{ value: 'context', label: 'Problem', controls: contextId }, { value: 'task', label: taskLabel, controls: taskId }, ...(hasResults ? [{ value: 'results', label: 'Results', controls: resultsId }] : [])] as const).map(({ value, label, controls }) => <button key={value} type="button" aria-pressed={selectedPanel === value} aria-controls={controls} onClick={() => selectPanel(value as PracticePanel)}>{label}</button>)}
       </nav>
       <div className="practice-panels-layout-actions">
+        <button className="practice-panels-context-toggle" type="button" aria-expanded={!preferences.contextCollapsed} aria-controls={contextId} onClick={() => {
+          selectPanel(preferences.contextCollapsed ? 'context' : 'task');
+          setPreferences((current) => ({ ...current, contextCollapsed: !current.contextCollapsed }));
+        }}>{preferences.contextCollapsed ? <PanelLeftOpen size={15} /> : <PanelLeftClose size={15} />}{preferences.contextCollapsed ? 'Show problem' : 'Hide problem'}</button>
         {hasResults ? <button className="practice-panels-results-toggle" type="button" aria-expanded={!preferences.resultsCollapsed} aria-controls={resultsId} onClick={() => {
           selectPanel(preferences.resultsCollapsed ? 'results' : 'task');
           setPreferences((current) => ({ ...current, resultsCollapsed: !current.resultsCollapsed }));
         }}>{preferences.resultsCollapsed ? <ChevronUp size={14} /> : <ChevronDown size={14} />}{preferences.resultsCollapsed ? 'Show results' : 'Hide results'}</button> : null}
-        <button type="button" aria-label="Reset panel layout" title="Reset panel layout" onClick={() => setPreferences(defaults)}><RotateCcw size={13} /><span>Reset layout</span></button>
+        <button className="practice-panels-focus-toggle" type="button" aria-pressed={focusMode} onClick={toggleFocus}>{focusMode ? <Minimize2 size={15} /> : <Maximize2 size={15} />}{focusMode ? 'Exit focus' : 'Focus workspace'}</button>
+        <button type="button" aria-label="Reset panel layout" title="Reset panel layout" onClick={() => { selectPanel('task'); beforeFocus.current = null; setPreferences(defaults); }}><RotateCcw size={14} /></button>
       </div>
     </div>
     <div ref={gridRef} className="practice-panels-grid">

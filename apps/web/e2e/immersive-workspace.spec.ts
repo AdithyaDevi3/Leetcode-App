@@ -100,6 +100,7 @@ test('panel resizing, collapse, run recovery and reset remain usable', async ({ 
   await page.mouse.move(dividerBounds.x + 70, dividerBounds.y + 20);
   await page.mouse.up();
   expect(Number(await separator.getAttribute('aria-valuenow'))).toBeGreaterThan(before + 2);
+  await page.getByRole('button', { name: 'Show results', exact: true }).click();
   const resultsDivider = page.getByRole('separator', { name: 'Resize editor and results panels' });
   const editorHeight = Number(await resultsDivider.getAttribute('aria-valuenow'));
   await resultsDivider.focus();
@@ -112,6 +113,72 @@ test('panel resizing, collapse, run recovery and reset remain usable', async ({ 
   await expect(page.getByText('Save your practice session before running code.')).toBeVisible();
   await page.getByRole('button', { name: 'Reset panel layout' }).click();
   await expect(separator).toHaveAttribute('aria-valuenow', '42');
+});
+
+test('focus restores the previous split and collapsing panels preserves edits after reload', async ({ page }) => {
+  await open(page);
+  await code(page);
+  const input = editor(page, 'Python implementation');
+  const source = 'def find_pair(values, target):\n    return [0, 1]';
+  await input.fill(source);
+  const problem = page.getByRole('region', { name: 'Problem & context', exact: true });
+  const results = page.getByRole('region', { name: 'Test results', exact: true });
+  await expect(results).toBeHidden();
+  await page.getByRole('button', { name: 'Show results', exact: true }).click();
+  const divider = page.getByRole('separator', { name: 'Resize problem and workspace panels' });
+  await divider.focus();
+  await divider.press('ArrowRight');
+  const split = await divider.getAttribute('aria-valuenow');
+  const originalBounds = await input.boundingBox();
+  await page.getByRole('button', { name: 'Focus workspace', exact: true }).click();
+  await expect(problem).toBeHidden();
+  await expect(results).toBeHidden();
+  const focusedBounds = await input.boundingBox();
+  expect(focusedBounds!.width).toBeGreaterThan(originalBounds!.width * 1.5);
+  expect(focusedBounds!.height).toBeGreaterThan(originalBounds!.height);
+  await page.getByRole('button', { name: 'Exit focus', exact: true }).click();
+  await expect(problem).toBeVisible();
+  await expect(results).toBeVisible();
+  await expect(divider).toHaveAttribute('aria-valuenow', split!);
+  await page.getByRole('button', { name: 'Focus workspace', exact: true }).click();
+  await expect.poll(() => page.evaluate(() => {
+    const saved = JSON.parse(localStorage.getItem('method:practice-layout:v1') ?? '{}');
+    return saved.contextCollapsed && saved.resultsCollapsed;
+  })).toBe(true);
+  await page.reload();
+  await expect(page.getByRole('button', { name: 'Exit focus', exact: true })).toBeVisible();
+  await expect(problem).toBeHidden();
+  await expect.poll(() => text(page, 'Python implementation')).toBe(source);
+  await page.getByRole('button', { name: 'Run verified tests', exact: true }).click();
+  await expect(results).toBeVisible();
+  await expect(problem).toBeHidden();
+  await expect(page.getByText('Save your practice session before running code.')).toBeVisible();
+  await page.getByRole('button', { name: 'Show problem', exact: true }).click();
+  await expect(problem).toBeVisible();
+  await expect.poll(() => text(page, 'Python implementation')).toBe(source);
+  await page.screenshot({ path: '../../.local-docs/screens/workspace-panels-restored.png', fullPage: true });
+});
+
+test('a short laptop has room to write and mobile navigation recovers collapsed desktop panels', async ({ page }) => {
+  await page.setViewportSize({ width: 1024, height: 600 });
+  await open(page);
+  await code(page);
+  const host = page.locator('.practice-code-stage .code-editor-host');
+  expect((await host.boundingBox())!.height).toBeGreaterThanOrEqual(200);
+  await page.getByRole('button', { name: 'Focus workspace', exact: true }).click();
+  await page.screenshot({ path: '../../.local-docs/screens/workspace-focus-laptop.png', fullPage: true });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth && document.documentElement.scrollHeight <= innerHeight + 1)).toBe(true);
+  await page.setViewportSize({ width: 390, height: 844 });
+  const panels = page.getByRole('navigation', { name: 'Workspace panels' });
+  await panels.getByRole('button', { name: 'Problem', exact: true }).click();
+  await expect(page.getByRole('region', { name: 'Problem & context', exact: true })).toBeVisible();
+  await panels.getByRole('button', { name: 'Workspace', exact: true }).click();
+  await expect(editor(page, 'Python implementation')).toBeVisible();
+  await page.getByRole('button', { name: 'Run verified tests', exact: true }).click();
+  await expect(page.getByRole('region', { name: 'Test results', exact: true })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth && document.documentElement.scrollHeight <= innerHeight + 1)).toBe(true);
+  await panels.getByRole('button', { name: 'Workspace', exact: true }).click();
+  await page.screenshot({ path: '../../.local-docs/screens/workspace-focus-phone.png', fullPage: true });
 });
 
 test('oversized rejected edits never leave displayed code different from saved source', async ({ page }) => {

@@ -10,31 +10,34 @@
 .practice-panels-toolbar {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: space-between;
+  flex-wrap: wrap;
   flex: 0 0 auto;
-  min-height: 34px;
-  padding: 3px 10px;
+  min-height: 48px;
+  padding: 5px 12px;
   gap: 8px;
   border-bottom: 1px solid var(--line);
   background: var(--paper);
 }
 
-.practice-panels-layout-actions { display: flex; align-items: center; gap: 5px; }
-.practice-panels-toolbar button {
+.practice-panels-layout-actions { display: flex; align-items: center; gap: 4px; margin-left: auto; }
+.practice-panels-layout-actions button, .practice-panels-mobile-nav button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 28px;
+  min-height: 32px;
   gap: 5px;
-  padding: 3px 8px;
+  padding: 5px 8px;
   border: 1px solid transparent;
   border-radius: 5px;
   background: transparent;
   color: var(--muted);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
 }
-.practice-panels-toolbar button:hover { background: var(--moss-soft); color: var(--moss); }
+.practice-panels-layout-actions button:hover, .practice-panels-mobile-nav button:hover { background: var(--moss-soft); color: var(--moss); }
+.practice-panels-focus-toggle { border-color: var(--line) !important; background: var(--surface) !important; color: var(--moss) !important; }
+.practice-panels-focus-toggle[aria-pressed="true"] { border-color: var(--moss) !important; background: var(--moss-soft) !important; }
 .practice-panels-toolbar button:focus-visible { outline: 2px solid var(--coral); outline-offset: 1px; }
 .practice-panels-mobile-nav { display: none; }
 
@@ -43,7 +46,7 @@
   flex: 1;
   min-height: 0;
   min-width: 0;
-  grid-template-columns: minmax(0, var(--practice-context-width, 42%)) 8px minmax(0, 1fr);
+  grid-template-columns: minmax(0, var(--practice-context-width, 42%)) 12px minmax(0, 1fr);
   background: var(--line);
   overflow: hidden;
 }
@@ -58,7 +61,7 @@
 .practice-panel-content { flex: 1; min-width: 0; min-height: 0; overflow: auto; overscroll-behavior: contain; }
 .practice-panel-context-content { scrollbar-gutter: stable; }
 .practice-panels-task-stack { display: grid; grid-template-rows: minmax(0, 1fr); min-width: 0; min-height: 0; overflow: hidden; }
-.practice-panels-task-stack[data-has-results="true"][data-results-collapsed="false"] { grid-template-rows: minmax(0, var(--practice-task-height, 74%)) 8px minmax(0, 1fr); }
+.practice-panels-task-stack[data-has-results="true"][data-results-collapsed="false"] { grid-template-rows: minmax(0, var(--practice-task-height, 74%)) 12px minmax(0, 1fr); }
 .practice-panels-task-stack[data-results-collapsed="true"] > .practice-panel-results,
 .practice-panels-task-stack[data-results-collapsed="true"] > .practice-panel-separator-results { display: none; }
 
@@ -83,13 +86,18 @@
 .practice-panels[data-resizing="context"], .practice-panels[data-resizing="context"] * { cursor: col-resize !important; }
 .practice-panels[data-resizing="results"], .practice-panels[data-resizing="results"] * { cursor: row-resize !important; }
 
+@media (min-width: 801px) {
+  .practice-panels[data-context-collapsed="true"] .practice-panels-grid { grid-template-columns: minmax(0, 1fr); }
+  .practice-panels[data-context-collapsed="true"] .practice-panel-context,
+  .practice-panels[data-context-collapsed="true"] .practice-panel-separator-context { display: none; }
+}
+
 @media (max-width: 800px) {
-  .practice-panels-toolbar { justify-content: space-between; padding: 4px 8px; min-height: 42px; }
+  .practice-panels-toolbar { justify-content: space-between; padding: 4px 8px; min-height: 42px; gap: 4px; }
   .practice-panels-mobile-nav { display: flex; align-items: center; min-width: 0; gap: 3px; }
   .practice-panels-mobile-nav button { min-height: 34px; font-size: 12px; color: var(--ink); }
   .practice-panels-mobile-nav button[aria-pressed="true"] { border-color: var(--moss); background: var(--moss-soft); color: var(--moss); }
-  .practice-panels-toolbar .practice-panels-results-toggle { display: none; }
-  .practice-panels-layout-actions button span { display: none; }
+  .practice-panels-toolbar :is(.practice-panels-results-toggle, .practice-panels-context-toggle, .practice-panels-focus-toggle) { display: none; }
   .practice-panels-layout-actions button { min-width: 34px; min-height: 34px; }
   .practice-panels-grid { display: flex; }
   .practice-panels-task-stack { display: contents; }

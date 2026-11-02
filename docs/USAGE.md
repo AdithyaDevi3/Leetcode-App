@@ -87,7 +87,11 @@ before changing devices; if persistence fails, retain the draft and retry.
 The practice workspace has separate **Approach**, **Feedback**, and **Code & test**
 stages. Stage navigation and browser Back/Forward retain the current draft.
 On desktop, drag the dividers or focus them and use arrow keys to resize the
-problem, editor and results panels. **Reset layout** restores their sizes.
+problem, editor and results panels. **Hide problem** and **Hide results** collapse
+panels independently; **Focus workspace** gives the active task the available
+space, and **Exit focus** restores the previous split. Sizes and collapsed panels
+are remembered on this device. New layouts keep results closed until needed;
+running tests opens them automatically. **Reset panel layout** restores defaults.
 On phones, use **Problem**, **Workspace** and **Results** to switch panels.
 The context tabs keep the problem, current approach, feedback and notes available.
 Other pages remain reachable through the workspace's **More** menu.

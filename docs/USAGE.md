@@ -206,6 +206,36 @@ including after a reload or later source edits. Refresh and review a changed
 source before starting a new request. Browser recovery belongs to the original
 account, workspace and source; account changes pause the preview and copy actions.
 
+Open a saved quiz and choose **Save as private template** to capture its saved
+revision. Templates contain the title, authored instructions, ordered question
+versions and exact points. They do not contain dates, audiences, submissions or
+grades. Saving a template assigns nothing. Templates belong to their creator,
+including in the admin workspace; class-management permission does not reveal
+someone else's private templates.
+
+Choose **Your template library** from the teaching or admin Classes area to search
+your templates, filter active/archived content and move through result pages.
+Open a template to preview questions and choose a saved version. Earlier versions
+are immutable and read-only. Edit current content, order and points, then use
+**Save new version**; existing class drafts and grades stay unchanged. If another
+tab changes the template, compare the latest saved version and keep a browser
+recovery copy before continuing.
+
+Select a destination class and **Create class draft** to use the previewed version.
+Both template ownership and destination class authority are checked again. The
+new private draft clears dates and uses the normal editor, audience preview and
+explicit assignment flow. Review authored instructions before reusing them with
+another class. Templates remain independent of the source class after capture.
+
+**Archive template** prevents new edits and uses while retaining history and
+existing class work. **Restore template** makes it available again. Unavailable
+question versions require replacing questions in current content and saving a new
+version. An already accepted request can still recover its original receipt after
+later edits, archival or catalog changes. Use **Retry earlier template request**
+after an uncertain reply; reloads retain the exact command rather than silently
+creating another version or draft. After a confirmed class draft, starting another
+requires **Prepare another class draft** and a fresh review.
+
 Open **Class insights** from a class workspace to review concept coverage from
 released quiz answers by currently enrolled learners. Counts distinguish answered
 items, different logical questions, and learner coverage. Skips do not indicate

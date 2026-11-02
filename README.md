@@ -20,6 +20,10 @@ Authors can copy a saved quiz into a new private draft in an authorized class.
 Copies preserve questions and points, clear dates, and require their own audience
 preview and explicit assignment.
 
+Creators can keep private, versioned quiz templates, search their library,
+preview earlier versions, and archive or restore content. Using a template creates
+a new private class draft with its own audience and assignment step.
+
 Class owners can inspect released-quiz concept coverage and open editable
 follow-up quizzes. Authorized administrators have a separate aggregate view that
 hides concept statistics below the minimum learner count. Personal practice and

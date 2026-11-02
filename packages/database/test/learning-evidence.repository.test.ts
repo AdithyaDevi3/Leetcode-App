@@ -531,7 +531,9 @@ describe('durable owner learning evidence',()=>{
     const finished=await f.repo.readSnapshot();expect(finished.processing.pending).toBe(false);expect(finished.concepts).toHaveLength(1);
     const before=(await database.query('SELECT * FROM gradebook_publications WHERE recipient_id=$1',[f.recipientId])).rows;
     const url=`postgresql://test:test@${config.host}:${config.port}/testdb`;
-    const reverse=()=>runner({databaseUrl:url,direction:'down',dir:'migrations',migrationsTable:'pgmigrations',count:1,checkOrder:true,log:()=>undefined});
+    const applied=await database.query<{count:string}>("SELECT count(*)::text AS count FROM pgmigrations WHERE name >= '1793291479637_learning-recommendation-selections'");
+    const count=Number(applied.rows[0].count);expect(count).toBeGreaterThan(0);
+    const reverse=()=>runner({databaseUrl:url,direction:'down',dir:'migrations',migrationsTable:'pgmigrations',count,singleTransaction:true,checkOrder:true,log:()=>undefined});
     await expect(reverse()).rejects.toThrow('Cannot reverse used learning evidence storage');
     // Only this disposable synthetic database is reset; academic source records stay intact.
     await database.query('TRUNCATE learning_review_versions,learning_evidence_work,learning_practice_reports,learning_evidence_sources,learning_concept_estimates,learning_review_receipts');

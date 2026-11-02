@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation';
+import Link from 'next/link';
 import { AdminEmptyState, AdminPageHeader, AdminSection } from '@/components/admin/admin-ui';
 import { readInstructorData } from '@/lib/instructor-access';
 import { createClassroom } from './actions';
@@ -16,6 +17,7 @@ export default async function InstructorClassesPage({ searchParams }: {
 
   return <main><div className="mx-auto max-w-6xl space-y-7">
     <AdminPageHeader eyebrow="Learning groups" title="Classes" description="Create a class, share its join code, and assign practice activities to enrolled learners." />
+    <p><Link className="inline-flex min-h-11 items-center font-bold text-[var(--moss)] underline underline-offset-4" href="/teach/templates">Your private quiz templates →</Link></p>
     {notice.error ? <p role="alert" className="rounded-lg border border-[var(--coral)] bg-[var(--coral-soft)] px-4 py-3 text-sm text-red-950">{notice.error}</p> : null}
 
     <AdminSection title="Create a class" description="The code appears after creation. Learners need a signed-in account to join.">

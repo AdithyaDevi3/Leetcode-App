@@ -46,7 +46,7 @@ export type StoredGradebookDisputeEvent = { id: string; sequence: number; public
 export type GradebookRecipientHistory = {
   recipientId: string; learnerId: string; policy: AssignmentGradePolicy;
   learner: { id: string; displayName: string; email: string | null };
-  assignment: { id: string; classId: string; title: string; instructions: string; dueOn: string | null; closesAt: string | null; isClosed: boolean };
+  assignment: { id: string; classId: string; title: string; instructions: string; prompt?: string; dueOn: string | null; closesAt: string | null; isClosed: boolean };
   applicability: StoredGradebookApplicability;
   attempts: StoredGradebookAttempt[]; grades: StoredGradebookGrade[]; publications: StoredGradebookPublication[];
   disputes: StoredGradebookDisputeEvent[];
@@ -81,13 +81,13 @@ export type ClassGradebookLearner = {
 };
 export type ClassGradebook = {
   classroom: { id: string; name: string };
-  assignments: { id: string; title: string; dueOn: string | null; maxUnits: number; policyVersionId: string; assignmentKind?: 'problem' | 'quiz' }[];
+  assignments: { id: string; title: string; dueOn: string | null; maxUnits: number; policyVersionId: string; assignmentKind?: 'problem' | 'quiz' | 'written' }[];
   learners: ClassGradebookLearner[];
   rows: GradebookRow[];
   calculationVersion: typeof GRADEBOOK_CALCULATION_VERSION;
 };
 export type LearnerClassGradeAssignment = {
-  assignmentKind?: 'problem' | 'quiz';
+  assignmentKind?: 'problem' | 'quiz' | 'written';
   id: string; title: string; dueOn: string | null; maxUnits: number; recipientId: string;
   state: 'excused' | 'unsubmitted' | 'queued' | 'running' | 'needs_review' | 'unavailable' | 'awaiting_publication' | 'published';
   publishedGrade: null | {
@@ -107,7 +107,7 @@ type Recipient = {
   id: string; learner_id: string; policy_id: string; policy: AssignmentGradePolicy;
   content_snapshot: { test_cases?: unknown }; closes_at: Date | null; closed: boolean; archived_at: Date | null; enrolled: boolean;
   learner_name: string; learner_email: string | null; assignment_id: string; class_id: string;
-  assignment_title: string; assignment_instructions: string; due_on: string | null;
+  assignment_title: string; assignment_instructions: string; written_prompt: string | null; written_open: boolean; due_on: string | null;
   applicability_id: string; applicability_sequence: number; applicability: 'assigned' | 'excused'; applicability_reason: string; applicability_created_at: Date;
 };
 type GradeRow = {
@@ -139,7 +139,7 @@ type DisputeInboxRow = {
 type ClassPolicyRow = {
   assignment_id: string; title: string; due_on: string | null; policy_id: string | null;
   policy: AssignmentGradePolicy | null;
-  audience_learner_ids: string[] | null;
+  audience_learner_ids: string[] | null; is_written: boolean;
 };
 type ClassLearnerRow = {
   learner_id: string; display_name: string; email: string | null; included: boolean;
@@ -155,7 +155,7 @@ type ClassOutcomeRow = {
 };
 type LearnerClassGradeRow = {
   assignment_id: string; title: string; due_on: string | null; policy_id: string; policy: AssignmentGradePolicy;
-  audience_learner_ids: string[] | null;
+  audience_learner_ids: string[] | null; is_written: boolean;
   recipient_id: string | null; attempt_id: string | null; response_revision_id: string | null;
   grade_id: string | null; grade_kind: 'scored' | 'missing_zero' | null; earned_units: string | null;
   grade_attempt_id: string | null; evaluator_version_id: string | null; authored_by: string | null; grade_reason: string | null;
@@ -225,7 +225,7 @@ export class PostgresGradebookRepository {
   private async recipient(client: PoolClient, recipientId: string, lock: boolean): Promise<Recipient> {
     uuid(recipientId);
     const identity = await client.query<{ learner_id: string; is_quiz: boolean }>(`SELECT r.learner_id,
-      p.policy->'scoring'->>'mode'='multiple_choice' AS is_quiz FROM gradebook_recipients r
+      (p.policy->'scoring'->>'mode'='multiple_choice' OR EXISTS(SELECT 1 FROM written_assessment_publications wp WHERE wp.policy_id=p.id)) AS is_quiz FROM gradebook_recipients r
       JOIN gradebook_policies p ON p.id=r.policy_id WHERE r.id=$1`, [recipientId]);
     if (lock && identity.rows[0]) {
       // Source events reference the owning learner, even when an instructor acts.
@@ -244,12 +244,13 @@ export class PostgresGradebookRepository {
       SELECT r.id, r.learner_id, r.policy_id, p.policy, p.content_snapshot, p.closes_at,
         (p.closes_at IS NOT NULL AND clock_timestamp() > p.closes_at) AS closed, c.archived_at,
         u.display_name AS learner_name, u.email AS learner_email, a.id AS assignment_id, a.class_id,
-        a.title AS assignment_title, a.instructions AS assignment_instructions, to_char(a.due_on, 'YYYY-MM-DD') AS due_on,
+        COALESCE(wp.title,a.title) AS assignment_title, COALESCE(wp.instructions,a.instructions) AS assignment_instructions, wp.prompt AS written_prompt, (wp.available_at IS NULL OR clock_timestamp()>=wp.available_at) AS written_open, to_char(a.due_on, 'YYYY-MM-DD') AS due_on,
         ar.id AS applicability_id, ar.sequence AS applicability_sequence, ar.applicability,
         ar.reason AS applicability_reason, ar.created_at AS applicability_created_at,
         EXISTS (SELECT 1 FROM class_enrollments e WHERE e.class_id = c.id AND e.user_id = r.learner_id) AS enrolled
       FROM gradebook_recipients r
       JOIN gradebook_policies p ON p.id = r.policy_id
+      LEFT JOIN written_assessment_publications wp ON wp.policy_id=p.id
       JOIN class_assignments a ON a.id = p.assignment_id
       JOIN classrooms c ON c.id = a.class_id
       JOIN users u ON u.id = r.learner_id
@@ -258,8 +259,8 @@ export class PostgresGradebookRepository {
       ${lock ? 'FOR UPDATE OF r FOR SHARE OF c' : ''}
     `, [recipientId, this.principal.role, this.principal.userId]);
     if (!result.rows[0]) throw new GradebookAccessError();
-    if (result.rows[0].policy.scoring.mode === 'multiple_choice' && this.principal.role === 'learner'
-      && (!result.rows[0].enrolled || result.rows[0].archived_at || result.rows[0].applicability !== 'assigned')) throw new GradebookAccessError();
+    if ((result.rows[0].policy.scoring.mode === 'multiple_choice' || result.rows[0].written_prompt !== null) && this.principal.role === 'learner'
+      && (!result.rows[0].enrolled || result.rows[0].archived_at || result.rows[0].applicability !== 'assigned' || (result.rows[0].written_prompt !== null && !result.rows[0].written_open))) throw new GradebookAccessError();
     return result.rows[0];
   }
 
@@ -337,6 +338,7 @@ export class PostgresGradebookRepository {
       const recipient = await this.recipient(client, input.recipientId, true);
       if (recipient.policy_id !== input.policyVersionId) throw new GradebookConflictError();
       if (recipient.policy.scoring.mode === 'multiple_choice') throw new Error('Use the typed quiz submission endpoint');
+      if (recipient.written_prompt !== null) throw new GradebookAccessError();
       const retry = await client.query<AttemptRow>('SELECT * FROM gradebook_attempts WHERE recipient_id = $1 AND request_key = $2', [recipient.id, input.requestKey]);
       if (retry.rows[0]) {
         if (!same(retry.rows[0].response, response)) throw new GradebookConflictError();
@@ -478,7 +480,7 @@ export class PostgresGradebookRepository {
       return { recipientId, learnerId: recipient.learner_id, policy: recipient.policy,
         learner: { id: recipient.learner_id, displayName: recipient.learner_name, email: recipient.learner_email },
         assignment: { id: recipient.assignment_id, classId: recipient.class_id, title: recipient.assignment_title,
-          instructions: recipient.assignment_instructions, dueOn: recipient.due_on,
+          instructions: recipient.assignment_instructions, ...(recipient.written_prompt !== null ? { prompt: recipient.written_prompt } : {}), dueOn: recipient.due_on,
           closesAt: recipient.closes_at?.toISOString() ?? null, isClosed: recipient.closed }, applicability: mapApplicability(recipient, this.principal.role === 'instructor'), attempts: attempts.rows.map(mapAttempt),
         grades: grades.rows.map(row => mapGrade(row, this.principal.role === 'instructor')), publications: publications.rows.map(mapPublication),
         disputes: disputes.rows.map(mapDispute) };
@@ -686,10 +688,11 @@ export class PostgresGradebookRepository {
 
       const policyResult = await client.query<ClassPolicyRow>(`
         SELECT a.id AS assignment_id, a.title, to_char(a.due_on, 'YYYY-MM-DD') AS due_on,
-          p.id AS policy_id, p.policy, qp.audience_learner_ids
+          p.id AS policy_id, p.policy, COALESCE(qp.audience_learner_ids,wp.audience_learner_ids) AS audience_learner_ids, (wp.id IS NOT NULL) AS is_written
         FROM class_assignments a
         LEFT JOIN gradebook_policies p ON p.assignment_id = a.id
         LEFT JOIN quiz_publications qp ON qp.policy_id=p.id
+        LEFT JOIN written_assessment_publications wp ON wp.policy_id=p.id
         WHERE a.class_id = $1
         ORDER BY a.created_at, a.id
       `, [classId]);
@@ -697,13 +700,13 @@ export class PostgresGradebookRepository {
         throw new Error('Gradebook integrity check failed: assignment policy is missing');
       }
       const policies = policyResult.rows.map(row => freezeAssignmentGradePolicy(row.policy!));
-      if (policies.some(policy => policy.scoring.mode === 'multiple_choice')) await this.currentQuizRole(client);
+      if (policies.some(policy => policy.scoring.mode === 'multiple_choice') || policyResult.rows.some(row => row.is_written)) await this.currentQuizRole(client);
       for (let index = 0; index < policies.length; index += 1) {
         if (policies[index].assignmentId !== policyResult.rows[index].assignment_id
           || policies[index].versionId !== policyResult.rows[index].policy_id) {
           throw new Error('Gradebook integrity check failed: assignment policy identity does not match');
         }
-        if (policies[index].scoring.mode === 'multiple_choice' && !policyResult.rows[index].audience_learner_ids) throw new Error('Gradebook integrity check failed: quiz audience is missing');
+        if ((policies[index].scoring.mode === 'multiple_choice' || policyResult.rows[index].is_written) && !policyResult.rows[index].audience_learner_ids) throw new Error('Gradebook integrity check failed: quiz audience is missing');
       }
 
       const learnerResult = await client.query<ClassLearnerRow>(`
@@ -770,8 +773,8 @@ export class PostgresGradebookRepository {
           const assignmentId = policyResult.rows[index].assignment_id;
           const outcome = outcomes.get(`${learner.learner_id}:${assignmentId}`);
           if (!outcome) {
-            if ((policy.scoring.mode === 'multiple_choice' && policyResult.rows[index].audience_learner_ids!.includes(learner.learner_id))
-              || (membership === 'included' && policy.scoring.mode !== 'multiple_choice')) throw new Error('Gradebook integrity check failed: current learner recipient is missing');
+            if ((policyResult.rows[index].audience_learner_ids !== null && policyResult.rows[index].audience_learner_ids!.includes(learner.learner_id))
+              || (membership === 'included' && policyResult.rows[index].audience_learner_ids === null)) throw new Error('Gradebook integrity check failed: current learner recipient is missing');
             cells.push({ assignmentId, recipientId: null, state: 'not_assigned', earnedUnits: null, maxUnits: policy.maxUnits });
             domainCells.push({ assignmentId, policyVersionId: policy.versionId, applicability: 'not_assigned' });
             continue;
@@ -829,7 +832,7 @@ export class PostgresGradebookRepository {
         classroom: classroom.rows[0],
         assignments: policyResult.rows.map((row, index) => ({ id: row.assignment_id, title: row.title, dueOn: row.due_on,
           maxUnits: policies[index].maxUnits, policyVersionId: policies[index].versionId,
-          assignmentKind: policies[index].scoring.mode === 'multiple_choice' ? 'quiz' : 'problem' })),
+          assignmentKind: policyResult.rows[index].is_written ? 'written' : policies[index].scoring.mode === 'multiple_choice' ? 'quiz' : 'problem' })),
         learners,
         rows: calculateGradebook(policies, domainLearners),
         calculationVersion: GRADEBOOK_CALCULATION_VERSION,
@@ -851,7 +854,7 @@ export class PostgresGradebookRepository {
 
       const result = await client.query<LearnerClassGradeRow>(`
         SELECT a.id AS assignment_id, a.title, to_char(a.due_on, 'YYYY-MM-DD') AS due_on,
-          p.id AS policy_id, p.policy, r.id AS recipient_id, qp.audience_learner_ids,
+          p.id AS policy_id, p.policy, r.id AS recipient_id, COALESCE(qp.audience_learner_ids,wp.audience_learner_ids) AS audience_learner_ids, (wp.id IS NOT NULL) AS is_written,
           ar.applicability, de.status AS dispute_status, de.id AS dispute_event_id,
           de.publication_id AS dispute_publication_id, de.grade_revision_id AS dispute_grade_revision_id,
           de.replacement_grade_revision_id AS dispute_replacement_grade_revision_id,
@@ -865,6 +868,7 @@ export class PostgresGradebookRepository {
         FROM class_assignments a
         JOIN gradebook_policies p ON p.assignment_id = a.id
         LEFT JOIN quiz_publications qp ON qp.policy_id=p.id
+        LEFT JOIN written_assessment_publications wp ON wp.policy_id=p.id
         LEFT JOIN gradebook_recipients r ON r.policy_id = p.id AND r.learner_id = $2
         LEFT JOIN LATERAL (SELECT x.applicability FROM gradebook_applicability_revisions x
           WHERE x.recipient_id = r.id ORDER BY x.sequence DESC LIMIT 1) ar ON true
@@ -897,12 +901,12 @@ export class PostgresGradebookRepository {
       const assignments: LearnerClassGradeAssignment[] = [];
       for (const row of result.rows) {
         const policy = freezeAssignmentGradePolicy(row.policy);
-        if (policy.scoring.mode === 'multiple_choice') {
+        if (policy.scoring.mode === 'multiple_choice' || row.is_written) {
           await this.currentQuizRole(client);
           if (!row.audience_learner_ids) throw new Error('Gradebook integrity check failed: quiz audience is missing');
         }
         if (!row.recipient_id) {
-          if (policy.scoring.mode === 'multiple_choice' && !row.audience_learner_ids!.includes(this.principal.userId)) continue;
+          if (row.audience_learner_ids !== null && !row.audience_learner_ids.includes(this.principal.userId)) continue;
           throw new Error('Gradebook integrity check failed: current learner recipient is missing');
         }
         if (policy.assignmentId !== row.assignment_id || policy.versionId !== row.policy_id) {
@@ -912,7 +916,7 @@ export class PostgresGradebookRepository {
 
         if (row.applicability === 'excused') {
           assignments.push({ id: row.assignment_id, title: row.title, dueOn: row.due_on, maxUnits: policy.maxUnits,
-            assignmentKind: policy.scoring.mode === 'multiple_choice' ? 'quiz' : 'problem',
+            assignmentKind: row.is_written ? 'written' : policy.scoring.mode === 'multiple_choice' ? 'quiz' : 'problem',
             recipientId: row.recipient_id, state: 'excused', publishedGrade: null, dispute: null });
           cells.push({ assignmentId: row.assignment_id, policyVersionId: policy.versionId, applicability: 'excused' });
           continue;
@@ -955,7 +959,7 @@ export class PostgresGradebookRepository {
           || ['submitted', 'in_review'].includes(row.dispute_status ?? '')
           || (row.dispute_status === 'resolved' && row.dispute_replacement_grade_revision_id === row.published_grade_revision_id));
         assignments.push({ id: row.assignment_id, title: row.title, dueOn: row.due_on, maxUnits: policy.maxUnits,
-          assignmentKind: policy.scoring.mode === 'multiple_choice' ? 'quiz' : 'problem',
+          assignmentKind: row.is_written ? 'written' : policy.scoring.mode === 'multiple_choice' ? 'quiz' : 'problem',
           recipientId: row.recipient_id, state,
           publishedGrade: published ? {
             gradeRevisionId: row.grade_id!, earnedUnits: gradeResult.status === 'scored' ? gradeResult.earnedUnits : 0,
@@ -983,6 +987,7 @@ export class PostgresGradebookRepository {
     const cursor = parseInboxCursor(input.cursor);
     return this.db.transaction(async client => {
       await client.query('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY');
+      await this.currentQuizRole(client);
       const owned = await client.query('SELECT 1 FROM classrooms WHERE id = $1 AND created_by = $2', [input.classId, this.principal.userId]);
       if (!owned.rows.length) throw new GradebookAccessError();
       const result = await client.query<InboxRow>(`

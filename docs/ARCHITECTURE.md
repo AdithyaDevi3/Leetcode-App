@@ -123,8 +123,9 @@ browser-role grants.
 ## Classes and gradebook
 
 Classes have server-generated enrollment codes, explicit ownership, assignments,
-and enrolled learners. Current assignment authoring selects an existing practice
-activity. Content-level practice completion and assignment grades are distinct.
+and enrolled learners. Authors can select a practice activity, compose an MCQ
+quiz or write a rubric-based text/pseudocode assignment. Content-level practice
+completion and assignment grades are distinct.
 
 The gradebook repository stores immutable published policy/content snapshots,
 explicit recipients, assignment response revisions, grade revisions, publication
@@ -275,6 +276,30 @@ Quiz HTTP commands use bounded UTF-8 decoding, reject duplicate JSON keys, and
 allowlist client fields. Expected actor headers protect open tabs after account
 changes. Navigation readiness from pseudocode is separately computed from current
 text; manual continuation does not mark verified completion or award a grade.
+
+Written assessments have private draft, frozen publication, response-draft and
+request-receipt storage. Publication pins the authored prompt, ordered rubric,
+exact-point policy, dates and independently checked enrolled audience. Generic
+content contains a class-private placeholder; authored content remains in private
+storage. Administrator class authoring does not grant instructor grade access.
+
+Owner-scoped text saves use revisions and immutable original receipts. A final
+submission freezes the exact saved text once into the existing gradebook attempt
+ledger. The generic code-submission path rejects these recipients. The existing
+rubric grade and explicit-release ledgers handle review, corrections and disputes;
+no parallel scoring store, model grader or worker is added. Pending review stays
+pending and never becomes an inferred zero or conceptual weakness.
+
+All written HTTP operations authenticate before decoding and require the original
+actor header. Byte-bounded unique-key JSON decoding, strict field contracts and
+nested output projections protect both account and content scope. Current roles,
+class/enrollment/recipient authority precede receipt replay; new work separately
+requires current applicability and admission time. Accepted receipts survive later
+closing/excusal. Excused reads expose only a metadata shell for owner-verified
+pending-command recovery; prompt, rubric, responses and grades remain hidden.
+Opening times likewise withhold content. RLS and revoked browser/helper privileges
+supplement explicit server authorization. Apply the additive migration before
+dependent queries; retain used content/history and recover with a forward fix.
 
 ## Code execution and queues
 

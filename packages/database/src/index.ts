@@ -82,3 +82,6 @@ export type { ClassInsightsPrincipal, ClassInsightsData } from './repositories/c
 
 export { PostgresAssessmentTemplateRepository, AssessmentTemplateAccessError, AssessmentTemplateConflictError, AssessmentTemplateValidationError } from './repositories/assessment-template.repository.js';
 export type { AssessmentTemplateContent, AssessmentTemplateStatus, StoredAssessmentTemplate, AssessmentTemplateSummary, AssessmentTemplateCreateInput, AssessmentTemplateUpdateInput, AssessmentTemplateArchiveInput, AssessmentTemplateUseInput } from './repositories/assessment-template.repository.js';
+
+export { PostgresWrittenAssessmentRepository, WrittenAssessmentAccessError, WrittenAssessmentConflictError, WrittenAssessmentValidationError } from './repositories/written-assessment.repository.js';
+export type { WrittenAssessmentPrincipal, WrittenAssessmentDraftInput, WrittenAssessmentDraft, WrittenPublication, WrittenAuthorView, LearnerWrittenAssignment, WrittenResponseDraft, WrittenSubmissionReceipt, WrittenResponseSave } from './repositories/written-assessment.repository.js';

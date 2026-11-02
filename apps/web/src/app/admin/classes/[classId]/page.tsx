@@ -77,21 +77,25 @@ export default async function AdminClassDetailPage({ params, searchParams }: {
       </form>
     </AdminSection>
 
+    <AdminSection title="Written work and pseudocode" description="Author a prompt and visible rubric, save a private draft, then explicitly assign a frozen class instance.">
+      <div className="flex flex-wrap gap-3 p-5 sm:p-6"><Link className="inline-flex min-h-11 items-center rounded-md bg-[var(--moss)] px-5 text-sm font-bold text-white no-underline" href={`/admin/classes/${classId}/written`}>Open written assignments</Link></div>
+    </AdminSection>
+
     <AssessmentDraftList workspace="admin" classId={classId} />
 
-    <AdminSection title="Assigned tasks" description="Learners see these tasks as soon as they join the class.">
+    <AdminSection title="Assigned tasks" description="Practice tasks follow class enrollment. Quiz and written assignments retain their explicitly published audience.">
       {assignments.length === 0 ? <AdminEmptyState>No tasks have been assigned yet.</AdminEmptyState> : <AdminTable label="Class assignments">
         <thead><tr><th className={adminTableHeadClass}>Task</th><th className={adminTableHeadClass}>Activity</th><th className={adminTableHeadClass}>Due</th><th className={adminTableHeadClass}>Completed</th></tr></thead>
         <tbody>{assignments.map((item) => <tr key={item.id}>
           <td className={adminTableCellClass}><strong className="block">{item.title}</strong>{item.instructions ? <span className="mt-1 block text-xs text-[var(--muted)]">{item.instructions}</span> : null}</td>
-          <td className={adminTableCellClass}>{item.assignmentKind === 'quiz' ? 'Multiple-choice quiz' : practiceItems.find((activity) => activity.id === item.activitySlug)?.label ?? item.activitySlug}</td>
+          <td className={adminTableCellClass}>{item.assignmentKind === 'quiz' ? 'Multiple-choice quiz' : item.assignmentKind === 'written' ? 'Rubric-reviewed written work' : practiceItems.find((activity) => activity.id === item.activitySlug)?.label ?? item.activitySlug}</td>
           <td className={adminTableCellClass}>{formatDueDate(item.dueOn)}</td>
           <td className={adminTableCellClass}>{item.completedCount} / {classroom.learnerCount}</td>
         </tr>)}</tbody>
       </AdminTable>}
     </AdminSection>
 
-    <AdminSection title="Learners" description="Progress counts activities completed through verified practice.">
+    <AdminSection title="Learners" description="Progress includes verified practice and accepted quiz or written submissions; submission does not imply a released grade.">
       {learners.length === 0 ? <AdminEmptyState>No learners have joined. Share the class code to get started.</AdminEmptyState> : <AdminTable label="Class learners and progress">
         <thead><tr><th className={adminTableHeadClass}>Learner</th><th className={adminTableHeadClass}>Joined</th><th className={adminTableHeadClass}>Progress</th></tr></thead>
         <tbody>{learners.map((learner) => <tr key={learner.id}>

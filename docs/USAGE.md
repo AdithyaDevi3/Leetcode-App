@@ -175,6 +175,33 @@ changes and confirms publication of the saved revision. A failed save or
 publication response can be retried without reentering feedback; a published
 grade can be corrected by saving and publishing a new revision.
 
+Class workspaces offer written/pseudocode assignments at
+`/teach/[classId]/written` and `/admin/classes/[classId]/written`. Create a private
+draft with a prompt, instructions, ordered rubric criteria, points and optional
+opening/due/closing times. Every criterion needs a positive maximum; points use
+at most two decimal places. Saving a draft assigns nothing. Refresh the audience,
+review the exact saved revision and choose the current class or selected enrolled
+learners before explicitly assigning it. The publication freezes the prompt,
+rubric, dates and audience. Later edits and enrollments do not change it.
+
+Learners open written work from their class task list. The prompt and rubric
+become visible at opening time. Use the text editor to write an approach, then
+save and review the exact saved response before confirming one final submission.
+Tab/Shift+Tab adjusts indentation; the editor's keyboard help explains how to
+move focus out. Closing prevents new saves/submissions; a response received after
+the due time and before closing is marked late. Submission supplies no automatic
+score. The class owner uses the existing submission inbox to score each frozen
+criterion, save private feedback and explicitly release a grade. Private notes
+stay hidden; corrections append new grade history.
+
+Retain recovery text when a revision changes. Retry an uncertain command with
+the same request key rather than changing its payload. An accepted save or final
+submission can recover its original receipt after closing or excusal while
+current account/class/enrollment access remains valid. Excused work shows a
+metadata-only recovery view and accepts no new response commands. Account changes
+stop recovery in the previous account. Written assignments currently support one
+final response; mixed parts, retakes and written-template reuse are separate work.
+
 Class workspaces also provide **Quiz drafts** for instructors and administrators
 with class-management permission. Choose **Create a quiz draft** to search the
 60-question bank, preview questions, set their order and points, and save

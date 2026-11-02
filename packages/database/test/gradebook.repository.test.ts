@@ -28,12 +28,12 @@ beforeAll(async () => {
 afterEach(async () => { if (database) await database.query('TRUNCATE users, classrooms CASCADE'); });
 afterAll(async () => { if (database) await database.close(); if (container) await container.stop(); });
 
-async function user() {
-  const result = await database.query<{ id: string }>('INSERT INTO users (email, display_name) VALUES ($1, $2) RETURNING id', [`${randomUUID()}@example.test`, 'Synthetic learner']);
+async function user(role: 'learner' | 'instructor' = 'learner') {
+  const result = await database.query<{ id: string }>('INSERT INTO users (email, display_name, role) VALUES ($1, $2, $3) RETURNING id', [`${randomUUID()}@example.test`, `Synthetic ${role}`, role]);
   return result.rows[0].id;
 }
 async function fixture(closesAt: string | null = null, publish = true) {
-  const instructorId = await user(), learnerId = await user(), otherLearnerId = await user();
+  const instructorId = await user('instructor'), learnerId = await user(), otherLearnerId = await user();
   const classrooms = new PostgresClassroomRepository(database, instructorId);
   const classroom = await classrooms.createClass({ name: 'Gradebook tests', description: '', actorId: instructorId, reason: 'Synthetic fixture' });
   await classrooms.joinClassByCode({ userId: learnerId, code: classroom.joinCode });
@@ -634,10 +634,22 @@ describe('PostgresGradebookRepository', () => {
       "SELECT COUNT(*)::text AS count FROM pgmigrations WHERE name >= '1790363936520_gradebook-storage'",
     );
     const options = { databaseUrl: `postgresql://test:test@${migrationConfig.host}:${migrationConfig.port}/testdb`, dir: 'migrations', migrationsTable: 'pgmigrations', count: Number(applied.rows[0].count) };
-    await runner({ ...options, direction: 'down' });
-    expect((await database.query("SELECT to_regclass('gradebook_policies') AS table_name")).rows[0].table_name).toBeNull();
-    expect((await f.classrooms.getClassDetail(f.classroom.id)).assignments[0].completedCount).toBe(1);
-    await runner({ ...options, direction: 'up' });
+    try {
+      await runner({ ...options, direction: 'down', singleTransaction: true });
+      expect((await database.query("SELECT to_regclass('gradebook_policies') AS table_name")).rows[0].table_name).toBeNull();
+      // Current repositories require their dependent migrations. Check legacy
+      // completion directly while the deliberately older schema is active.
+      const preserved = await database.query<{ id: string; completed_count: number }>(`
+        SELECT a.id, (SELECT COUNT(*)::integer FROM class_enrollments e
+          WHERE e.class_id=a.class_id AND EXISTS (SELECT 1 FROM practice_sessions p
+            WHERE p.user_id=e.user_id AND p.content_id=a.content_id AND p.status='completed')) AS completed_count
+        FROM class_assignments a WHERE a.class_id=$1`, [f.classroom.id]);
+      expect(preserved.rows).toEqual([{ id: f.policy.assignmentId, completed_count: 1 }]);
+    } finally {
+      // Restore even when a preservation assertion fails so later tests do not
+      // inherit an intentionally downgraded database.
+      await runner({ ...options, direction: 'up', singleTransaction: true });
+    }
     expect((await database.query('SELECT * FROM gradebook_policies')).rows).toEqual([]);
     expect((await f.classrooms.getClassDetail(f.classroom.id)).assignments[0].completedCount).toBe(1);
     await f.instructor.publishPolicy(f.publishInput);

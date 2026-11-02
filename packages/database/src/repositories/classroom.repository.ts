@@ -48,7 +48,7 @@ export type ClassroomSummary = {
 };
 
 export type ClassAssignment = {
-  assignmentKind?: 'problem' | 'quiz';
+  assignmentKind?: 'problem' | 'quiz' | 'written';
   id: string;
   classId: string;
   title: string;
@@ -83,7 +83,7 @@ export type StudentClassroom = {
 };
 
 export type StudentAssignment = {
-  assignmentKind?: 'problem' | 'quiz';
+  assignmentKind?: 'problem' | 'quiz' | 'written';
   availableAt?: string | null;
   dueAt?: string | null;
   closesAt?: string | null;
@@ -182,10 +182,10 @@ export class PostgresClassroomRepository {
     const [assignmentResult, learnerResult] = await Promise.all([
       this.db.query<{
         id: string; class_id: string; title: string; instructions: string; slug: string;
-        due_on: string | null; created_at: Date | string; completed_count: string; assignment_kind: 'problem' | 'quiz';
+        due_on: string | null; created_at: Date | string; completed_count: string; assignment_kind: 'problem' | 'quiz' | 'written';
       }>(`
         SELECT a.id, a.class_id, a.title, a.instructions, ci.slug,
-          CASE WHEN ci.type::text = 'quiz' THEN 'quiz' ELSE 'problem' END AS assignment_kind,
+          CASE WHEN EXISTS(SELECT 1 FROM written_assessment_publications wp WHERE wp.assignment_id=a.id) THEN 'written' WHEN ci.type::text = 'quiz' THEN 'quiz' ELSE 'problem' END AS assignment_kind,
           to_char(a.due_on, 'YYYY-MM-DD') AS due_on, a.created_at,
           (SELECT COUNT(*) FROM class_enrollments e
            WHERE e.class_id = a.class_id AND EXISTS (
@@ -215,10 +215,10 @@ export class PostgresClassroomRepository {
 
     const quizCompletions = new Map<string, number>();
     const learnerQuizCompletions = new Map<string, number>();
-    if (assignmentResult.rows.some(row => row.assignment_kind === 'quiz')) {
+    if (assignmentResult.rows.some(row => row.assignment_kind === 'quiz' || row.assignment_kind === 'written')) {
       const completed = await this.db.query<{ assignment_id: string; learner_id: string }>(`
         SELECT DISTINCT a.id AS assignment_id,r.learner_id FROM class_assignments a
-        JOIN gradebook_policies gp ON gp.assignment_id=a.id AND gp.policy->'scoring'->>'mode'='multiple_choice'
+        JOIN gradebook_policies gp ON gp.assignment_id=a.id AND (gp.policy->'scoring'->>'mode'='multiple_choice' OR EXISTS(SELECT 1 FROM written_assessment_publications wp WHERE wp.policy_id=gp.id))
         JOIN gradebook_recipients r ON r.policy_id=gp.id JOIN gradebook_attempts ga ON ga.recipient_id=r.id
         JOIN class_enrollments e ON e.class_id=a.class_id AND e.user_id=r.learner_id WHERE a.class_id=$1`, [classId]);
       for (const row of completed.rows) {
@@ -238,7 +238,7 @@ export class PostgresClassroomRepository {
         activitySlug: row.slug,
         dueOn: row.due_on,
         createdAt: iso(row.created_at),
-        completedCount: row.assignment_kind === 'quiz' ? quizCompletions.get(row.id) ?? 0 : Number(row.completed_count),
+        completedCount: row.assignment_kind === 'quiz' || row.assignment_kind === 'written' ? quizCompletions.get(row.id) ?? 0 : Number(row.completed_count),
       })),
       learners: learnerResult.rows.map((row) => ({
         id: row.id,
@@ -339,7 +339,7 @@ export class PostgresClassroomRepository {
         SELECT p.id, $2
         FROM gradebook_policies p
         JOIN class_assignments a ON a.id = p.assignment_id
-        WHERE a.class_id = $1 AND p.policy->'scoring'->>'mode' <> 'multiple_choice'
+        WHERE a.class_id = $1 AND p.policy->'scoring'->>'mode' <> 'multiple_choice' AND NOT EXISTS(SELECT 1 FROM written_assessment_publications wp WHERE wp.policy_id=p.id)
         ON CONFLICT (policy_id, learner_id) DO NOTHING
       `, [classroom.id, input.userId]);
       return { id: classroom.id, name: classroom.name, alreadyJoined: joined.rows.length === 0 };
@@ -364,7 +364,7 @@ export class PostgresClassroomRepository {
           JOIN gradebook_attempts ga ON ga.recipient_id=r.id
           JOIN LATERAL (SELECT applicability FROM gradebook_applicability_revisions ar WHERE ar.recipient_id=r.id ORDER BY sequence DESC LIMIT 1) ar ON true
           WHERE gp.assignment_id=a.id AND r.learner_id=e.user_id AND ar.applicability='assigned'
-            AND gp.policy->'scoring'->>'mode'='multiple_choice'))) AS completed_count
+            AND (gp.policy->'scoring'->>'mode'='multiple_choice' OR EXISTS(SELECT 1 FROM written_assessment_publications wp WHERE wp.policy_id=gp.id))))) AS completed_count
       FROM class_enrollments e
       JOIN classrooms c ON c.id = e.class_id
       WHERE e.user_id = $1
@@ -384,15 +384,15 @@ export class PostgresClassroomRepository {
     const result = await this.db.query<{
       id: string; class_id: string; class_name: string; title: string; instructions: string;
       slug: string; due_on: string | null; completed: boolean; recipient_id: string | null; policy_version_id: string | null;
-      assignment_kind: 'problem' | 'quiz'; available_at: Date | null; due_at: Date | null; closes_at: Date | null;
+      assignment_kind: 'problem' | 'quiz' | 'written'; available_at: Date | null; due_at: Date | null; closes_at: Date | null;
       submitted_at: Date | null; quiz_status: StudentAssignment['quizStatus'];
     }>(`
       SELECT a.id, a.class_id, c.name AS class_name, a.title, a.instructions,
         ci.slug, to_char(a.due_on, 'YYYY-MM-DD') AS due_on, r.id AS recipient_id, p.id AS policy_version_id,
-        CASE WHEN ci.type::text='quiz' THEN 'quiz' ELSE 'problem' END AS assignment_kind,
-        q.available_at,q.due_at,q.closes_at,qa.submitted_at,
+        CASE WHEN w.id IS NOT NULL THEN 'written' WHEN ci.type::text='quiz' THEN 'quiz' ELSE 'problem' END AS assignment_kind,
+        COALESCE(q.available_at,w.available_at) AS available_at,COALESCE(q.due_at,w.due_at) AS due_at,COALESCE(q.closes_at,w.closes_at) AS closes_at,qa.submitted_at,
         CASE WHEN ci.type::text <> 'quiz' THEN NULL WHEN EXISTS (SELECT 1 FROM gradebook_publications WHERE recipient_id=r.id) THEN 'published'
-          WHEN qa.submitted_at IS NOT NULL THEN 'submitted' WHEN ad.revision IS NOT NULL THEN 'in_progress' ELSE 'not_started' END AS quiz_status,
+          WHEN qa.submitted_at IS NOT NULL THEN 'submitted' WHEN ad.revision IS NOT NULL OR wd.revision IS NOT NULL THEN 'in_progress' ELSE 'not_started' END AS quiz_status,
         (EXISTS (
           SELECT 1 FROM practice_sessions p
           WHERE p.user_id = e.user_id AND p.content_id = a.content_id AND p.status = 'completed'
@@ -404,16 +404,18 @@ export class PostgresClassroomRepository {
       LEFT JOIN gradebook_policies p ON p.assignment_id = a.id
       LEFT JOIN gradebook_recipients r ON r.policy_id = p.id AND r.learner_id = e.user_id
       LEFT JOIN quiz_publications q ON q.policy_id=p.id
+      LEFT JOIN written_assessment_publications w ON w.policy_id=p.id
+      LEFT JOIN written_response_drafts wd ON wd.recipient_id=r.id
       LEFT JOIN quiz_answer_drafts ad ON ad.recipient_id=r.id
       LEFT JOIN LATERAL (SELECT submitted_at FROM gradebook_attempts WHERE recipient_id=r.id
-        AND p.policy->'scoring'->>'mode'='multiple_choice' ORDER BY sequence DESC LIMIT 1) qa ON true
+        AND (p.policy->'scoring'->>'mode'='multiple_choice' OR w.id IS NOT NULL) ORDER BY sequence DESC LIMIT 1) qa ON true
       LEFT JOIN LATERAL (SELECT applicability FROM gradebook_applicability_revisions WHERE recipient_id=r.id ORDER BY sequence DESC LIMIT 1) ar ON true
       WHERE e.user_id = $1 AND c.archived_at IS NULL AND (ci.type::text <> 'quiz' OR (r.id IS NOT NULL AND ar.applicability='assigned'))
       ORDER BY a.due_on ASC NULLS LAST, a.created_at DESC
     `, [userId]);
     return result.rows.map((row) => ({
       assignmentKind: row.assignment_kind,
-      ...(row.assignment_kind === 'quiz' ? { availableAt: row.available_at ? iso(row.available_at) : null,
+      ...((row.assignment_kind === 'quiz' || row.assignment_kind === 'written') ? { availableAt: row.available_at ? iso(row.available_at) : null,
         dueAt: row.due_at ? iso(row.due_at) : null, closesAt: row.closes_at ? iso(row.closes_at) : null,
         submittedAt: row.submitted_at ? iso(row.submitted_at) : null, quizStatus: row.quiz_status } : {}),
       id: row.id,

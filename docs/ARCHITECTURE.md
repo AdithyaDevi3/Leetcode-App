@@ -219,6 +219,36 @@ responses allowlist class metadata and public question projections. Owner-bound
 preview checks hide stale browser data on revalidation and preserve uncertain
 commands. The workflow uses existing tables and introduces no migration or worker.
 
+Reusable templates use creator-owned heads, immutable content versions and
+immutable mutation receipts in separate private tables. This keeps reusable
+content independent of class-bound drafts, schedules and publication history.
+The additive migration enables RLS and revokes browser/PUBLIC table and helper
+access; privileged server SQL still checks current roles and creator ownership.
+Administrator class-management authority does not override template ownership.
+
+Capturing a saved draft checks its concrete class and expected revision. Content
+stores title, authored instructions, ordered question-version references and exact
+integer points; class/source identifiers occur only in audit metadata. Templates
+stand independently after capture. Editing appends a version and advances the
+head revision, while archive/restore advances lifecycle state without changing
+content history. The database fixes ownership, validates the current-version
+reference and rejects direct version/receipt mutation.
+
+Using a pinned template version rechecks creator ownership and destination class
+scope before creating a normal private draft with dates cleared. It shares the
+existing draft advisory lock/receipt namespace, preventing cross-operation key
+reuse. Template mutations have their own serialized immutable receipts. Replays
+reauthorize access before recovering the original outcome, then bypass new
+revision/lifecycle/catalog checks; current revision metadata protects comparison
+with newer state. Parent locks precede dependent template/draft locks.
+
+The library is owner-filtered and paginated. Historical previews and editing use
+safe question projections; no answer keys, enrollment records or grades enter the
+template DTO. Owner-bound browser checks hide stale data during revalidation and
+preserve unsaved content and exact pending commands. Apply the additive migration
+before dependent queries. Application rollback can retain the new tables; after
+templates are used, preserve their history and recover with a forward fix.
+
 The sixty-question class-assignable multiple-choice catalog is server-owned,
 explicitly versioned, and records original provenance plus automated
 author/reviewer separation. The client

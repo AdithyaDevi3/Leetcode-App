@@ -1,5 +1,7 @@
 import { redirect } from 'next/navigation';
+import Link from 'next/link';
 import { PostgresClassroomRepository } from '@leetcode-app/database';
+import { canPerformAdministrationAction } from '@leetcode-app/domain';
 import { AdminAreaDenied } from '@/components/admin/admin-access-denied';
 import { AdminEmptyState, AdminPageHeader, AdminSection } from '@/components/admin/admin-ui';
 import { readAdministrationData } from '@/lib/admin/authorization';
@@ -18,6 +20,7 @@ export default async function AdminClassesPage({ searchParams }: {
 
   return <div className="space-y-7">
     <AdminPageHeader eyebrow="Learning groups" title="Classes" description="Create a class, share its join code, and assign practice activities to enrolled learners." />
+    {canPerformAdministrationAction(access.principal.roles, 'classes.manage') ? <p><Link className="inline-flex min-h-11 items-center font-bold text-[var(--moss)] underline underline-offset-4" href="/admin/templates">Your private quiz templates →</Link></p> : null}
     {notice.error ? <p role="alert" className="rounded-lg border border-[var(--coral)] bg-[var(--coral-soft)] px-4 py-3 text-sm text-red-950">{notice.error}</p> : null}
 
     <AdminSection title="Create a class" description="The code appears after creation. Learners need a signed-in account to join.">

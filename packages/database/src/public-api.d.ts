@@ -248,3 +248,6 @@ export { PostgresPracticeDiagnosticRepository, DiagnosticAccessError, Diagnostic
 export type { DiagnosticView, DiagnosticAnswerDraft, DiagnosticSubmissionReceipt, DiagnosticSaveReceipt, DiagnosticFeedback, DiagnosticHistory } from './repositories/practice-diagnostic.repository.js';
 export { PostgresClassInsightsRepository, ClassInsightsAccessError } from './repositories/class-insights.repository.js';
 export type { ClassInsightsPrincipal, ClassInsightsData } from './repositories/class-insights.repository.js';
+
+export { PostgresAssessmentTemplateRepository, AssessmentTemplateAccessError, AssessmentTemplateConflictError, AssessmentTemplateValidationError } from './repositories/assessment-template.repository.js';
+export type { AssessmentTemplateContent, AssessmentTemplateStatus, StoredAssessmentTemplate, AssessmentTemplateSummary, AssessmentTemplateCreateInput, AssessmentTemplateUpdateInput, AssessmentTemplateArchiveInput, AssessmentTemplateUseInput } from './repositories/assessment-template.repository.js';

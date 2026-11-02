@@ -409,8 +409,10 @@ describe('frozen class quizzes', () => {
 
   it('refuses a destructive downgrade once a class quiz has been persisted', async () => {
     const f = await assigned();
+    const applied = await database.query<{ count: string }>("SELECT count(*)::text AS count FROM pgmigrations WHERE name >= '1793123178750_class-assigned-quizzes'");
+    const count = Number(applied.rows[0].count); expect(count).toBeGreaterThan(0);
     await expect(runner({ databaseUrl: `postgresql://test:test@${config.host}:${config.port}/testdb`,
-      dir: 'migrations', migrationsTable: 'pgmigrations', count: 1, direction: 'down' })).rejects.toThrow('forward-only');
+      dir: 'migrations', migrationsTable: 'pgmigrations', count, direction: 'down', singleTransaction: true })).rejects.toThrow('forward-only');
     expect((await f.author.readAuthorDraft(f.draft.id)).publication).toEqual(f.published);
     expect((await f.learner.readLearnerQuiz(f.recipientId)).questionCount).toBe(2);
   });

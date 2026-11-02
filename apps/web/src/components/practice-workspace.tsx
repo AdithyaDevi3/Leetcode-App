@@ -629,15 +629,13 @@ function OwnedPracticeWorkspace({ scope, assignmentRecipientId }: { scope: strin
           {editorMessage ? <p role="alert">{editorMessage}</p> : null}
           {continuationMessage && stage !== 'feedback' ? <p role="status">{continuationMessage}</p> : null}
         </div>
-        <div className="workbench-stagebar">
+        {activeAssignmentRecipientId ? <div className="workbench-assignment" aria-label="Class assignment submission instructions"><p><strong>Class assignment.</strong> Run verified tests checks your code. <strong>Submit assigned task</strong> sends it to your instructor for grading.</p>{stage !== 'code' ? <button className="text-button" type="button" onClick={() => changeStage('code')}>Go to submission →</button> : null}</div> : null}
+        <PracticePanels key={`${scope}:${activePracticeItem.id}:panels`} activePanel={mobilePanel} onPanelChange={setMobilePanel} navigation={<div className="workbench-stagebar">
           <nav className="practice-stage-nav" aria-label="Practice stages">
             {([{value:'approach', label:'Approach'}, {value:'feedback', label:'Feedback'}, {value:'code', label:'Code & test'}] as const).map((item, index) => <button key={item.value} type="button" aria-label={`${String(index + 1).padStart(2, '0')} ${item.label}`} aria-current={stage === item.value ? 'step' : undefined} onClick={() => changeStage(item.value)}><span>{String(index + 1).padStart(2, '0')}</span>{item.label}</button>)}
           </nav>
           <h2 className="sr-only" ref={stageHeading} tabIndex={-1}>{stage === 'approach' ? 'Write your approach' : stage === 'feedback' ? 'Review reasoning feedback' : 'Implement and test'}</h2>
-          <span className="workbench-stage-detail">{activeAssignmentRecipientId ? 'Class assignment' : `${activePracticeItem.difficulty} · ${activePracticeItem.estimatedMinutes} min`}</span>
-        </div>
-        {activeAssignmentRecipientId ? <div className="workbench-assignment" aria-label="Class assignment submission instructions"><p><strong>Class assignment.</strong> Run verified tests checks your code. <strong>Submit assigned task</strong> sends it to your instructor for grading.</p>{stage !== 'code' ? <button className="text-button" type="button" onClick={() => changeStage('code')}>Go to submission →</button> : null}</div> : null}
-        <PracticePanels key={`${scope}:${activePracticeItem.id}:panels`} activePanel={mobilePanel} onPanelChange={setMobilePanel} results={stage === 'code' ? (
+        </div>} results={stage === 'code' ? (
               <div className="test-panel">
                 <div className="test-panel-heading">
                   <div>
@@ -679,7 +677,7 @@ function OwnedPracticeWorkspace({ scope, assignmentRecipientId }: { scope: strin
             </div>
             <div role="tabpanel" id="context-problem" aria-labelledby="context-tab-problem" hidden={contextTab !== 'problem'}>
             <section className="pane problem-pane" aria-labelledby="problem-description-title">
-              <p className="eyebrow">Practice {String(activePracticeNumber).padStart(2, "0")}</p>
+              <p className="eyebrow">Practice {String(activePracticeNumber).padStart(2, "0")} · {activePracticeItem.difficulty} · {activePracticeItem.estimatedMinutes} min</p>
               <h2 className="problem-title" id="problem-description-title">{activePracticeItem.problem.title}</h2>
               <p className="lesson-copy">{activePracticeItem.problem.prompt}</p>
               <div className="example">

@@ -63,7 +63,7 @@ export interface ClassroomSummary {
 }
 
 export interface ClassAssignment {
-  assignmentKind?: 'problem' | 'quiz';
+  assignmentKind?: 'problem' | 'quiz' | 'written';
   id: string;
   classId: string;
   title: string;
@@ -98,7 +98,7 @@ export interface StudentClassroom {
 }
 
 export interface StudentAssignment {
-  assignmentKind?: 'problem' | 'quiz';
+  assignmentKind?: 'problem' | 'quiz' | 'written';
   availableAt?: string | null;
   dueAt?: string | null;
   closesAt?: string | null;
@@ -251,3 +251,6 @@ export type { ClassInsightsPrincipal, ClassInsightsData } from './repositories/c
 
 export { PostgresAssessmentTemplateRepository, AssessmentTemplateAccessError, AssessmentTemplateConflictError, AssessmentTemplateValidationError } from './repositories/assessment-template.repository.js';
 export type { AssessmentTemplateContent, AssessmentTemplateStatus, StoredAssessmentTemplate, AssessmentTemplateSummary, AssessmentTemplateCreateInput, AssessmentTemplateUpdateInput, AssessmentTemplateArchiveInput, AssessmentTemplateUseInput } from './repositories/assessment-template.repository.js';
+
+export { PostgresWrittenAssessmentRepository, WrittenAssessmentAccessError, WrittenAssessmentConflictError, WrittenAssessmentValidationError } from './repositories/written-assessment.repository.js';
+export type { WrittenAssessmentPrincipal, WrittenAssessmentDraftInput, WrittenAssessmentDraft, WrittenPublication, WrittenAuthorView, LearnerWrittenAssignment, WrittenResponseDraft, WrittenSubmissionReceipt, WrittenResponseSave } from './repositories/written-assessment.repository.js';

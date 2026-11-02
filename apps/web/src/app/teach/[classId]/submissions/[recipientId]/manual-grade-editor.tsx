@@ -110,6 +110,7 @@ export function ManualGradeEditor({ submission }: { submission: GradebookRecipie
   return <div className="grid gap-6 lg:grid-cols-[minmax(0,1.25fr)_minmax(320px,0.75fr)]">
     <section className="rounded-xl border border-[var(--line)] bg-[var(--surface)] p-5 sm:p-6">
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-lg font-bold">Latest response</h2><p className="text-sm text-[var(--muted)]">{attempt.response.language ? `${attempt.response.language} · ` : ''}Attempt {attempt.sequence} · {new Date(attempt.submittedAt).toLocaleString()}</p></div><AdminBadge value={hasUnsavedChanges ? 'unsaved_changes' : published ? 'published' : grade ? 'draft' : 'awaiting_review'} /></div>
+      {submission.assignment.prompt ? <section aria-label="Frozen written assignment prompt" className="mb-5 space-y-3 rounded-lg border border-[var(--line)] p-4"><h3 className="text-base font-bold">Published assignment prompt</h3><p className="whitespace-pre-wrap break-words text-sm leading-6">{submission.assignment.prompt}</p>{submission.assignment.instructions ? <p className="whitespace-pre-wrap break-words text-sm text-[var(--muted)]">{submission.assignment.instructions}</p> : null}</section> : null}
       <pre className="max-h-[36rem] overflow-auto whitespace-pre-wrap rounded-lg border border-[var(--line)] bg-[#f6f4ee] p-4 text-sm leading-6">{attempt.response.text}</pre>
     </section>
     <section className="rounded-xl border border-[var(--line)] bg-[var(--surface)] p-5 sm:p-6">

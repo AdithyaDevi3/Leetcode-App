@@ -16,6 +16,11 @@ after instructor release. Coding assignments, rubric grades, corrections, and
 grade-review requests have separate durable histories. Administration permissions
 remain separate from access to private grades.
 
+Teachers and authorized class administrators can also author written/pseudocode
+assignments with a visible rubric. Learners save and submit an exact response;
+the class owner reviews each criterion and explicitly releases the grade.
+Published content and earlier submissions remain frozen when a draft changes.
+
 Authors can copy a saved quiz into a new private draft in an authorized class.
 Copies preserve questions and points, clear dates, and require their own audience
 preview and explicit assignment.

@@ -50,4 +50,39 @@ describe('gradebook view', () => {
     expect(csv).toContain('"\'=Alex"');
     expect(csv).not.toContain('"Zoe"');
   });
+
+  it('sorts selected assignment scores without treating draft or missing work as zero', () => {
+    expect(filterAndSortGradebook(gradebook, '', 'all', 'assignment_desc', 'a1').map(row => row.learner.id)).toEqual(['l1', 'l3', 'l2']);
+    expect(filterAndSortGradebook(gradebook, '', 'all', 'assignment_asc', 'a1').map(row => row.learner.id)).toEqual(['l3', 'l1', 'l2']);
+    expect(filterAndSortGradebook(gradebook, '', 'all', 'assignment_desc', 'a2').map(row => row.learner.id)).toEqual(['l3', 'l2', 'l1']);
+  });
+
+  it('keeps real zero scores ahead of excluded or unpublished scores in either direction', () => {
+    const snapshot: ClassGradebook = structuredClone(gradebook);
+    snapshot.learners[0].cells[0] = { ...snapshot.learners[0].cells[0], earnedUnits: 0 };
+    snapshot.learners[1].cells[0] = { ...snapshot.learners[1].cells[0], state: 'excused', earnedUnits: null };
+    expect(filterAndSortGradebook(snapshot, '', 'all', 'assignment_desc', 'a1').map(row => row.learner.id)).toEqual(['l3', 'l1', 'l2']);
+    expect(filterAndSortGradebook(snapshot, '', 'all', 'assignment_asc', 'a1').map(row => row.learner.id)).toEqual(['l1', 'l3', 'l2']);
+    expect(filterAndSortGradebook(snapshot, '', 'all', 'total_asc').at(-1)?.learner.id).toBe('l2');
+  });
+
+  it('uses learner identity for deterministic ties while retaining the finalized-rank policy', () => {
+    const snapshot: ClassGradebook = structuredClone(gradebook);
+    snapshot.learners[0].displayName = snapshot.learners[2].displayName;
+    expect(filterAndSortGradebook(snapshot, '', 'all', 'total_desc').map(row => row.learner.id)).toEqual(['l1', 'l3', 'l2']);
+    expect(filterAndSortGradebook(snapshot, '', 'ranked', 'rank').map(row => row.learner.id)).toEqual(['l3']);
+    expect(snapshot.rows[0].rank).toBeNull();
+  });
+
+  it('exports selected assignment columns in matching order without exposing draft scores', () => {
+    const snapshot: ClassGradebook = structuredClone(gradebook);
+    snapshot.learners[0].cells.reverse();
+    const csv = gradebookCsv(snapshot, filterAndSortGradebook(snapshot, 'zoe', 'all', 'assignment_desc', 'a2'), 'a2');
+    expect(csv.split('\r\n')[0]).toContain('"Trees"');
+    expect(csv).not.toContain('Unsafe title');
+    expect(csv).toContain('"draft"');
+    expect(csv).not.toContain('7 / 10');
+    const complete = gradebookCsv(snapshot, filterAndSortGradebook(snapshot, 'zoe', 'all', 'learner'));
+    expect(complete).toContain('"9 / 10","draft"');
+  });
 });

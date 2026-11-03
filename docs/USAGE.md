@@ -174,6 +174,27 @@ publication; the gradebook shows published totals, coverage, and comparable
 ranks. Instructors can excuse/restore recipients with a reason and resolve grade
 review requests within their own classes.
 
+Open **Grades** in a class workspace to see highest released scores first, filter
+or sort by assignment, and select a student to inspect every assignment. Authorized
+administrators can do the same at `/admin/classes/[classId]/grades`, including
+reviewing questions/answers and saving rubric grades.
+
+Under **Release and share scores**, select an assignment and choose **Review
+scores and responses**. Review the roster, open submitted answers, select ready
+grades and confirm **Release all ready grades** or release one student’s score.
+Missing, ungraded, excused and withdrawn records remain explicit. Each action
+releases up to 500 selected grades together; a stale selection releases none.
+An uncertain response retains the original request for safe retry after reload.
+
+Private release makes a grade available only to its learner. **Class sharing**
+is a separate choice: select already released records, explicitly confirm sharing
+names, scores, questions and submitted answers, then share with current class
+members. Students open **Class results** from their class or Grades page. Sharing
+can be revoked without removing private grades. New submissions, corrections,
+excusal or withdrawal remove affected shared records until they are eligible and
+explicitly shared again. Private notes, draft scores and instructor feedback do
+not enter this class view.
+
 Save changed scores or feedback before publishing. The editor shows unsaved
 changes and confirms publication of the saved revision. A failed save or
 publication response can be retried without reentering feedback; a published

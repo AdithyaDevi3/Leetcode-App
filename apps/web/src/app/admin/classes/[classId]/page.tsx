@@ -32,7 +32,7 @@ export default async function AdminClassDetailPage({ params, searchParams }: {
 
   return <div className="space-y-7">
     <Link className="inline-flex text-sm font-bold text-[var(--moss)] underline underline-offset-4" href="/admin/classes">← All classes</Link>
-    <AdminPageHeader eyebrow="Class workspace" title={classroom.name} description={classroom.description || 'Share the code, assign activities, and follow learner progress.'} action={<Link className="inline-flex min-h-11 items-center rounded-md border border-[var(--line)] bg-[var(--surface)] px-4 font-bold text-[var(--ink)] no-underline" href={`/admin/classes/${classId}/insights`}>Concept insights</Link>} />
+    <AdminPageHeader eyebrow="Class workspace" title={classroom.name} description={classroom.description || 'Share the code, assign activities, and follow learner progress.'} action={<div className="flex flex-wrap gap-2"><Link className="inline-flex min-h-11 items-center rounded-md bg-[var(--moss)] px-4 font-bold text-white no-underline" href={`/admin/classes/${classId}/grades`}>Grades</Link><Link className="inline-flex min-h-11 items-center rounded-md border border-[var(--line)] bg-[var(--surface)] px-4 font-bold text-[var(--ink)] no-underline" href={`/admin/classes/${classId}/insights`}>Concept insights</Link></div>} />
     {notice.error ? <p role="alert" className="rounded-lg border border-[var(--coral)] bg-[var(--coral-soft)] px-4 py-3 text-sm text-red-950">{notice.error}</p> : null}
     {notice.created ? <p role="status" className="rounded-lg border border-[var(--moss)] bg-[var(--moss-soft)] px-4 py-3 text-sm text-[var(--moss)]">{notice.created}</p> : null}
 
@@ -52,7 +52,7 @@ export default async function AdminClassDetailPage({ params, searchParams }: {
       </div>
     </section>
 
-    <AdminSection title="Assign a practice task" description="Choose an existing activity. Completion is based on passing its verified code tests.">
+    <AdminSection title="Assign a practice task" description="Learners submit code for a reviewed 100-point rubric. Review their work and release scores from Grades.">
       <form action={createClassAssignment} className="grid gap-4 p-5 sm:grid-cols-2 sm:p-6">
         <input name="classId" type="hidden" value={classId} />
         <label className="grid gap-1.5 text-sm font-bold">Task title

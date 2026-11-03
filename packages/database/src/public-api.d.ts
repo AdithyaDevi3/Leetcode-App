@@ -1,5 +1,7 @@
 import type { PostgresGradebookRepository as GradebookRepository, GradebookPrincipal } from './repositories/gradebook.repository.js';
 import type { DatabaseClient } from './client.js';
+export { PostgresClassGradeReleaseRepository, GradeReleaseValidationError, CLASS_GRADE_RELEASE_TARGET_LIMIT } from './repositories/class-grade-release.repository.js';
+export type { GradeReleaseTarget, ClassResultTarget, GradeReleaseAssignment, GradeReleaseQuestion, GradeReleaseContent, GradeReleaseResponse, GradeReleaseRosterRow, ClassResultsSharingReceipt, AssignmentGradeReleasePreview, AssignmentGradeReleaseReceipt, GradeReleaseResponseDetail, SharedAssignmentResults, SharedClassAssignments, SharedGradeResponseDetail, PublishAssignmentGradesInput, PublishClassResultsInput, RevokeClassResultsInput } from './repositories/class-grade-release.types.js';
 export { PostgresLearningEvidenceRepository, LearningEvidenceAccessError, LearningEvidenceConflictError, LearningEvidenceValidationError, learningDecisionKey } from './repositories/learning-evidence.repository.js';
 export type { LearningReviewReceipt, LearningRecommendationReceipt, LearningRecommendationOutcome, StoredLearningRecommendation } from './repositories/learning-evidence.repository.js';
 

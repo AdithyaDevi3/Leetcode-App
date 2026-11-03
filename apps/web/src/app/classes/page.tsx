@@ -55,6 +55,7 @@ export default async function ClassesPage({ searchParams }: {
             {classroom.description ? <p className="mb-3 text-sm leading-6 text-[var(--muted)]">{classroom.description}</p> : null}
             <p className="mb-0 text-xs font-bold uppercase tracking-wide text-[var(--moss)]">{classroom.completedCount} of {classroom.assignmentCount} tasks complete</p>
             <Link className="mt-4 inline-flex min-h-11 items-center rounded-md border border-[var(--moss)] px-4 font-bold text-[var(--moss)] no-underline hover:bg-[var(--moss-soft)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--moss)]" href={`/classes/${classroom.id}/grades`}>View grades</Link>
+            <Link className="ml-3 mt-4 inline-flex min-h-11 items-center font-bold text-[var(--moss)] underline" href={`/classes/${classroom.id}/results`}>Class results</Link>
           </article>)}
         </div>}
       </section>

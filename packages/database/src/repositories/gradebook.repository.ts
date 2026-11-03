@@ -12,6 +12,7 @@ import {
   type MultipleChoiceAssignmentResponse,
 } from '@leetcode-app/domain';
 import type { DatabaseClient } from '../client.js';
+import { authorizeGradebookActor } from './gradebook-authorization.js';
 
 export class GradebookAccessError extends Error {
   constructor() { super('Gradebook record is unavailable.'); this.name = 'GradebookAccessError'; }
@@ -33,7 +34,7 @@ function validPinnedTests(value: unknown): boolean {
   });
 }
 
-export type GradebookPrincipal = Readonly<{ role: 'instructor' | 'learner'; userId: string }>;
+export type GradebookPrincipal = Readonly<{ role: 'instructor' | 'administrator' | 'learner'; userId: string }>;
 export type AssignmentResponse = Readonly<{ text: string; language?: string; kind?: 'text' }>;
 export type StoredGradebookAttempt = { id: string; responseRevisionId: string; sequence: number; response: AssignmentResponse | MultipleChoiceAssignmentResponse; submittedAt: string; verificationJobId?: string; verificationStatus?: string };
 export type StoredGradebookGrade = { id: string; sequence: number; earnedUnits: number; kind: 'scored' | 'missing_zero'; attemptId: string | null; criterionScores: Record<string, number>; learnerFeedback: string; privateNote?: string; createdAt: string };
@@ -207,19 +208,17 @@ const parseInboxCursor = (cursor: string | undefined): { submittedAt: Date; reci
 export class PostgresGradebookRepository {
   private readonly principal: GradebookPrincipal;
   constructor(private readonly db: DatabaseClient, principal: GradebookPrincipal) {
-    if (!principal || !['instructor', 'learner'].includes(principal.role)) throw new GradebookAccessError();
+    if (!principal || !['instructor', 'administrator', 'learner'].includes(principal.role)) throw new GradebookAccessError();
     uuid(principal.userId);
     this.principal = Object.freeze({ ...principal });
   }
 
   private requireRole(role: GradebookPrincipal['role']): void {
-    if (this.principal.role !== role) throw new GradebookAccessError();
+    if (this.principal.role !== role && !(role === 'instructor' && this.principal.role === 'administrator')) throw new GradebookAccessError();
   }
 
   private async currentQuizRole(client: PoolClient, lock = false): Promise<void> {
-    const user = await client.query<{ role: string }>(`SELECT role FROM users WHERE id=$1 ${lock ? 'FOR SHARE' : ''}`, [this.principal.userId]);
-    if (!user.rows[0] || (this.principal.role === 'learner' ? user.rows[0].role !== 'learner'
-      : !['instructor', 'admin'].includes(user.rows[0].role))) throw new GradebookAccessError();
+    await authorizeGradebookActor(client, this.principal, lock);
   }
 
   private async recipient(client: PoolClient, recipientId: string, lock: boolean): Promise<Recipient> {
@@ -234,7 +233,7 @@ export class PostgresGradebookRepository {
       if (![this.principal.userId,identity.rows[0].learner_id].every(id => parents.rows.some(parent => parent.id===id))) throw new GradebookAccessError();
     }
     // Role changes and account deletion serialize before child locks.
-    if (identity.rows[0]?.is_quiz) await this.currentQuizRole(client, lock);
+    await this.currentQuizRole(client, lock);
     if (identity.rows[0] && lock) {
       await client.query(`SELECT c.id FROM classrooms c JOIN class_assignments a ON a.class_id=c.id
         JOIN gradebook_policies p ON p.assignment_id=a.id JOIN gradebook_recipients r ON r.policy_id=p.id
@@ -255,7 +254,7 @@ export class PostgresGradebookRepository {
       JOIN classrooms c ON c.id = a.class_id
       JOIN users u ON u.id = r.learner_id
       JOIN LATERAL (SELECT x.* FROM gradebook_applicability_revisions x WHERE x.recipient_id = r.id ORDER BY x.sequence DESC LIMIT 1) ar ON true
-      WHERE r.id = $1 AND CASE WHEN $2 = 'instructor' THEN c.created_by = $3::uuid ELSE r.learner_id = $3::uuid END
+      WHERE r.id = $1 AND CASE WHEN $2 = 'administrator' THEN true WHEN $2 = 'instructor' THEN c.created_by = $3::uuid ELSE r.learner_id = $3::uuid END
       ${lock ? 'FOR UPDATE OF r FOR SHARE OF c' : ''}
     `, [recipientId, this.principal.role, this.principal.userId]);
     if (!result.rows[0]) throw new GradebookAccessError();
@@ -292,13 +291,14 @@ export class PostgresGradebookRepository {
     const closesAt = input.closesAt === null ? null : new Date(input.closesAt);
     if (closesAt && !Number.isFinite(closesAt.getTime())) throw new Error('Invalid closing time');
     return this.db.transaction(async client => {
+      await this.currentQuizRole(client, true);
       const assignment = await client.query<{ id: string; class_id: string; snapshot: unknown }>(`
         SELECT a.id, a.class_id, to_jsonb(cv) AS snapshot FROM class_assignments a
         JOIN classrooms c ON c.id = a.class_id
         JOIN content_versions cv ON cv.content_id = a.content_id AND cv.id = $2
-        WHERE a.id = $1 AND c.created_by = $3 AND c.archived_at IS NULL
+        WHERE a.id = $1 AND ($4::boolean OR c.created_by = $3) AND c.archived_at IS NULL
         FOR UPDATE OF a FOR SHARE OF c, cv
-      `, [policy.assignmentId, policy.contentVersionId, this.principal.userId]);
+      `, [policy.assignmentId, policy.contentVersionId, this.principal.userId, this.principal.role === 'administrator']);
       if (!assignment.rows[0]) throw new GradebookAccessError();
       if (policy.scoring.mode === 'verified_completion') {
         const snapshot = assignment.rows[0].snapshot as { test_cases?: unknown };
@@ -381,6 +381,7 @@ export class PostgresGradebookRepository {
 
   async appendGrade(input: {
     recipientId: string; attemptId: string | null; expectedGradeRevisionId: string | null;
+    expectedClassId?: string;
     kind: 'scored' | 'missing_zero'; criterionScores: Record<string, number>; learnerFeedback?: string; privateNote?: string;
     reason: string; requestKey: string;
   }): Promise<StoredGradebookGrade> {
@@ -389,9 +390,11 @@ export class PostgresGradebookRepository {
     const privateNote = input.privateNote ?? '';
     if (typeof learnerFeedback !== 'string' || learnerFeedback.length > 10_000 || typeof privateNote !== 'string' || privateNote.length > 10_000) throw new Error('Grade feedback is too long');
     if (input.attemptId !== null) uuid(input.attemptId);
+    if (input.expectedClassId !== undefined) uuid(input.expectedClassId);
     if (input.expectedGradeRevisionId !== null) uuid(input.expectedGradeRevisionId);
     return this.db.transaction(async client => {
       const recipient = await this.recipient(client, input.recipientId, true);
+      if (input.expectedClassId !== undefined && recipient.class_id !== input.expectedClassId.toLowerCase()) throw new GradebookAccessError();
       const retry = await client.query<GradeRow>('SELECT * FROM gradebook_grade_revisions WHERE recipient_id = $1 AND request_key = $2', [recipient.id, input.requestKey]);
       if (retry.rows[0]) {
         const row = retry.rows[0];
@@ -474,15 +477,15 @@ export class PostgresGradebookRepository {
       const recipient = await this.recipient(client, recipientId, false);
       const attempts = await client.query<AttemptRow>('SELECT * FROM gradebook_attempts WHERE recipient_id = $1 ORDER BY sequence', [recipient.id]);
       const grades = await client.query<GradeRow>(`SELECT g.* FROM gradebook_grade_revisions g WHERE g.recipient_id = $1
-        AND ($2 = 'instructor' OR EXISTS (SELECT 1 FROM gradebook_publications p WHERE p.grade_revision_id = g.id)) ORDER BY g.sequence`, [recipient.id, this.principal.role]);
+        AND ($2 <> 'learner' OR EXISTS (SELECT 1 FROM gradebook_publications p WHERE p.grade_revision_id = g.id)) ORDER BY g.sequence`, [recipient.id, this.principal.role]);
       const publications = await client.query<PublicationRow>('SELECT * FROM gradebook_publications WHERE recipient_id = $1 ORDER BY sequence', [recipient.id]);
       const disputes = await client.query<DisputeEventRow>('SELECT * FROM gradebook_dispute_events WHERE recipient_id=$1 ORDER BY sequence', [recipient.id]);
       return { recipientId, learnerId: recipient.learner_id, policy: recipient.policy,
         learner: { id: recipient.learner_id, displayName: recipient.learner_name, email: recipient.learner_email },
         assignment: { id: recipient.assignment_id, classId: recipient.class_id, title: recipient.assignment_title,
           instructions: recipient.assignment_instructions, ...(recipient.written_prompt !== null ? { prompt: recipient.written_prompt } : {}), dueOn: recipient.due_on,
-          closesAt: recipient.closes_at?.toISOString() ?? null, isClosed: recipient.closed }, applicability: mapApplicability(recipient, this.principal.role === 'instructor'), attempts: attempts.rows.map(mapAttempt),
-        grades: grades.rows.map(row => mapGrade(row, this.principal.role === 'instructor')), publications: publications.rows.map(mapPublication),
+          closesAt: recipient.closes_at?.toISOString() ?? null, isClosed: recipient.closed }, applicability: mapApplicability(recipient, this.principal.role !== 'learner'), attempts: attempts.rows.map(mapAttempt),
+        grades: grades.rows.map(row => mapGrade(row, this.principal.role !== 'learner')), publications: publications.rows.map(mapPublication),
         disputes: disputes.rows.map(mapDispute) };
     });
   }
@@ -636,8 +639,9 @@ export class PostgresGradebookRepository {
     this.requireRole('instructor'); uuid(classId);
     return this.db.transaction(async client => {
       await client.query('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY');
+      await this.currentQuizRole(client);
       const classroom = await client.query<{ id: string }>(
-        'SELECT id FROM classrooms WHERE id=$1 AND created_by=$2', [classId, this.principal.userId],
+        'SELECT id FROM classrooms WHERE id=$1 AND ($3::boolean OR created_by=$2)', [classId, this.principal.userId, this.principal.role === 'administrator'],
       );
       if (!classroom.rows[0]) throw new GradebookAccessError();
       const result = await client.query<DisputeInboxRow>(`
@@ -680,9 +684,10 @@ export class PostgresGradebookRepository {
     this.requireRole('instructor'); uuid(classId);
     return this.db.transaction(async client => {
       await client.query('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY');
+      await this.currentQuizRole(client);
       const classroom = await client.query<{ id: string; name: string }>(
-        'SELECT id, name FROM classrooms WHERE id = $1 AND created_by = $2',
-        [classId, this.principal.userId],
+        'SELECT id, name FROM classrooms WHERE id = $1 AND ($3::boolean OR created_by = $2)',
+        [classId, this.principal.userId, this.principal.role === 'administrator'],
       );
       if (!classroom.rows[0]) throw new GradebookAccessError();
 
@@ -988,7 +993,7 @@ export class PostgresGradebookRepository {
     return this.db.transaction(async client => {
       await client.query('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY');
       await this.currentQuizRole(client);
-      const owned = await client.query('SELECT 1 FROM classrooms WHERE id = $1 AND created_by = $2', [input.classId, this.principal.userId]);
+      const owned = await client.query('SELECT 1 FROM classrooms WHERE id = $1 AND ($3::boolean OR created_by = $2)', [input.classId, this.principal.userId, this.principal.role === 'administrator']);
       if (!owned.rows.length) throw new GradebookAccessError();
       const result = await client.query<InboxRow>(`
         SELECT r.id AS recipient_id, r.learner_id, u.display_name, a.id AS assignment_id, a.title AS assignment_title,

@@ -34,10 +34,10 @@ afterAll(async () => {
   if (container) await container.stop();
 });
 
-async function createUser(name: string): Promise<string> {
+async function createUser(name: string, role: 'learner' | 'instructor' = 'learner'): Promise<string> {
   const result = await database.query<{ id: string }>(
-    'INSERT INTO users (email, display_name) VALUES ($1, $2) RETURNING id',
-    [`${name}@example.test`, name],
+    'INSERT INTO users (email, display_name, role) VALUES ($1, $2, $3) RETURNING id',
+    [`${name}@example.test`, name, role],
   );
   return result.rows[0].id;
 }
@@ -47,8 +47,8 @@ const versionedActivityId = '00000000-0000-0000-0000-000000000001';
 
 describe('PostgresClassroomRepository', () => {
   it('isolates instructor class lists, join codes, learners, and assignment writes by owner', async () => {
-    const alice = await createUser('instructor-alice');
-    const bob = await createUser('instructor-bob');
+    const alice = await createUser('instructor-alice', 'instructor');
+    const bob = await createUser('instructor-bob', 'instructor');
     const aliceRepository = new PostgresClassroomRepository(database, alice);
     const bobRepository = new PostgresClassroomRepository(database, bob);
     const aliceClass = await aliceRepository.createClass({ name: 'Alice class', description: '', actorId: alice, reason: 'Instructor class setup' });
@@ -99,7 +99,7 @@ describe('PostgresClassroomRepository', () => {
   });
 
   it('provisions recipients for published assignment policies when a learner joins later', async () => {
-    const instructorId = await createUser('late-join-instructor');
+    const instructorId = await createUser('late-join-instructor', 'instructor');
     const firstLearnerId = await createUser('first-learner');
     const lateLearnerId = await createUser('late-learner');
     const classroom = await repository.createClass({ name: 'Late join class', description: '', actorId: instructorId, reason: 'Late join recipient fixture' });
@@ -129,7 +129,7 @@ describe('PostgresClassroomRepository', () => {
   });
 
   it('cannot miss a recipient when assignment publication races class enrollment', async () => {
-    const instructorId = await createUser('racing-instructor');
+    const instructorId = await createUser('racing-instructor', 'instructor');
     const learnerId = await createUser('racing-learner');
     const classroom = await repository.createClass({ name: 'Concurrent class', description: '', actorId: instructorId, reason: 'Concurrency fixture' });
     const [assignmentId] = await Promise.all([
@@ -143,7 +143,7 @@ describe('PostgresClassroomRepository', () => {
   });
 
   it('publishes a grade policy for an empty class without inventing recipients', async () => {
-    const instructorId = await createUser('empty-instructor');
+    const instructorId = await createUser('empty-instructor', 'instructor');
     const classroom = await repository.createClass({ name: 'Empty class', description: '', actorId: instructorId, reason: 'Empty class fixture' });
     const assignmentId = await repository.createAssignment({ classId: classroom.id, contentId: activityId, title: 'Future assignment', instructions: '', dueOn: null, actorId: instructorId, reason: 'Empty class fixture' });
     const policy = await database.query<{ recipient_count: string }>(`SELECT

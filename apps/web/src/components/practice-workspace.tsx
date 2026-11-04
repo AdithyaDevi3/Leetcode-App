@@ -15,7 +15,6 @@ import {
   Lightbulb,
   LockKeyhole,
   Play,
-  Save,
   Sparkles,
   Trash2,
   X,
@@ -55,6 +54,7 @@ import { usePracticeOwner } from '@/lib/use-practice-owner';
 import { usePracticePersistence } from '@/lib/use-practice-persistence';
 import { CodeEditor, type CodeEditorHandle } from '@/components/code-editor';
 import { PracticePanels, type PracticePanel } from '@/components/practice-panels';
+import { PracticeSaveStatus } from '@/components/practice-save-status';
 import { parsePracticeStage, practiceStageUrl, type PracticeStage } from '@/lib/practice-view';
 import { practiceCodeDrafts, practiceWorkspaceValidationError } from '@/lib/practice-session';
 import './practice-workspace.css';
@@ -588,7 +588,7 @@ function OwnedPracticeWorkspace({ scope, assignmentRecipientId }: { scope: strin
             <label className="workbench-picker"><span className="sr-only">Practice activity</span><select aria-label="Practice activity" disabled={Boolean(activeAssignmentRecipientId) || movingOn} value={activePracticeItem.id} onChange={event => void switchPracticeItem(event.target.value)}>{practiceItems.map((item, index) => <option key={item.id} value={item.id}>{index + 1}. {item.label}</option>)}</select></label>
           </div>
           <div className="top-actions">
-            <span className="status-pill" aria-live="polite"><Save size={14} /> {savedAt}{syncStatus === 'conflict' ? ' · Resolve conflict' : ''}</span>
+            <PracticeSaveStatus key={activePracticeItem.id} label={savedAt} status={syncStatus} scope={scope} onRetry={persistence.retry} />
             <span className="workbench-timer" aria-label="Time this visit"><Clock3 size={14} />{formatElapsed(elapsedSeconds)}</span>
             <Link className="avatar" href={viewer ? '/settings' : '/auth'} aria-label={viewer ? `${viewer.displayName || 'Learner'} account` : 'Sign in'}>{initialsFor(viewer?.displayName || viewer?.email)}</Link>
             <details className="workbench-menu"><summary>More</summary><nav aria-label="Workspace links"><Link href="/dashboard">Dashboard</Link><Link href="/learn">Learning plan</Link><Link href="/system-design">System design</Link><Link href="/classes">Classes</Link><Link href="/teach">Instructor workspace</Link><Link href="/history">History</Link><Link href="/library">Library</Link><Link href="/settings">Settings</Link><Link href="/onboarding">Learning goals</Link><Link href="/requests">Feedback</Link>{viewer?.canAccessAdministration ? <Link href="/admin">Administration</Link> : null}</nav></details>

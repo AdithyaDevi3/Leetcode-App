@@ -1,6 +1,7 @@
 import type { LearnerClassGrades } from '@leetcode-app/database';
 import { createDatabaseClient, databaseConfigFromEnv, GradebookAccessError, PostgresGradebookRepository } from '@leetcode-app/database';
 import { notFound, redirect } from 'next/navigation';
+import Link from 'next/link';
 
 import { getSession } from '@/lib/auth/session';
 import { LearnerClassGradesView } from './learner-class-grades-view';
@@ -16,5 +17,5 @@ export default async function LearnerClassGradesPage({ params }: { params: Promi
   catch (error) { if (error instanceof GradebookAccessError) notFound(); throw error; }
   finally { await db.close(); }
 
-  return <LearnerClassGradesView grades={grades} />;
+  return <><div className="mx-auto mb-5 max-w-6xl"><Link className="inline-flex min-h-11 items-center rounded-md border border-[var(--line)] px-4 text-sm font-bold text-[var(--moss)]" href={`/classes/${classId}/results`}>Shared class results</Link></div><LearnerClassGradesView grades={grades} /></>;
 }

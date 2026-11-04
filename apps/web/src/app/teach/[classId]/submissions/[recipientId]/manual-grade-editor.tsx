@@ -3,6 +3,7 @@
 import { useMemo, useRef, useState } from 'react';
 import type { GradebookRecipientHistory, StoredGradebookGrade, StoredGradebookPublication } from '@leetcode-app/database';
 import { AdminBadge } from '@/components/admin/admin-ui';
+import { gradeReleaseReceiptMatches, type PendingGradeAction } from '@/lib/grade-release-client';
 
 const displayPoints = (units: number) => (units / 100).toFixed(2).replace(/\.00$/, '');
 const parsePoints = (value: string): number | null => {
@@ -44,7 +45,7 @@ function rubricGuidance(id: string, label: string) {
   };
 }
 
-export function ManualGradeEditor({ submission }: { submission: GradebookRecipientHistory }) {
+export function ManualGradeEditor({ submission, gradebookAccess }: { submission: GradebookRecipientHistory; gradebookAccess?: { classId: string; actorId: string; workspace: 'admin' | 'teach' } }) {
   if (submission.policy.scoring.mode !== 'reviewed_rubric') throw new Error('Manual rubric required');
   const criteria = submission.policy.scoring.criteria;
   const attempt = submission.attempts.at(-1)!;
@@ -67,6 +68,7 @@ export function ManualGradeEditor({ submission }: { submission: GradebookRecipie
     || privateNote !== grade.privateNote
   );
   const published = grade !== null && latestPublication?.gradeRevisionId === grade.id;
+  const headers: Record<string, string> = { 'content-type': 'application/json', ...(gradebookAccess ? { 'x-assessment-author': gradebookAccess.actorId } : {}) };
 
   async function saveDraft() {
     setMessage(null);
@@ -79,10 +81,12 @@ export function ManualGradeEditor({ submission }: { submission: GradebookRecipie
       const payload = { attemptId: attempt.id, expectedGradeRevisionId: grade?.id ?? latestStored?.id ?? null, criterionScores: parsedScores, learnerFeedback, privateNote };
       const signature = JSON.stringify(payload);
       if (draftRequest.current?.signature !== signature) draftRequest.current = { signature, requestKey: crypto.randomUUID() };
-      const response = await fetch(`/api/instructor/submissions/${submission.recipientId}/draft-grade`, { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ ...payload, requestKey: draftRequest.current.requestKey }) });
+      const response = await fetch(gradebookAccess ? `/api/class-gradebook/${gradebookAccess.classId}/recipients/${submission.recipientId}/draft-grade?workspace=${gradebookAccess.workspace}` : `/api/instructor/submissions/${submission.recipientId}/draft-grade`, { method: gradebookAccess ? 'POST' : 'PUT', headers, body: JSON.stringify({ ...payload, requestKey: draftRequest.current.requestKey }), signal: AbortSignal.timeout(15_000) });
       const body = await response.json();
-      if (!response.ok) throw new Error(body.error ?? 'Unable to save draft');
+      if (!response.ok) throw new Error(body.message ?? body.error ?? 'Unable to save draft');
       if (!body.grade) throw new Error('Unable to confirm the saved grade. Retry saving.');
+      if (gradebookAccess && (body.actorId !== gradebookAccess.actorId || body.grade.attemptId !== attempt.id || body.grade.kind !== 'scored' || body.grade.earnedUnits !== earned
+        || criteria.some(criterion => body.grade.criterionScores?.[criterion.id] !== parsedScores[criterion.id]))) throw new Error('Unable to confirm the saved grade. Retry saving.');
       draftRequest.current = null;
       setGrade(body.grade); setMessage('Draft saved. Learners cannot see it until you publish.');
     } catch (error) { setMessage(error instanceof Error ? error.message : 'Unable to save draft'); }
@@ -96,11 +100,14 @@ export function ManualGradeEditor({ submission }: { submission: GradebookRecipie
       const expectedPublicationSequence = latestPublication?.sequence ?? 0;
       const signature = `${grade.id}:${expectedPublicationSequence}`;
       if (publicationRequest.current?.signature !== signature) publicationRequest.current = { signature, requestKey: crypto.randomUUID() };
-      const response = await fetch(`/api/instructor/submissions/${submission.recipientId}/grades/${grade.id}/publications`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ expectedPublicationSequence, requestKey: publicationRequest.current.requestKey }) });
+      const action: PendingGradeAction = { assignmentId: submission.assignment.id, kind: 'release', body: { targets: [{ recipientId: submission.recipientId, gradeRevisionId: grade.id, expectedPublicationSequence }], requestKey: publicationRequest.current.requestKey } };
+      const response = await fetch(gradebookAccess ? `/api/class-gradebook/${gradebookAccess.classId}/assignments/${submission.assignment.id}/releases?workspace=${gradebookAccess.workspace}` : `/api/instructor/submissions/${submission.recipientId}/grades/${grade.id}/publications`, { method: 'POST', headers, body: JSON.stringify(gradebookAccess ? action.body : { expectedPublicationSequence, requestKey: publicationRequest.current.requestKey }), signal: AbortSignal.timeout(15_000) });
       const body = await response.json();
-      if (!response.ok) throw new Error(body.error ?? 'Unable to publish grade');
-      if (!body.publication) throw new Error('Unable to confirm publication. Retry publishing.');
-      setLatestPublication(body.publication);
+      if (!response.ok) throw new Error(body.message ?? body.error ?? 'Unable to publish grade');
+      if (gradebookAccess && (body.actorId !== gradebookAccess.actorId || !gradeReleaseReceiptMatches(body.receipt, action, gradebookAccess.classId, gradebookAccess.actorId))) throw new Error('Unable to confirm publication. Retry publishing.');
+      const acceptedPublication = gradebookAccess ? body.receipt.publications[0]?.publication : body.publication;
+      if (!acceptedPublication) throw new Error('Unable to confirm publication. Retry publishing.');
+      setLatestPublication(acceptedPublication);
       publicationRequest.current = null;
       setMessage('Grade published to the learner.');
     } catch (error) { setMessage(error instanceof Error ? error.message : 'Unable to publish grade'); }
@@ -124,8 +131,8 @@ export function ManualGradeEditor({ submission }: { submission: GradebookRecipie
         </fieldset>;
       })}</div>
       <div className="my-5 border-y border-[var(--line)] py-4 text-sm font-bold"><span>Total</span><span className="float-right font-mono text-lg">{earned === null ? '—' : `${displayPoints(earned)} / ${displayPoints(submission.policy.maxUnits)}`}</span>{earned !== null ? <p className="mt-1 text-right text-xs font-normal text-[var(--muted)]">{(earned / submission.policy.maxUnits * 100).toFixed(1)}% · based on entered criterion scores</p> : null}</div>
-      <label className="mb-4 grid gap-1.5 text-sm font-bold">Feedback for learner<textarea aria-describedby="learner-feedback-hint" className="min-h-28 rounded-md border border-[var(--line)] p-3 font-normal" maxLength={10000} value={learnerFeedback} onChange={event => { setLearnerFeedback(event.target.value); setMessage(null); }} placeholder="Name one specific strength, then give one concrete next step." /><span id="learner-feedback-hint" className="font-normal text-[var(--muted)]">Tie feedback to evidence in the submission. This is shared with the learner when you publish.</span></label>
-      <label className="mb-5 grid gap-1.5 text-sm font-bold">Private instructor notes<textarea className="min-h-24 rounded-md border border-[var(--line)] p-3 font-normal" maxLength={10000} value={privateNote} onChange={event => { setPrivateNote(event.target.value); setMessage(null); }} /><span className="font-normal text-[var(--muted)]">Never shown to the learner.</span></label>
+      <label className="mb-4 grid gap-1.5 text-sm font-bold">Feedback for learner<textarea aria-label="Feedback for learner" aria-describedby="learner-feedback-hint" className="min-h-28 rounded-md border border-[var(--line)] p-3 font-normal" maxLength={10000} value={learnerFeedback} onChange={event => { setLearnerFeedback(event.target.value); setMessage(null); }} placeholder="Name one specific strength, then give one concrete next step." /><span id="learner-feedback-hint" className="font-normal text-[var(--muted)]">Tie feedback to evidence in the submission. This is shared with the learner when you publish.</span></label>
+      <label className="mb-5 grid gap-1.5 text-sm font-bold">Private instructor notes<textarea aria-label="Private instructor notes" aria-describedby="private-instructor-notes-hint" className="min-h-24 rounded-md border border-[var(--line)] p-3 font-normal" maxLength={10000} value={privateNote} onChange={event => { setPrivateNote(event.target.value); setMessage(null); }} /><span id="private-instructor-notes-hint" className="font-normal text-[var(--muted)]">Never shown to the learner.</span></label>
       {message ? <p aria-live="polite" className="mb-4 rounded-md bg-[var(--sky)] px-3 py-2 text-sm">{message}</p> : null}
       {hasUnsavedChanges ? <p role="status" className="mb-4 text-sm text-[var(--muted)]">Unsaved changes. Save draft before publishing.</p> : null}
       <div className="flex flex-wrap gap-3"><button className="min-h-11 rounded-md border border-[var(--moss)] px-4 font-bold text-[var(--moss)] disabled:opacity-50" disabled={busy !== null || (grade !== null && !hasUnsavedChanges)} onClick={saveDraft} type="button">{busy === 'save' ? 'Saving…' : 'Save draft'}</button><button className="min-h-11 rounded-md bg-[var(--moss)] px-4 font-bold text-white disabled:opacity-50" disabled={!grade || hasUnsavedChanges || published || busy !== null} onClick={publish} type="button">{busy === 'publish' ? 'Publishing…' : 'Publish grade'}</button></div>

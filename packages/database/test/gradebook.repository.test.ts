@@ -60,6 +60,16 @@ async function scored(f: Awaited<ReturnType<typeof fixture>>) {
 }
 
 describe('PostgresGradebookRepository', () => {
+  it('denies legacy practice grade reads, writes and policy receipt replay after instructor role revocation', async () => {
+    const f = await fixture();
+    const { grade, input } = await scored(f);
+    await database.query("UPDATE users SET role='learner' WHERE id=$1", [f.instructorId]);
+    await expect(f.instructor.readRecipient(f.recipientId)).rejects.toBeInstanceOf(GradebookAccessError);
+    await expect(f.instructor.readClassGradebook(f.classroom.id)).rejects.toBeInstanceOf(GradebookAccessError);
+    await expect(f.instructor.appendGrade({ ...input, expectedGradeRevisionId: grade.id, requestKey: randomUUID() })).rejects.toBeInstanceOf(GradebookAccessError);
+    await expect(f.instructor.publishGrade({ recipientId: f.recipientId, gradeRevisionId: grade.id, expectedPublicationSequence: 0, reason: 'Rejected revoked instructor release', requestKey: randomUUID() })).rejects.toBeInstanceOf(GradebookAccessError);
+    await expect(f.instructor.publishPolicy(f.publishInput)).rejects.toBeInstanceOf(GradebookAccessError);
+  });
   it('accepts the public database client contract', () => {
     expectTypeOf<ConstructorParameters<typeof PublicGradebookRepository>[0]>().toEqualTypeOf<PublicDatabaseClient>();
   });

@@ -48,6 +48,8 @@ export type {
 } from './repositories/administration.repository.js';
 
 // Gradebook persistence
+export { PostgresClassGradeReleaseRepository, GradeReleaseValidationError, CLASS_GRADE_RELEASE_TARGET_LIMIT } from './repositories/class-grade-release.repository.js';
+export type { GradeReleaseTarget, ClassResultTarget, GradeReleaseAssignment, GradeReleaseQuestion, GradeReleaseContent, GradeReleaseResponse, GradeReleaseRosterRow, ClassResultsSharingReceipt, AssignmentGradeReleasePreview, AssignmentGradeReleaseReceipt, GradeReleaseResponseDetail, SharedAssignmentResults, SharedClassAssignments, SharedGradeResponseDetail, PublishAssignmentGradesInput, PublishClassResultsInput, RevokeClassResultsInput } from './repositories/class-grade-release.types.js';
 export { ASSIGNMENT_VERIFIER_VERSION, PostgresGradebookRepository, GradebookAccessError, GradebookConflictError, GradebookRateLimitError } from './repositories/gradebook.repository.js';
 export type { GradebookPrincipal, AssignmentResponse, StoredGradebookAttempt, StoredGradebookGrade, StoredGradebookPublication, StoredGradebookApplicability, GradebookDisputeStatus, StoredGradebookDisputeEvent, GradebookRecipientHistory, ManualReviewStatus, ManualReviewInboxItem, ManualReviewInboxPage, GradeDisputeInboxItem, ClassGradebookCell, ClassGradebookLearner, ClassGradebook, LearnerClassGradeAssignment, LearnerClassGrades } from './repositories/gradebook.repository.js';
 export { PostgresGradebookVerificationRepository } from './repositories/gradebook-verification.repository.js';

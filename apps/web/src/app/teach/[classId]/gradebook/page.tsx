@@ -1,23 +1,21 @@
-import type { ClassGradebook } from '@leetcode-app/database';
 import { GradebookAccessError } from '@leetcode-app/database';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 
 import { AdminMetric, AdminPageHeader } from '@/components/admin/admin-ui';
 import { ClassGradebookTable } from '@/app/teach/[classId]/gradebook/class-gradebook-table';
-import { withInstructorGradebook } from '@/lib/instructor-gradebook';
+import { AssignmentReleaseCenter } from '@/components/grades/assignment-release-center';
+import { readClassGradebookData } from '@/lib/class-gradebook-access';
 import { gradebookAwaitingCellCount } from '@/lib/gradebook-view';
 
 export default async function ClassGradebookPage({ params }: { params: Promise<{ classId: string }> }) {
   const { classId } = await params;
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(classId)) notFound();
-  let gradebook: ClassGradebook;
-  try { gradebook = await withInstructorGradebook(repository => repository.readClassGradebook(classId)); }
-  catch (error) {
-    if (error instanceof GradebookAccessError) notFound();
-    if (error instanceof Error && 'status' in error && error.status === 401) redirect(`/auth?next=${encodeURIComponent(`/teach/${classId}/gradebook`)}`);
-    throw error;
-  }
+  const access = await readClassGradebookData('teach', async (repository, actor) => ({ gradebook: await repository.readClassGradebook(classId), actorId: actor.id }))
+    .catch(error => { if (error instanceof GradebookAccessError) return { status: 'not_found' as const }; throw error; });
+  if (access.status === 'unauthenticated') redirect(`/auth?next=${encodeURIComponent(`/teach/${classId}/gradebook`)}`);
+  if (access.status !== 'authorized') notFound();
+  const { gradebook, actorId } = access.data;
   const included = gradebook.learners.filter(item => item.membership === 'included');
   const ranked = gradebook.rows.filter(item => item.rank !== null).length;
   const awaiting = gradebookAwaitingCellCount(gradebook);
@@ -31,6 +29,7 @@ export default async function ClassGradebookPage({ params }: { params: Promise<{
       <AdminMetric label="Ranked" value={ranked} note="All applicable grades published" />
       <AdminMetric label="Needs attention" value={awaiting} note="Draft, review, or unavailable cells" />
     </section>
-    <ClassGradebookTable gradebook={gradebook} />
+    <AssignmentReleaseCenter key={`${actorId}:${classId}:teach`} classId={classId} assignments={gradebook.assignments} actorId={actorId} workspace="teach" />
+    <ClassGradebookTable key={`${actorId}:${classId}:teach`} gradebook={gradebook} workspace="teach" />
   </div></main>;
 }

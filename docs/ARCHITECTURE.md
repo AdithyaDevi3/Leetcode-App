@@ -165,11 +165,31 @@ changes a learner's denominator. An active dispute keeps the published score
 visible while excluding the learner from comparable ranking.
 
 Learners see their own published results, public feedback, and review history.
-Draft scores and private instructor notes remain private. Instructor queries
-enforce class ownership; the gradebook has no implicit global-administrator
-scope. Publication and correction use expected revisions, recipient locks, and
+Draft scores and private instructor notes remain private. Instructor principals
+enforce class ownership. A separate administrator principal requires current
+active `classes.manage` authority inside the repository transaction; a user role
+label alone grants no global gradebook scope. Publication and correction use expected revisions, recipient locks, and
 idempotency keys. A newer submission remains pending even when an older published
 grade is available in history.
+
+Assignment-wide releases validate an explicitly reviewed target list against
+current enrollment, applicability, dispute state, latest attempts, saved grades
+and publication sequences. Parent/recipient locks and one transaction make each
+batch atomic. Actor-bound command fingerprints retain original publication
+receipts; role revocation is checked before recovery. Batches are bounded to 500
+targets and never silently truncate an audience.
+
+Named class results use a separate append-only sharing/revocation history. Targets
+reference exact released grades, publications and submitted attempts; no copied
+names or answer payloads enter the sharing ledger. Learner reads require current
+class enrollment and eligible matching records, expose no email/private notes/
+feedback/answer keys, and load full responses only on demand. A sharing-version
+receipt prevents combining an old roster with a newly shared response. Withdrawal,
+excusal, new work or corrections suppress affected disclosures until explicitly
+reshared. Reference deletion follows account/class cascades. All new tables keep
+RLS enabled and browser-role grants closed; invoker lineage guards protect the
+references. Frozen legacy practice content is displayed as stored, without
+substituting a mutable current catalog for historical assignment questions.
 
 Manual rubric grades require every published criterion. Missing-work zeros
 require an explicit elapsed closing time and attributable instructor action.

@@ -159,7 +159,7 @@ test('instructor filters, sorts, and exports the class gradebook', async ({ page
   await expect(page.getByRole('rowheader', { name: /Sample Learner/ })).toHaveCount(0);
 
   await page.getByLabel('Show').selectOption('all');
-  await page.getByLabel('Sort by').selectOption('total_desc');
+  await page.getByRole('combobox', { name: /^Sort by/ }).selectOption('total_desc');
   const names = await page.getByRole('rowheader').allTextContents();
   expect(names[0]).toContain('Avery Ranked');
 
@@ -167,4 +167,29 @@ test('instructor filters, sorts, and exports the class gradebook', async ({ page
   await page.getByRole('button', { name: 'Download current view' }).click();
   const download = await downloadPromise;
   expect(download.suggestedFilename()).toBe('algorithms-studio-gradebook.csv');
+});
+
+test('class grades open in score order and support assignment sorting and learner detail', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(`${fixturePath}?view=gradebook`);
+  const names = await page.getByRole('rowheader').allTextContents();
+  expect(names[0]).toContain('Avery Ranked');
+  await page.getByRole('combobox', { name: 'Assignment', exact: true }).selectOption('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa');
+  await expect(page.getByRole('combobox', { name: /^Sort by/ })).toHaveValue('assignment_desc');
+  const column = page.getByRole('columnheader').filter({ has: page.getByRole('button', { name: 'Sort Tree Levels by published score', exact: true }) });
+  await expect(column).toHaveAttribute('aria-sort', 'descending');
+  await page.getByRole('button', { name: 'Sort Tree Levels by published score', exact: true }).click();
+  await expect(column).toHaveAttribute('aria-sort', 'ascending');
+  await page.getByRole('button', { name: 'View grades for Sample Learner', exact: true }).click();
+  const detail = page.getByRole('region', { name: 'Grades for Sample Learner', exact: true });
+  await expect(detail.getByRole('heading', { name: 'Grades for Sample Learner', exact: true })).toBeFocused();
+  await expect(detail).toContainText('1 of 2 applicable grades published');
+  await expect(detail.getByRole('heading', { name: 'Pair With Target', exact: true })).toBeVisible();
+  await expect(detail.getByRole('heading', { name: 'Tree Levels', exact: true })).toBeVisible();
+  await expect(detail).toContainText('Draft · not released');
+  await expect(detail.getByRole('link', { name: "Review Sample Learner's Pair With Target", exact: true })).toHaveAttribute('href', /\/submissions\//);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+  await page.screenshot({ path: '../../.local-docs/screens/class-gradebook-student-phone.png', fullPage: true });
+  await page.getByRole('button', { name: 'Close grade details for Sample Learner', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'View grades for Sample Learner', exact: true })).toBeFocused();
 });

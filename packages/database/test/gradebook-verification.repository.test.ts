@@ -27,16 +27,16 @@ beforeAll(async () => {
 afterEach(async () => { if (database) await database.query('TRUNCATE users, classrooms CASCADE'); });
 afterAll(async () => { if (database) await database.close(); if (container) await container.stop(); });
 
-async function createUser() {
+async function createUser(role: 'learner' | 'instructor' = 'learner') {
   const result = await database.query<{ id: string }>(
-    'INSERT INTO users (email, display_name) VALUES ($1,$2) RETURNING id',
-    [`${randomUUID()}@example.test`, 'Verification fixture'],
+    'INSERT INTO users (email, display_name, role) VALUES ($1,$2,$3) RETURNING id',
+    [`${randomUUID()}@example.test`, 'Verification fixture', role],
   );
   return result.rows[0].id;
 }
 
 async function fixture(mode: 'verified' | 'reviewed' = 'verified', closesAt: Date | null = null, verifierVersionId = ASSIGNMENT_VERIFIER_VERSION, tests: unknown = pinnedTests) {
-  const instructorId = await createUser();
+  const instructorId = await createUser('instructor');
   const learnerId = await createUser();
   const classrooms = new PostgresClassroomRepository(database, instructorId);
   const classroom = await classrooms.createClass({ name: 'Verifier tests', description: '', actorId: instructorId, reason: 'Fixture' });

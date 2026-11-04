@@ -127,6 +127,27 @@ and enrolled learners. Authors can select a practice activity, compose an MCQ
 quiz or write a rubric-based text/pseudocode assignment. Content-level practice
 completion and assignment grades are distinct.
 
+Class routes share role-aware navigation. The learner entry opens a sole active
+enrolled class directly while preserving an explicit class-list/join route.
+Assignments are filtered by class in the membership-scoped SQL read; the learner
+overview does not combine work from unrelated classes. Learner People context is
+limited to instructor display name and enrollment count, separate from staff
+roster projections.
+
+Class announcements use private server tables for stable identities, immutable
+text revisions and command/publication history, plus monotonic per-learner read
+state. Explicit publication pins the reviewed saved revision. Draft corrections
+do not alter the current published text; archive removes its current visibility.
+Learner reads expose only the published snapshot and publication sequence, with
+no later draft state. A mark-read command pins the displayed publication, so a
+delayed request cannot mark a newer correction read. Current role, owner/admin
+authority, enrollment and class lifecycle are checked in repository transactions.
+Author writes and their audit events commit together; actor-bound fingerprints
+recover original command receipts. The additive schema keeps RLS enabled and
+browser grants closed, validates reference lineage and preserves publication
+history. Plain-text rendering escapes authored content; no notification provider,
+rich-HTML processing or additional service is introduced.
+
 The gradebook repository stores immutable published policy/content snapshots,
 explicit recipients, assignment response revisions, grade revisions, publication
 history, applicability changes, and grade-review events. It does not infer grades

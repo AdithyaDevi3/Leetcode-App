@@ -367,7 +367,7 @@ export class PostgresClassroomRepository {
             AND (gp.policy->'scoring'->>'mode'='multiple_choice' OR EXISTS(SELECT 1 FROM written_assessment_publications wp WHERE wp.policy_id=gp.id))))) AS completed_count
       FROM class_enrollments e
       JOIN classrooms c ON c.id = e.class_id
-      WHERE e.user_id = $1
+      WHERE e.user_id = $1 AND c.archived_at IS NULL
       ORDER BY e.joined_at DESC
     `, [userId]);
     return result.rows.map((row) => ({
@@ -380,7 +380,7 @@ export class PostgresClassroomRepository {
     }));
   }
 
-  async listStudentAssignments(userId: string): Promise<StudentAssignment[]> {
+  async listStudentAssignments(userId: string, classId?: string): Promise<StudentAssignment[]> {
     const result = await this.db.query<{
       id: string; class_id: string; class_name: string; title: string; instructions: string;
       slug: string; due_on: string | null; completed: boolean; recipient_id: string | null; policy_version_id: string | null;
@@ -410,9 +410,9 @@ export class PostgresClassroomRepository {
       LEFT JOIN LATERAL (SELECT submitted_at FROM gradebook_attempts WHERE recipient_id=r.id
         AND (p.policy->'scoring'->>'mode'='multiple_choice' OR w.id IS NOT NULL) ORDER BY sequence DESC LIMIT 1) qa ON true
       LEFT JOIN LATERAL (SELECT applicability FROM gradebook_applicability_revisions WHERE recipient_id=r.id ORDER BY sequence DESC LIMIT 1) ar ON true
-      WHERE e.user_id = $1 AND c.archived_at IS NULL AND (ci.type::text <> 'quiz' OR (r.id IS NOT NULL AND ar.applicability='assigned'))
+      WHERE e.user_id = $1 AND c.archived_at IS NULL AND ($2::uuid IS NULL OR c.id=$2::uuid) AND (ci.type::text <> 'quiz' OR (r.id IS NOT NULL AND ar.applicability='assigned'))
       ORDER BY a.due_on ASC NULLS LAST, a.created_at DESC
-    `, [userId]);
+    `, [userId, classId ?? null]);
     return result.rows.map((row) => ({
       assignmentKind: row.assignment_kind,
       ...((row.assignment_kind === 'quiz' || row.assignment_kind === 'written') ? { availableAt: row.available_at ? iso(row.available_at) : null,

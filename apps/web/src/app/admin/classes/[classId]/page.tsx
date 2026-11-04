@@ -17,7 +17,7 @@ const formatDueDate = (value: string | null) => value
 
 export default async function AdminClassDetailPage({ params, searchParams }: {
   params: Promise<{ classId: string }>;
-  searchParams: Promise<{ error?: string; created?: string }>;
+  searchParams: Promise<{ view?: string; error?: string; created?: string }>;
 }) {
   const [{ classId }, notice] = await Promise.all([params, searchParams]);
   const access = await readAdministrationData('classes.read', async (_repository, _principal, db) => {
@@ -29,13 +29,15 @@ export default async function AdminClassDetailPage({ params, searchParams }: {
   if (!access.data) notFound();
   const { classroom, assignments, learners } = access.data;
   const displayCode = `${classroom.joinCode.slice(0, 6)}-${classroom.joinCode.slice(6)}`;
+  const view = notice.view === 'people' ? 'people' : notice.view === 'assignments' || notice.error || notice.created ? 'assignments' : 'overview';
 
   return <div className="space-y-7">
     <Link className="inline-flex text-sm font-bold text-[var(--moss)] underline underline-offset-4" href="/admin/classes">← All classes</Link>
-    <AdminPageHeader eyebrow="Class workspace" title={classroom.name} description={classroom.description || 'Share the code, assign activities, and follow learner progress.'} action={<div className="flex flex-wrap gap-2"><Link className="inline-flex min-h-11 items-center rounded-md bg-[var(--moss)] px-4 font-bold text-white no-underline" href={`/admin/classes/${classId}/grades`}>Grades</Link><Link className="inline-flex min-h-11 items-center rounded-md border border-[var(--line)] bg-[var(--surface)] px-4 font-bold text-[var(--ink)] no-underline" href={`/admin/classes/${classId}/insights`}>Concept insights</Link></div>} />
+    <AdminPageHeader eyebrow="Class workspace" title={classroom.name} description={classroom.description || 'Share the code, assign activities, and follow learner progress.'} />
     {notice.error ? <p role="alert" className="rounded-lg border border-[var(--coral)] bg-[var(--coral-soft)] px-4 py-3 text-sm text-red-950">{notice.error}</p> : null}
     {notice.created ? <p role="status" className="rounded-lg border border-[var(--moss)] bg-[var(--moss-soft)] px-4 py-3 text-sm text-[var(--moss)]">{notice.created}</p> : null}
 
+    {view === 'overview' ? <>
     <section aria-label="Class summary" className="grid gap-4 md:grid-cols-3">
       <div className="rounded-xl border border-[var(--line)] bg-[var(--surface)] p-5 md:col-span-1">
         <p className="text-xs font-bold uppercase tracking-wide text-[var(--muted)]">Learner join code</p>
@@ -51,7 +53,13 @@ export default async function AdminClassDetailPage({ params, searchParams }: {
         <p className="mt-3 font-mono text-3xl font-bold">{classroom.assignmentCount}</p>
       </div>
     </section>
+    <section aria-label="Class actions" className="grid gap-4 sm:grid-cols-2">
+      <Link className="rounded-xl border border-[var(--line)] bg-[var(--surface)] p-5 text-[var(--ink)] no-underline" href={`/admin/classes/${classId}?view=assignments`}><h2 className="text-lg font-bold">Assignments</h2><p className="mb-0 mt-2 text-sm leading-6 text-[var(--muted)]">Create practice tasks, quizzes and written work. Review assigned tasks in one place.</p></Link>
+      <Link className="rounded-xl border border-[var(--line)] bg-[var(--surface)] p-5 text-[var(--ink)] no-underline" href={`/admin/classes/${classId}/announcements`}><h2 className="text-lg font-bold">Announcements</h2><p className="mb-0 mt-2 text-sm leading-6 text-[var(--muted)]">Prepare a private update, then explicitly publish the saved version to your class.</p></Link>
+    </section>
+    </> : null}
 
+    {view === 'assignments' ? <>
     <AdminSection title="Assign a practice task" description="Learners submit code for a reviewed 100-point rubric. Review their work and release scores from Grades.">
       <form action={createClassAssignment} className="grid gap-4 p-5 sm:grid-cols-2 sm:p-6">
         <input name="classId" type="hidden" value={classId} />
@@ -95,7 +103,9 @@ export default async function AdminClassDetailPage({ params, searchParams }: {
       </AdminTable>}
     </AdminSection>
 
-    <AdminSection title="Learners" description="Progress includes verified practice and accepted quiz or written submissions; submission does not imply a released grade.">
+    </> : null}
+
+    {view === 'people' ? <AdminSection title="Learners" description="Progress includes verified practice and accepted quiz or written submissions; submission does not imply a released grade.">
       {learners.length === 0 ? <AdminEmptyState>No learners have joined. Share the class code to get started.</AdminEmptyState> : <AdminTable label="Class learners and progress">
         <thead><tr><th className={adminTableHeadClass}>Learner</th><th className={adminTableHeadClass}>Joined</th><th className={adminTableHeadClass}>Progress</th></tr></thead>
         <tbody>{learners.map((learner) => <tr key={learner.id}>
@@ -104,6 +114,6 @@ export default async function AdminClassDetailPage({ params, searchParams }: {
           <td className={adminTableCellClass}><AdminBadge value={learner.completedCount === assignments.length && assignments.length ? 'completed' : 'in_progress'} /> <span className="ml-2 text-xs text-[var(--muted)]">{learner.completedCount} / {assignments.length} tasks</span></td>
         </tr>)}</tbody>
       </AdminTable>}
-    </AdminSection>
+    </AdminSection> : null}
   </div>;
 }

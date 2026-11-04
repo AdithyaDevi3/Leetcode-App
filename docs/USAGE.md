@@ -172,12 +172,34 @@ request status and instructor response.
 
 ## Teaching and administration
 
+Learners open `/classes`. A single active enrolled class opens directly; **Switch
+or join a class** opens the class list and enrollment form. Multiple classes stay
+separate, each with its own overview, assignments, grades, announcements and class
+results. The overview shows the next assigned work and recent published updates.
+**People** shows the instructor and enrollment count; the staff roster stays in
+authorized teaching/administration views.
+
 Instructors create and manage their own classes at /teach. A class can
 assign an existing practice activity with a title, instructions, and optional
 due date. The submission inbox supports manual rubric drafts and explicit
 publication; the gradebook shows published totals, coverage, and comparable
 ranks. Instructors can excuse/restore recipients with a reason and resolve grade
-review requests within their own classes.
+review requests within their own classes. Use **Assignments** for practice/quiz/
+written authoring and the assignment list, **People** for enrollment, and
+**Overview** for the class summary. Existing review, grades and insights links
+remain available through the class workspace.
+
+Under **Announcements**, class owners and authorized administrators save a
+private text draft, inspect the saved text and explicitly publish it to the
+current class. Unsaved edits cannot be published. Saving a correction leaves
+the previously published text visible until the saved correction is published;
+**Archive** removes the announcement from the current learner view. Publication
+history is retained. These are in-app class updates; publishing sends no email.
+
+Learners open an announcement and choose **Mark this publication read** for the version they
+viewed. A published correction becomes unread again; draft edits do not. Read
+access requires current enrollment in an active class. Interrupted commands
+retain the original request for retry, and account changes pause access.
 
 Open **Grades** in a class workspace to see highest released scores first, filter
 or sort by assignment, and select a student to inspect every assignment. Authorized

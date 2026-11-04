@@ -59,7 +59,7 @@ test('guest restores a server verification without any browser result snapshot',
   await page.goto(assignedPracticePath);
   await expectEditorSource(page, 'Python implementation', verifiedSource);
   await expect(page.locator('.grader-state')).toHaveText('Passed');
-  await expect(page.getByText('Restored from account')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Practice save status: Restored from account', exact: true })).toBeVisible();
 });
 
 test('reload restores verification even when both browser result saves are missing', async ({ page }) => {
@@ -108,7 +108,7 @@ test('a verification response cannot mark code edited during the run as passed',
   });
   await page.goto(assignedPracticePath);
   await workspaceEditor(page, 'Python implementation').fill(verifiedSource);
-  await expect(page.getByText('Saved to server')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Practice save status: Saved to server', exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Run verified tests', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Running verified tests…' })).toBeVisible();
   await workspaceEditor(page, 'Python implementation').fill(editedSource);
@@ -126,6 +126,38 @@ async function openHydratedWorkspace(page: Page) {
   await expect(page.getByText('Ready', { exact: true })).toBeVisible();
   await expect(workspaceEditor(page, 'Pseudocode draft')).toBeVisible();
 }
+
+test('the compact save button opens details without shrinking the workspace and supports keyboard and phone dismissal', async ({ page }) => {
+  await mockOwnedPractice(page, {});
+  await page.goto('/practice');
+  await workspaceEditor(page, 'Pseudocode draft').fill('A synthetic saved approach for this interface check.');
+  const saved = page.getByRole('button', { name: 'Practice save status: Saved to server', exact: true });
+  await expect(saved).toHaveText('Saved');
+  await expect(saved).toHaveAttribute('aria-expanded', 'false');
+  const editorBefore = await workspaceEditor(page, 'Pseudocode draft').boundingBox();
+  await saved.focus();
+  await page.keyboard.press('Enter');
+  const details = page.getByRole('region', { name: 'Practice save details' });
+  await expect(details).toContainText('confirmed by the server');
+  expect(await workspaceEditor(page, 'Pseudocode draft').boundingBox()).toEqual(editorBefore);
+  await page.screenshot({ path: '../../.local-docs/screens/practice-save-desktop.png', fullPage: true });
+  await page.keyboard.press('Escape');
+  await expect(details).toHaveCount(0);
+  await expect(saved).toBeFocused();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await saved.click();
+  await expect(details).toBeVisible();
+  const bounds = await details.boundingBox();
+  expect(bounds!.x).toBeGreaterThanOrEqual(0);
+  expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(390);
+  await page.screenshot({ path: '../../.local-docs/screens/practice-save-phone.png', fullPage: true });
+  await page.getByRole('button', { name: 'Close save details', exact: true }).click();
+  await expect(saved).toBeFocused();
+  await saved.click();
+  await page.getByRole('heading', { name: defaultPracticeItem.problem.title, exact: true }).click();
+  await expect(details).toHaveCount(0);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+});
 
 test('switching accounts opens only that owner’s cache and ignores delayed previous-owner responses', async ({ page }) => {
   let owner = 'account-a';
@@ -183,7 +215,7 @@ for (const choice of ['server', 'local'] as const) {
     const recovery = choice === 'server' ? local.draft : 'Updated second-device plan.';
     await expectEditorSource(page, 'Pseudocode draft', selected);
     if (choice === 'local') {
-      await expect(page.getByText('Saved to server')).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Practice save status: Saved to server', exact: true })).toBeVisible();
       expect(writes[0]).toMatchObject({ expectedRevisionNumber: 2, state: { draft: local.draft } });
     } else expect(writes).toHaveLength(0);
     await page.reload();
@@ -217,7 +249,7 @@ test('a lost save response can be retried after reload with its original receipt
   await expect(page.getByText('Offline draft')).toBeVisible();
   await page.reload();
   await expectEditorSource(page, 'Pseudocode draft', 'Persist this even if the response is lost.');
-  await expect(page.getByText('Saved to server')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Practice save status: Saved to server', exact: true })).toBeVisible();
   expect(requests).toHaveLength(2);
   expect(requests[1]).toEqual(requests[0]);
 });
@@ -303,7 +335,7 @@ test('another tab cannot silently advance the base of an unsaved local edit', as
   await expect.poll(() => saving).toBe(true);
   await workspaceEditor(other, 'Pseudocode draft').fill('Second tab unsaved plan.');
   release();
-  await expect(page.getByText('Saved to server')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Practice save status: Saved to server', exact: true })).toBeVisible();
   await expect(other.getByRole('alert', { name: 'Resolve practice conflict' })).toBeVisible();
   await expectEditorSource(other, 'Pseudocode draft', 'Second tab unsaved plan.');
   await other.reload();
@@ -627,7 +659,7 @@ test('signed-in learner resumes the complete workspace from another device', asy
   await expectEditorSource(page, 'Pseudocode draft', 'Restore the complete learner plan.');
   await openStage(page, 'code');
   await expectEditorSource(page, 'TypeScript implementation', /function findPair/);
-  await expect(page.getByText('Restored from account')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Practice save status: Restored from account', exact: true })).toBeVisible();
   await page.waitForTimeout(600);
   expect(revisionWrites).toBe(0);
 });
@@ -703,7 +735,7 @@ test('guest sees a server save when sync succeeds', async ({ page }) => {
 
   await workspaceEditor(page, 'Pseudocode draft').fill('Save this on the server.');
 
-  await expect(page.getByText('Saved to server')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Practice save status: Saved to server', exact: true })).toBeVisible();
 });
 
 test('guest sees a conflict when sync reports one', async ({ page }) => {
@@ -730,8 +762,8 @@ test('guest sees a conflict when sync reports one', async ({ page }) => {
 
   await workspaceEditor(page, 'Pseudocode draft').fill('Conflict this draft.');
 
-  await expect(page.locator('.status-pill')).toContainText('Conflict');
-  await expect(page.getByText('Resolve conflict')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Practice save status: Conflict', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Reload server copy', exact: true })).toBeVisible();
 });
 
 test('queued evaluation cannot be submitted twice', async ({ page }) => {

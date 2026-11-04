@@ -84,6 +84,11 @@ signed-in dashboard estimates use account evidence across devices. A local save
 message does not establish account synchronization. Check the workspace's save status
 before changing devices; if persistence fails, retain the draft and retry.
 
+The compact save-status button opens details about the latest acknowledged save.
+**Saved** means the server confirmed it; offline or conflict states remain labeled
+separately. Open the button for connection/retry guidance, then press Escape or
+close the details to return to the workspace. Autosave continues without clicking.
+
 The practice workspace has separate **Approach**, **Feedback**, and **Code & test**
 stages. Stage navigation and browser Back/Forward retain the current draft.
 On desktop, drag the dividers or focus them and use arrow keys to resize the

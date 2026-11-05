@@ -1,69 +1,24 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { PostgresClassroomRepository, createDatabaseClient, databaseConfigFromEnv } from '@leetcode-app/database';
+import { PostgresClassroomRepository } from '@leetcode-app/database';
+import { ClassEntry } from '@/components/class-entry';
 import { SiteNavigation } from '@/components/site-navigation';
-import { AssignedTaskCards } from '@/components/assessments/assigned-task-cards';
-import { getSession } from '@/lib/auth/session';
+import { readClassPortalData } from '@/lib/class-portal-access';
+import { classEntryDestination } from '@/lib/class-entry-view';
 import { joinClassroom } from './actions';
 
 export default async function ClassesPage({ searchParams }: {
-  searchParams: Promise<{ error?: string; joined?: string }>;
+  searchParams: Promise<{ view?: string; error?: string; joined?: string }>;
 }) {
-  const session = await getSession();
-  if (!session) redirect('/auth?next=%2Fclasses');
   const notice = await searchParams;
-  const db = createDatabaseClient(databaseConfigFromEnv());
-  const repository = new PostgresClassroomRepository(db);
-  let classes;
-  let assignments;
-  try {
-    [classes, assignments] = await Promise.all([
-      repository.listStudentClasses(session.user.id),
-      repository.listStudentAssignments(session.user.id),
-    ]);
-  } finally {
-    await db.close();
-  }
-
-  return <main className="min-h-screen px-5 py-6 sm:px-8">
-    <div className="mx-auto max-w-6xl space-y-8">
-      <SiteNavigation currentPath="/classes" />
-      <header className="max-w-3xl">
-        <p className="mb-2 text-xs font-bold uppercase tracking-[0.16em] text-[var(--coral)]">Learning together</p>
-        <h1 className="mb-3 text-3xl font-bold tracking-tight sm:text-4xl">My classes and tasks</h1>
-        <p className="text-[var(--muted)]">Enter a class code from your instructor. Find assigned practice and quizzes here, resume your work, and review released grades.</p>
-      </header>
-      {notice.error ? <p role="alert" className="rounded-lg border border-[var(--coral)] bg-[var(--coral-soft)] px-4 py-3 text-sm text-red-950">{notice.error}</p> : null}
-      {notice.joined ? <p role="status" className="rounded-lg border border-[var(--moss)] bg-[var(--moss-soft)] px-4 py-3 text-sm text-[var(--moss)]">{notice.joined}</p> : null}
-
-      <section className="rounded-xl border border-[var(--line)] bg-[var(--surface)] p-5 shadow-[0_10px_30px_rgba(34,46,38,0.05)] sm:p-6">
-        <h2 className="mb-2 text-xl font-bold">Join a class</h2>
-        <p className="mb-4 text-sm text-[var(--muted)]">You can continue using regular practice with or without a class.</p>
-        <form action={joinClassroom} className="flex flex-col gap-3 sm:flex-row sm:items-end">
-          <label className="grid w-full max-w-sm gap-1.5 text-sm font-bold">Class code
-            <input autoCapitalize="characters" autoComplete="off" className="min-h-11 rounded-md border border-[var(--line)] bg-white px-3 font-mono font-normal uppercase tracking-wider focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--moss)]" maxLength={16} name="code" placeholder="ABCDEF-GHJKLM" required />
-          </label>
-          <button className="min-h-11 rounded-md bg-[var(--moss)] px-5 font-bold text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--moss)]" type="submit">Join class</button>
-        </form>
-      </section>
-
-      <section aria-labelledby="classes-heading" className="space-y-4">
-        <h2 className="text-2xl font-bold" id="classes-heading">My classes</h2>
-        {classes.length === 0 ? <p className="rounded-xl border border-[var(--line)] bg-[var(--surface)] p-6 text-[var(--muted)]">No classes yet. Enter a code to see assignments from your instructor.</p> : <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {classes.map((classroom) => <article className="rounded-xl border border-[var(--line)] bg-[var(--surface)] p-5" key={classroom.id}>
-            <h3 className="mb-2 text-lg font-bold">{classroom.name}</h3>
-            {classroom.description ? <p className="mb-3 text-sm leading-6 text-[var(--muted)]">{classroom.description}</p> : null}
-            <p className="mb-0 text-xs font-bold uppercase tracking-wide text-[var(--moss)]">{classroom.completedCount} of {classroom.assignmentCount} tasks complete</p>
-            <Link className="mt-4 inline-flex min-h-11 items-center rounded-md border border-[var(--moss)] px-4 font-bold text-[var(--moss)] no-underline hover:bg-[var(--moss-soft)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--moss)]" href={`/classes/${classroom.id}/grades`}>View grades</Link>
-            <Link className="ml-3 mt-4 inline-flex min-h-11 items-center font-bold text-[var(--moss)] underline" href={`/classes/${classroom.id}/results`}>Class results</Link>
-          </article>)}
-        </div>}
-      </section>
-
-      <section aria-labelledby="tasks-heading" className="space-y-4">
-        <h2 className="text-2xl font-bold" id="tasks-heading">Assigned tasks</h2>
-        {assignments.length === 0 ? <p className="rounded-xl border border-[var(--line)] bg-[var(--surface)] p-6 text-[var(--muted)]">Your classes have no assigned tasks yet.</p> : <AssignedTaskCards assignments={assignments} />}
-      </section>
-    </div>
-  </main>;
+  const access = await readClassPortalData('learner', (_repository, actor, db) => new PostgresClassroomRepository(db).listStudentClasses(actor.id));
+  if (access.status === 'unauthenticated') redirect('/auth?next=%2Fclasses');
+  if (access.status === 'forbidden') return <main className="mx-auto max-w-3xl space-y-5 px-5 py-8"><SiteNavigation currentPath="/classes" /><h1 className="text-3xl font-bold">Learner classes</h1><p>This view is for enrolled learner accounts. Class staff can open their teaching workspace.</p><Link className="inline-flex min-h-11 items-center font-bold text-[var(--moss)] underline" href="/teach">Open teaching workspace</Link></main>;
+  const destination = classEntryDestination(access.data, notice);
+  if (destination) redirect(destination);
+  return <main className="min-h-screen px-5 py-6 sm:px-8"><div className="mx-auto max-w-6xl space-y-7">
+    <SiteNavigation currentPath="/classes" />
+    <header className="max-w-3xl"><p className="mb-2 text-xs font-bold uppercase tracking-wider text-[var(--coral)]">Learning together</p><h1 className="text-3xl font-bold sm:text-4xl">My classes</h1><p className="mt-3 leading-7 text-[var(--muted)]">Open a class for its work, announcements and grades. Keep additional study groups here when you need them.</p></header>
+    <ClassEntry classes={access.data} error={notice.error} joined={notice.joined} joinAction={joinClassroom} />
+  </div></main>;
 }

@@ -276,7 +276,8 @@ describe('assignment release and separately shared class results', () => {
     await expect(db.query('UPDATE gradebook_class_result_events SET shared=false WHERE id=$1', [share.id])).rejects.toMatchObject({ code: '23514' });
     const other = await fixture();
     await expect(db.query('INSERT INTO gradebook_class_result_events(class_id,assignment_id,sequence,shared,recipient_count) VALUES($1,$2,1,true,1)', [other.classroom.id,f.assignmentId])).rejects.toMatchObject({ code: '23514' });
-    await expect(runner({ databaseUrl: `postgres://${config.user}:${config.password}@${config.host}:${config.port}/${config.database}`,dir: 'migrations',migrationsTable: 'pgmigrations',direction: 'down',count: 1,singleTransaction: true,log: () => {} })).rejects.toThrow('forward-only');
+    const rollbackCount=Number((await db.query<{count:string}>("SELECT count(*)::text AS count FROM pgmigrations WHERE name >= '1793665094188_class-grade-release-center'")).rows[0].count);
+    await expect(runner({ databaseUrl: `postgres://${config.user}:${config.password}@${config.host}:${config.port}/${config.database}`,dir: 'migrations',migrationsTable: 'pgmigrations',direction: 'down',count: rollbackCount,singleTransaction: true,log: () => {} })).rejects.toThrow('forward-only');
   });
 
   it('does not copy names or answers into sharing receipts and cascades deleted learner references', async () => {

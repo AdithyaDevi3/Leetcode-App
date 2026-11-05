@@ -87,3 +87,6 @@ export type { AssessmentTemplateContent, AssessmentTemplateStatus, StoredAssessm
 
 export { PostgresWrittenAssessmentRepository, WrittenAssessmentAccessError, WrittenAssessmentConflictError, WrittenAssessmentValidationError } from './repositories/written-assessment.repository.js';
 export type { WrittenAssessmentPrincipal, WrittenAssessmentDraftInput, WrittenAssessmentDraft, WrittenPublication, WrittenAuthorView, LearnerWrittenAssignment, WrittenResponseDraft, WrittenSubmissionReceipt, WrittenResponseSave } from './repositories/written-assessment.repository.js';
+
+export { PostgresClassPortalRepository, ClassPortalAccessError, ClassPortalConflictError, ClassPortalValidationError } from './repositories/class-portal.repository.js';
+export type { ClassPortalWorkspace, ClassPortalContext, AnnouncementContent, AnnouncementStatus, AnnouncementCursor, AnnouncementSummary, AnnouncementList, AnnouncementListOptions, AnnouncementView, AnnouncementReceipt, SaveAnnouncementInput, PublishAnnouncementInput, ArchiveAnnouncementInput, MarkAnnouncementReadInput } from './repositories/class-portal.types.js';

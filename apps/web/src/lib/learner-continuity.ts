@@ -30,7 +30,7 @@ export const parseLearnerProfile = (value: unknown): LocalLearnerProfile | null 
   if (
     !isOneOf(profile.goal, ['interview', 'coursework', 'career_change', 'exploration']) ||
     !isOneOf(profile.experience, ['new', 'some', 'experienced']) ||
-    !isOneOf(profile.preferredLanguage, ['python', 'cpp', 'typescript']) ||
+    !isOneOf(profile.preferredLanguage, ['python', 'cpp', 'typescript', 'java']) ||
     !Number.isInteger(profile.weeklyMinutes) ||
     (profile.weeklyMinutes ?? 0) < 30 ||
     (profile.weeklyMinutes ?? 0) > 1_680 ||

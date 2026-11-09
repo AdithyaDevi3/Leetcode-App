@@ -1,9 +1,11 @@
 import type { Evaluation } from "./evaluator";
 import type { CodeGrade } from './code-grading';
 import { astProgramToBlocks, blockModelToDraft, draftToBlockModel } from "./ast-block-adapter";
+import { isExecutionLanguage, type ExecutionLanguage } from '@leetcode-app/domain';
+import { isCustomRunCaseDrafts, MAX_RUN_CASES, MAX_RUN_CASE_TEXT, MAX_RUN_DRAFT_TEXT, type CustomRunCase } from './code-running';
 
 export type EditorMode = "text" | "blocks";
-export type CodingLanguage = "python" | "cpp" | "typescript";
+export type CodingLanguage = ExecutionLanguage;
 export type PracticeCodeDrafts = Partial<Record<CodingLanguage, string>>;
 
 export const practiceWorkspaceLimits = {
@@ -16,6 +18,7 @@ export const codingLanguages: Array<{ value: CodingLanguage; label: string; runt
   { value: "python", label: "Python 3", runtime: "python3" },
   { value: "cpp", label: "C++", runtime: "C++20" },
   { value: "typescript", label: "TypeScript", runtime: "Node.js" },
+  { value: "java", label: "Java", runtime: "JVM" },
 ];
 
 export const codingLanguageLabel = (language: CodingLanguage) =>
@@ -33,7 +36,17 @@ export type PracticeSessionState = {
   /** Additive editor metadata. `code` remains authoritative for the active language. */
   codeDraftVersion?: 1;
   codeByLanguage?: PracticeCodeDrafts;
+  /** Raw strings preserve unfinished custom inputs; execution validates their JSON. */
+  runCaseDraftVersion?: 1;
+  runCaseDrafts?: CustomRunCase[];
 };
+
+export const runCaseDraftLimits = { count: MAX_RUN_CASES, fieldCharacters: MAX_RUN_CASE_TEXT, combinedCharacters: MAX_RUN_DRAFT_TEXT } as const;
+
+export function runCaseDraftValidationError(value: unknown): string | null {
+  if (!Array.isArray(value) || value.length > runCaseDraftLimits.count) return 'Keep at most 8 test cases.';
+  return isCustomRunCaseDrafts(value) ? null : 'Test case drafts are invalid or exceed the save limits. Your current work has not been replaced.';
+}
 
 /** Legacy snapshots acquire their active draft without requiring a destructive migration. */
 export const practiceCodeDrafts = (state: Pick<PracticeSessionState, 'code' | 'language' | 'codeByLanguage'>): PracticeCodeDrafts => ({
@@ -48,21 +61,26 @@ export const practiceWorkspaceValidationError = (state: unknown): string | null 
   if (candidate.codeByLanguage !== undefined || candidate.codeDraftVersion !== undefined) {
     if (candidate.codeDraftVersion !== 1 || !candidate.codeByLanguage || typeof candidate.codeByLanguage !== 'object'
       || Array.isArray(candidate.codeByLanguage)) return 'Language drafts have an unsupported format.';
-    if (typeof candidate.code !== 'string' || !['python', 'cpp', 'typescript'].includes(candidate.language ?? '')) {
+    if (typeof candidate.code !== 'string' || !isExecutionLanguage(candidate.language)) {
       return 'Language drafts require a supported active language and source.';
     }
     const encoder = new TextEncoder();
     const entries = Object.entries(candidate.codeByLanguage);
-    if (entries.some(([language, source]) => !['python', 'cpp', 'typescript'].includes(language) || typeof source !== 'string')) {
+    if (entries.some(([language, source]) => !isExecutionLanguage(language) || typeof source !== 'string')) {
       return 'Language drafts contain an unsupported language or source.';
     }
     const sources = { ...candidate.codeByLanguage, ...(typeof candidate.code === 'string'
-      && ['python', 'cpp', 'typescript'].includes(candidate.language ?? '') ? { [candidate.language!]: candidate.code } : {}) };
+      && isExecutionLanguage(candidate.language) ? { [candidate.language]: candidate.code } : {}) };
     const sourceSizes = Object.values(sources).map(source => encoder.encode(source).byteLength);
     if (sourceSizes.some(size => size > practiceWorkspaceLimits.sourceBytes)) return 'A language draft exceeds the 100 KB source limit. Your current work has not been replaced.';
     if (sourceSizes.reduce((total, size) => total + size, 0) > practiceWorkspaceLimits.combinedSourceBytes) {
       return 'The language drafts exceed the combined 200 KB source limit. Your current work has not been replaced.';
     }
+  }
+  if (candidate.runCaseDraftVersion !== undefined || candidate.runCaseDrafts !== undefined) {
+    if (candidate.runCaseDraftVersion !== 1) return 'Test case drafts have an unsupported format.';
+    const error = runCaseDraftValidationError(candidate.runCaseDrafts);
+    if (error) return error;
   }
   try {
     if (JSON.stringify(state).length > practiceWorkspaceLimits.serializedCharacters) return 'Workspace state exceeds the save limit. Your current work has not been replaced.';
@@ -115,6 +133,19 @@ const cppReturnType: Record<string, string> = {
   findFirstUniqueIndex: "int",
 };
 
+const javaType = (type: string) => type.replace(/TreeNode \| null/g, 'TreeNode').replace(/number/g, 'int').replace(/string/g, 'String');
+const javaSignature = (signature: string) => signature.split(', ').map(parameter => {
+  const [name, type] = parameter.split(': ');
+  return `${javaType(type ?? 'number')} ${name}`;
+}).join(', ');
+const javaReturnType: Record<string, string> = { findPair: 'int[]', twoSumWindow: 'int[]', taskOrder: 'String[]', isBalanced: 'boolean' };
+const javaStarter = (functionName: string, signature: string, comments: string) => `class Solution {
+    public ${javaReturnType[functionName] ?? 'int'} ${functionName}(${javaSignature(signature)}) {
+${comments}
+        throw new UnsupportedOperationException("Not implemented");
+    }
+}`;
+
 export const defaultCode = (
   functionName: string,
   signature = defaultSignatureFor(functionName),
@@ -128,6 +159,7 @@ export const defaultCode = (
   // Translate your approved plan here.
   throw runtime_error("Not implemented");
 }`
+  : language === 'java' ? javaStarter(functionName, signature, '        // Translate your approved plan here.')
   : `function ${functionName}(${signature}) {
   // Translate your approved plan here.
 }`;
@@ -164,6 +196,8 @@ export const buildCodeFromPlanForLanguage = (
   language: CodingLanguage,
 ) => {
   if (language === "typescript") return buildCodeFromPlan(functionName, signature, plan);
+  if (language === 'java') return javaStarter(functionName, signature, splitDraftIntoBlocks(plan)
+    .map(line => `        // ${line}`).join('\n') || '        // Translate your approved plan here.');
 
   if (language === "cpp") {
     const planComments = splitDraftIntoBlocks(plan)
@@ -229,7 +263,7 @@ export const deserializePracticeSession = (value: string): PracticeSessionState 
       return null;
     }
 
-    const language = parsed.language === "python" || parsed.language === "cpp" ? parsed.language : "typescript";
+    const language = isExecutionLanguage(parsed.language) ? parsed.language : "typescript";
     const restored: PracticeSessionState = {
       draft: parsed.draft,
       mode: parsed.mode,
@@ -243,6 +277,7 @@ export const deserializePracticeSession = (value: string): PracticeSessionState 
         codeDraftVersion: 1 as const,
         codeByLanguage: practiceCodeDrafts({ code: parsed.code, language, codeByLanguage: parsed.codeByLanguage }),
       } : {}),
+      ...(parsed.runCaseDraftVersion === 1 ? { runCaseDraftVersion: 1 as const, runCaseDrafts: parsed.runCaseDrafts } : {}),
     };
     return practiceWorkspaceValidationError(restored) ? null : restored;
   } catch {

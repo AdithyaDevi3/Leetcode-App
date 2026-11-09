@@ -1,4 +1,4 @@
-export const EXECUTION_LANGUAGES = ['python', 'cpp', 'typescript'] as const;
+export const EXECUTION_LANGUAGES = ['python', 'cpp', 'typescript', 'java'] as const;
 export type ExecutionLanguage = typeof EXECUTION_LANGUAGES[number];
 export type ExecutionLimits = { timeoutMs: number; memoryMb: number; outputBytes: number };
 export type ExecutionStatus = 'queued' | 'running' | 'completed' | 'failed' | 'canceled' | 'timed_out';

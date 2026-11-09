@@ -177,6 +177,23 @@ describe('durable coding-only practice', () => {
     expect((after.session.sessionMetadata.workspaceState as PracticeSessionState).codeByLanguage).not.toHaveProperty('cpp');
   });
 
+  it('preserves unfinished custom cases from older tabs, receipts and verification, with an explicit reset', async () => {
+    const { owner, sessionId } = await createVerificationSession();
+    const custom = [{ id: 'custom-1', input: '[[4,', expected: '' }];
+    const state = { ...workspace(source), runCaseDraftVersion: 1 as const, runCaseDrafts: custom };
+    await appendPracticeRevision({ owner, sessionId, draft: '', workspaceState: state });
+    const legacy = { owner, sessionId, draft: '', workspaceState: workspace(source), expectedRevisionNumber: 1, requestKey: 'old-case-tab' };
+    const receipt = await appendPracticeRevision(legacy);
+    const request = await beginPracticeVerification({ owner, sessionId, language: 'python', source });
+    await finishPracticeVerification({ owner, sessionId, requestId: request.requestId, grade: verificationGrade(true) });
+    const restored = await startOrResumePracticeSession({ owner, contentId: 'pair-with-target-v1' });
+    expect(restored.session.sessionMetadata.workspaceState).toMatchObject({ runCaseDraftVersion: 1, runCaseDrafts: custom, codeChecked: true });
+    await appendPracticeRevision({ owner, sessionId, draft: '', workspaceState: { ...state, runCaseDrafts: [] } });
+    await expect(appendPracticeRevision(legacy)).resolves.toEqual(receipt);
+    const after = await startOrResumePracticeSession({ owner, contentId: 'pair-with-target-v1' });
+    expect(after.session.sessionMetadata.workspaceState).toMatchObject({ runCaseDraftVersion: 1, runCaseDrafts: [] });
+  });
+
   it('persists partial-test feedback without completing practice or scheduling reviews', async () => {
     const { owner, sessionId } = await createVerificationSession();
     const request = await beginPracticeVerification({ owner, sessionId, language: 'python', source });

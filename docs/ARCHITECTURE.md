@@ -345,9 +345,24 @@ dependent queries; retain used content/history and recover with a forward fix.
 ## Code execution and queues
 
 Python 3, C++20, and TypeScript verification use server-owned activity tests.
+Private suites and execution harnesses are server-only modules. The isolated
+process reports actual outputs; the server compares them against expectations.
+Practice **Run** shares the execution quota but executes only public/custom cases
+and never writes verification, completion, learning evidence or an academic
+attempt. **Submit** uses the full suite and the existing source-bound durable
+verification flow. Existing saved grade versions remain readable.
+Versioned custom-case drafts use bounded workspace metadata and participate in
+owner-scoped save/conflict/recovery, including preservation when older tabs save.
 Vercel Sandbox executes code in ephemeral microVMs with network access denied
 and bounded process time/output. Learner code never executes directly in the
 ordinary application process. Provider credentials remain server-only.
+An optional server-only `VERCEL_SANDBOX_SNAPSHOT_ID` selects an existing trusted
+toolchain snapshot for every execution. Snapshot runs retain denied network access,
+ephemeral lifecycle and the same resource limits. Invalid or inaccessible configured
+snapshots fail without falling back to a different image. Compiler installation,
+snapshot preparation and verification happen separately from learner execution.
+Trusted snapshots must contain no credentials, learner work or private data;
+setting the ID alone does not prove that any compiler is available.
 
 Assignment verification has its own durable leased queue. Creating an attempt
 and its job is transactional. Lease tokens protect completion and retries from

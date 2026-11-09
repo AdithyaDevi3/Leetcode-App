@@ -36,4 +36,12 @@ describe('owner-scoped practice recovery', () => {
     expect(reconcilePracticeCache({ ...local, state: first }, { ...remote, latestRevisionNumber: 3, state: second })).toBe('conflict');
     expect(reconcilePracticeCache({ ...local, state: first, base: { ...local.base!, state: first } }, { ...remote, latestRevisionNumber: 3, state: second })).toBe('remote');
   });
+  it('preserves independent custom-case edits in conflict recovery and accepts a remote-only change', () => {
+    const first = { ...state, runCaseDraftVersion: 1 as const, runCaseDrafts: [{ id: 'custom-1', input: '[[1,', expected: '' }] };
+    const second = { ...first, runCaseDrafts: [{ id: 'custom-1', input: '[[2], 3]', expected: '[0, 1]' }] };
+    expect(samePracticeWork(first, second)).toBe(false);
+    expect(samePracticeWork(state, { ...state, runCaseDraftVersion: 1, runCaseDrafts: [] })).toBe(false);
+    expect(reconcilePracticeCache({ ...local, state: first }, { ...remote, latestRevisionNumber: 3, state: second })).toBe('conflict');
+    expect(reconcilePracticeCache({ ...local, state: first, base: { ...local.base!, state: first } }, { ...remote, latestRevisionNumber: 3, state: second })).toBe('remote');
+  });
 });

@@ -39,7 +39,7 @@ export default function LearnPage() {
           <p className="mt-2 text-sm text-[var(--muted)]">{recommendation.reasons.join(' · ')}</p>
         </li>)}
       </ol>
-      {nextPractice ? <a className="mt-8 inline-block rounded bg-[var(--moss)] px-4 py-2 font-semibold text-white" href={`/practice?problem=${encodeURIComponent(nextPractice.practiceItemId)}`}>Start {nextPractice.label}</a> : null}
+      {nextPractice ? <Link className="mt-8 inline-block rounded bg-[var(--moss)] px-4 py-2 font-semibold text-white" href={`/practice?problem=${encodeURIComponent(nextPractice.practiceItemId)}`}>Start {nextPractice.label}</Link> : null}
     </> : <><p className="mt-4 text-[var(--ink)]" aria-live="polite">{message}</p>{message.startsWith('Set your goals') ? <Link className="mt-6 inline-block rounded bg-[var(--moss)] px-4 py-2 font-semibold text-white" href="/onboarding">Set up my plan</Link> : null}</>}
   </section></div></main>;
 }

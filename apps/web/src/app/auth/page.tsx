@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { SiteNavigation } from '@/components/site-navigation';
 import { signInWithPassword, signUpWithPassword } from './actions';
 
@@ -10,6 +11,6 @@ export default async function AuthPage({ searchParams }: { searchParams: Promise
     <input type="hidden" name="next" value={next ?? '/practice'} /><label className="block text-sm">Email<input required name="email" type="email" autoComplete="email" className="mt-1 w-full rounded bg-slate-800 p-3" /></label>
     <label className="block text-sm">Password<input required name="password" type="password" minLength={8} autoComplete="current-password" className="mt-1 w-full rounded bg-slate-800 p-3" /></label>
     <div className="grid grid-cols-2 gap-3"><button formAction={signInWithPassword} className="rounded bg-cyan-300 p-3 font-semibold text-slate-950">Sign in</button><button formAction={signUpWithPassword} className="rounded border border-slate-500 p-3">Create account</button></div>
-    <a className="block text-center text-sm underline" href="/practice">Continue as guest</a>
+    <Link className="block text-center text-sm underline" href="/practice">Continue as guest</Link>
   </form></div></main>;
 }

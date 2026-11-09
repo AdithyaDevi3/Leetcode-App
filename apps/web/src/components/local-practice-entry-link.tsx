@@ -2,6 +2,7 @@
 
 import type { ReactNode } from 'react';
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 
 import { buildLocalLearningPlan, readLocalLearnerProfile } from '@/lib/local-learner';
 import { readLocalPracticeHistory } from '@/lib/local-practice-history';
@@ -20,5 +21,5 @@ export function LocalPracticeEntryLink({ children, className }: { children: Reac
     return () => window.clearTimeout(timer);
   }, []);
 
-  return <a className={className} href={href}>{children}</a>;
+  return <Link className={className} href={href}>{children}</Link>;
 }

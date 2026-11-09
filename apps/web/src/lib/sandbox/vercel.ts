@@ -4,13 +4,16 @@ import ts from 'typescript';
 
 import { sanitizeSandboxOutput, validateExecutionPolicy } from './execution-policy';
 
-type SandboxCreateOptions = {
+type SandboxBaseCreateOptions = {
   persistent: false;
   networkPolicy: 'deny-all';
   timeout: number;
   resources: { vcpus: 1 };
   tags: { workload: 'code-grading' };
 };
+type SandboxCreateOptions = SandboxBaseCreateOptions & (
+  { source?: undefined } | { source: { type: 'snapshot'; snapshotId: string } }
+);
 
 type SandboxHandle = {
   writeFiles(files: Array<{ path: string; content: string | Uint8Array }>): Promise<void>;
@@ -21,6 +24,8 @@ type SandboxHandle = {
 
 export type VercelSandboxConfig = {
   createSandbox?: (options: SandboxCreateOptions) => Promise<SandboxHandle>;
+  /** Trusted, previously verified toolchain snapshot; never learner input. */
+  snapshotId?: string;
 };
 
 const paths = {
@@ -84,6 +89,11 @@ async function createWithDeadline(create: Promise<SandboxHandle>, timeoutMs: num
 }
 
 export function createVercelSandbox(config: VercelSandboxConfig = {}) {
+  const configuredSnapshot = config.snapshotId ?? process.env.VERCEL_SANDBOX_SNAPSHOT_ID;
+  const snapshotId = configuredSnapshot === '' ? undefined : configuredSnapshot;
+  if (snapshotId !== undefined && !/^snap_[A-Za-z0-9_-]{1,195}$/.test(snapshotId)) {
+    throw new Error('VERCEL_SANDBOX_SNAPSHOT_ID must be a valid snapshot identifier.');
+  }
   const createSandbox = config.createSandbox ?? ((options) => Sandbox.create(options));
 
   return {
@@ -104,14 +114,18 @@ export function createVercelSandbox(config: VercelSandboxConfig = {}) {
       }
 
       const extension = request.language === 'typescript' ? '.js' : request.language === 'python' ? '.py' : '.cpp';
-      const sourcePath = `${paths.source}${extension}`;
-      const sandbox = await createWithDeadline(createSandbox({
+      const sourcePath = request.language === 'java' ? '/vercel/sandbox/Main.java' : `${paths.source}${extension}`;
+      const baseOptions: SandboxBaseCreateOptions = {
         persistent: false,
         networkPolicy: 'deny-all',
         timeout: Math.max(15_000, request.limits.timeoutMs + 10_000),
         resources: { vcpus: 1 },
         tags: { workload: 'code-grading' },
-      }), request.limits.timeoutMs + 10_000);
+      };
+      const options: SandboxCreateOptions = snapshotId
+        ? { ...baseOptions, source: { type: 'snapshot', snapshotId } } : baseOptions;
+      // Never retry a missing/inaccessible configured snapshot using another image.
+      const sandbox = await createWithDeadline(createSandbox(options), request.limits.timeoutMs + 10_000);
 
       try {
         await sandbox.writeFiles([
@@ -122,11 +136,14 @@ export function createVercelSandbox(config: VercelSandboxConfig = {}) {
         const timeoutSeconds = Math.max(0.1, request.limits.timeoutMs / 1000).toFixed(3);
         const outputBlocks = Math.max(1, Math.ceil(request.limits.outputBytes / 1024));
         const memoryKb = request.limits.memoryMb * 1024;
+        const javaHeapMb = Math.max(16, request.limits.memoryMb - 128);
         const runtimeCommand = request.language === 'typescript'
           ? `node --max-old-space-size=${Math.max(32, request.limits.memoryMb - 96)} ${sourcePath}`
           : request.language === 'python'
-            ? `ulimit -v ${memoryKb}; python3 ${sourcePath}`
-            : `bash -lc 'if g++ -std=c++20 -O2 -pipe ${sourcePath} -o ${paths.executable}; then ulimit -v ${memoryKb}; ${paths.executable}; else exit $?; fi'`;
+            ? `bash -lc 'ulimit -v ${memoryKb}; exec python3 ${sourcePath}'`
+            : request.language === 'java'
+              ? `bash -lc 'if ! command -v javac >/dev/null 2>&1 || ! command -v java >/dev/null 2>&1; then printf "%s\\n" "Java compiler is unavailable in this execution environment." >&2; exit 127; fi; if javac -J-Xms16m -J-Xmx${javaHeapMb}m -encoding UTF-8 -d /vercel/sandbox ${sourcePath}; then exec java -Xms16m -Xmx${javaHeapMb}m -XX:+UseSerialGC -XX:ActiveProcessorCount=1 -XX:MaxMetaspaceSize=64m -XX:ReservedCodeCacheSize=32m -XX:MaxDirectMemorySize=16m -Xss512k -cp /vercel/sandbox Main; else exit $?; fi'`
+              : `bash -lc 'if g++ -std=c++20 -O2 -pipe ${sourcePath} -o ${paths.executable}; then ulimit -v ${memoryKb}; ${paths.executable}; else exit $?; fi'`;
         const shellScript = [
           'set +e',
           `ulimit -f ${outputBlocks}`,
@@ -146,7 +163,7 @@ export function createVercelSandbox(config: VercelSandboxConfig = {}) {
         ]);
         const exitCode = Number.parseInt(rawExitCode, 10);
         const normalizedExitCode = Number.isInteger(exitCode) ? exitCode : null;
-        const timedOut = normalizedExitCode === 124;
+        const timedOut = normalizedExitCode === 124 || normalizedExitCode === 137;
 
         return result(request, {
           status: timedOut ? 'timed_out' : normalizedExitCode === 0 ? 'completed' : 'failed',

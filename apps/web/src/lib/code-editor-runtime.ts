@@ -7,6 +7,7 @@ import { highlightSelectionMatches, openSearchPanel, searchKeymap } from '@codem
 import { python } from '@codemirror/lang-python';
 import { cpp } from '@codemirror/lang-cpp';
 import { javascript } from '@codemirror/lang-javascript';
+import { java } from '@codemirror/lang-java';
 import type { CodingLanguage } from './practice-session';
 
 export type EditorLanguage = CodingLanguage | 'text';
@@ -23,7 +24,7 @@ export type EditorConfiguration = {
 };
 
 export function editorLanguageExtension(language: EditorLanguage): Extension {
-  return language === 'python' ? python() : language === 'cpp' ? cpp() : language === 'typescript' ? javascript({ typescript: true }) : [];
+  return language === 'python' ? python() : language === 'cpp' ? cpp() : language === 'java' ? java() : language === 'typescript' ? javascript({ typescript: true }) : [];
 }
 
 export const indentEditorAtCursor: StateCommand = ({ state, dispatch }) => {

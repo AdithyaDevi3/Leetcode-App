@@ -4,7 +4,7 @@ import { indentLess, insertNewlineAndIndent, undo } from '@codemirror/commands';
 import { createEditorState, indentEditorAtCursor, restoreRejectedEditorChange, type EditorConfiguration, type EditorLanguage } from './code-editor-runtime';
 
 function editor(source: string, language: EditorLanguage = 'python') {
-  const config: EditorConfiguration = { language, label: 'Synthetic editor', disabled: false, indentSize: language === 'python' ? 4 : 2, fontSize: 14, wrap: true, onChange: () => {}, onSelection: () => {} };
+  const config: EditorConfiguration = { language, label: 'Synthetic editor', disabled: false, indentSize: language === 'python' || language === 'java' ? 4 : 2, fontSize: 14, wrap: true, onChange: () => {}, onSelection: () => {} };
   let state: EditorState = createEditorState(source, config);
   return {
     state: () => state,
@@ -34,12 +34,12 @@ describe('CodeMirror editor transactions', () => {
     target.run(undo);
     expect(target.state().doc.toString()).toBe('  first\n  second\nthird');
   });
-  it.each(['python', 'cpp', 'typescript'] as const)('Enter uses %s indentation', language => {
-    const source = language === 'python' ? 'def solve():' : language === 'cpp' ? 'int solve() {' : 'function solve() {';
+  it.each(['python', 'cpp', 'typescript', 'java'] as const)('Enter uses %s indentation', language => {
+    const source = language === 'python' ? 'def solve():' : language === 'java' ? 'class Solution {' : language === 'cpp' ? 'int solve() {' : 'function solve() {';
     const target = editor(source, language);
     target.select(source.length);
     target.run(insertNewlineAndIndent);
-    expect(target.state().doc.toString()).toBe(source + '\n' + ' '.repeat(language === 'python' ? 4 : 2));
+    expect(target.state().doc.toString()).toBe(source + '\n' + ' '.repeat(language === 'python' || language === 'java' ? 4 : 2));
   });
   it('does not edit a read-only document', () => {
     const state = createEditorState('original', { language: 'text', label: 'Read only', disabled: true, indentSize: 2, fontSize: 14, wrap: true, onChange: () => {}, onSelection: () => {} });

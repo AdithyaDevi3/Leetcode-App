@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { CODE_GRADING_MARKER, CODE_GRADING_VERSION, codeCheckLabels } from '@/lib/code-grading';
+import { CODE_OUTPUT_MARKER } from '@/lib/code-execution.server';
+vi.mock('server-only', () => ({}));
 
 const getPracticeOwner = vi.fn();
 const getPracticeSessionHistory = vi.fn();
@@ -41,7 +43,7 @@ describe('/api/practice/sessions/[sessionId]/verify', () => {
     };
     execute.mockResolvedValue({
       status: 'completed',
-      stdout: `${CODE_GRADING_MARKER}${JSON.stringify(grade)}`,
+      stdout: outputReport(grade.passedCount !== 4),
       stderr: '',
       durationMs: 20,
     });
@@ -62,7 +64,7 @@ describe('/api/practice/sessions/[sessionId]/verify', () => {
     expect(finishPracticeVerification).toHaveBeenCalledWith({
       owner: { kind: 'guest', id: 'guest-1' }, sessionId: 'session-1', requestId: 'verification-1', grade,
     });
-    expect(execute.mock.calls[0][0].source).toContain('uses distinct duplicate positions');
+    expect(execute.mock.calls[0][0].source).toContain('[3,3]');
   });
 
   it('does not run when verified execution is disabled', async () => {
@@ -87,7 +89,7 @@ describe('/api/practice/sessions/[sessionId]/verify', () => {
     };
     execute.mockResolvedValue({
       status: 'completed',
-      stdout: `${CODE_GRADING_MARKER}${JSON.stringify(grade)}`,
+      stdout: outputReport(grade.passedCount !== 4),
       stderr: '',
       durationMs: 20,
     });
@@ -118,7 +120,7 @@ describe('/api/practice/sessions/[sessionId]/verify', () => {
 
   it('does not return a grade until its database write completes', async () => {
     const grade = passingGrade();
-    execute.mockResolvedValue({ status: 'completed', stdout: `${CODE_GRADING_MARKER}${JSON.stringify(grade)}`, stderr: '', durationMs: 20 });
+    execute.mockResolvedValue({ status: 'completed', stdout: outputReport(grade.passedCount !== 4), stderr: '', durationMs: 20 });
     let release!: (value: boolean) => void;
     finishPracticeVerification.mockImplementation(() => new Promise<boolean>(resolve => { release = resolve; }));
     const { POST } = await import('./route');
@@ -140,7 +142,7 @@ describe('/api/practice/sessions/[sessionId]/verify', () => {
   });
 
   it('does not report success when a report cannot be saved or was superseded', async () => {
-    execute.mockResolvedValue({ status: 'completed', stdout: `${CODE_GRADING_MARKER}${JSON.stringify(passingGrade())}`, stderr: '', durationMs: 20 });
+    execute.mockResolvedValue({ status: 'completed', stdout: outputReport(), stderr: '', durationMs: 20 });
     const { POST } = await import('./route');
     finishPracticeVerification.mockRejectedValueOnce(new Error('database unavailable'));
     const failed = await POST(verificationRequest(), { params: Promise.resolve({ sessionId: 'session-1' }) });
@@ -151,6 +153,49 @@ describe('/api/practice/sessions/[sessionId]/verify', () => {
     expect(superseded.status).toBe(409);
     expect(await superseded.json()).not.toHaveProperty('grade');
   });
+
+  it('rejects learner-provided passed flags instead of treating them as verification', async () => {
+    execute.mockResolvedValue({ status: 'completed', stdout: `${CODE_GRADING_MARKER}${JSON.stringify(passingGrade())}`, stderr: '', durationMs: 1 });
+    const { POST } = await import('./route');
+    const response = await POST(verificationRequest(), { params: Promise.resolve({ sessionId: 'session-1' }) });
+    expect(response.status).toBe(502);
+    expect(response.headers.get('cache-control')).toBe('private, no-store');
+    expect(finishPracticeVerification).not.toHaveBeenCalled();
+  });
+
+  it('never returns private test inputs from compiler or learner output', async () => {
+    const { POST } = await import('./route');
+    execute.mockResolvedValueOnce({ status: 'failed', stdout: '', stderr: 'private source [[-4,8,5],1]', durationMs: 1 });
+    const failed = await POST(verificationRequest(), { params: Promise.resolve({ sessionId: 'session-1' }) });
+    expect(JSON.stringify(await failed.json())).not.toContain('[-4,8,5]');
+    expect(finishPracticeVerification).not.toHaveBeenCalled();
+    execute.mockResolvedValueOnce({ status: 'completed', stdout: 'private debug [-4,8,5]\n' + outputReport(), stderr: '', durationMs: 1 });
+    const passed = await POST(verificationRequest(), { params: Promise.resolve({ sessionId: 'session-1' }) });
+    const body = await passed.json();
+    expect(body).toMatchObject({ grade: { passed: true } });
+    expect(body).not.toHaveProperty('stdout');
+    expect(JSON.stringify(body)).not.toContain('[-4,8,5]');
+  });
+
+  it('shares the Run execution budget and provides private retry responses', async () => {
+    takeRateLimit.mockResolvedValue({ allowed: false, retryAfterSeconds: 20 });
+    const { POST } = await import('./route');
+    const response = await POST(verificationRequest(), { params: Promise.resolve({ sessionId: 'session-1' }) });
+    expect(response.status).toBe(429);
+    expect(response.headers.get('retry-after')).toBe('20');
+    expect(response.headers.get('cache-control')).toBe('private, no-store');
+    expect(takeRateLimit).toHaveBeenCalledWith('verified-execution:guest:guest-1', { limit: 10, windowMs: 600000 });
+    expect(beginPracticeVerification).not.toHaveBeenCalled();
+    expect(execute).not.toHaveBeenCalled();
+  });
+
+  it('bounds the streamed body before reserving a verification or running code', async () => {
+    const { POST } = await import('./route');
+    const response = await POST(new Request('http://localhost', { method: 'POST', headers: { 'content-length': '1' }, body: 'é'.repeat(75000) }), { params: Promise.resolve({ sessionId: 'session-1' }) });
+    expect(response.status).toBe(413);
+    expect(beginPracticeVerification).not.toHaveBeenCalled();
+    expect(execute).not.toHaveBeenCalled();
+  });
 });
 
 function passingGrade() {
@@ -160,4 +205,10 @@ function passingGrade() {
 
 function verificationRequest() {
   return new Request('http://localhost', { method: 'POST', body: JSON.stringify({ language: 'python', source: 'def find_pair(values, target): return [0, 1]' }) });
+}
+
+function outputReport(partial = false) {
+  return CODE_OUTPUT_MARKER + JSON.stringify({ problemId: 'pair-with-target-v1', outputs: [
+    { actual: [1, 2] }, { actual: [0, 1] }, { actual: partial ? [0, 1] : [0, 2] }, { actual: [3, 4] },
+  ] });
 }

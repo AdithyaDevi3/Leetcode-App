@@ -35,7 +35,7 @@ test('optimal pseudocode can advance to another question while preserving the cu
   await page.goto(currentPath);
   await expectEditorSource(page, 'Pseudocode draft', source);
   await openStage(page, 'code');
-  await expect(page.locator('.grader-state')).toHaveText('Not run');
+  await expect(page.locator('.grader-state')).toHaveText('Not submitted');
 });
 
 test('close pseudocode unlocks continuation without pretending every reasoning check passed', async ({ page }) => {
@@ -47,7 +47,7 @@ test('close pseudocode unlocks continuation without pretending every reasoning c
   await expect(page.locator('.finding.revise')).not.toHaveCount(0);
   await openStage(page, 'code');
   await expect(workspaceEditor(page, 'Python implementation')).toBeEnabled();
-  await expect(page.locator('.grader-state')).toHaveText('Not run');
+  await expect(page.locator('.grader-state')).toHaveText('Not submitted');
 });
 
 test('manual continuation bypasses navigation checks without submitting or passing code', async ({ page }) => {
@@ -61,7 +61,7 @@ test('manual continuation bypasses navigation checks without submitting or passi
   await expect(page.getByText('Continued manually', { exact: true })).toBeVisible();
   await openStage(page, 'code');
   await expect(workspaceEditor(page, 'Python implementation')).toBeEnabled();
-  await expect(page.locator('.grader-state')).toHaveText('Not run');
+  await expect(page.locator('.grader-state')).toHaveText('Not submitted');
   await openStage(page, 'feedback');
   await page.getByRole('button', { name: 'Next practice question', exact: true }).click();
   await expect(page).toHaveURL(new RegExp(`problem=${practiceItems[1].id}`));

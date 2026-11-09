@@ -1,6 +1,6 @@
 export type LearnerGoal = 'interview' | 'coursework' | 'career_change' | 'exploration';
 export type LearnerExperience = 'new' | 'some' | 'experienced';
-export type LearnerLanguage = 'python' | 'cpp' | 'typescript';
+export type LearnerLanguage = 'python' | 'cpp' | 'typescript' | 'java';
 
 export type LearnerProfile = {
   goal: LearnerGoal;
@@ -57,7 +57,7 @@ export function isLearnerProfile(value: unknown): value is LearnerProfile {
   const profile = value as Partial<LearnerProfile>;
   return ['interview', 'coursework', 'career_change', 'exploration'].includes(profile.goal ?? '')
     && ['new', 'some', 'experienced'].includes(profile.experience ?? '')
-    && (profile.preferredLanguage === 'python' || profile.preferredLanguage === 'cpp' || profile.preferredLanguage === 'typescript')
+    && (profile.preferredLanguage === 'python' || profile.preferredLanguage === 'cpp' || profile.preferredLanguage === 'typescript' || profile.preferredLanguage === 'java')
     && Number.isInteger(profile.weeklyMinutes) && Number(profile.weeklyMinutes) >= 30 && Number(profile.weeklyMinutes) <= 1_680
     && typeof profile.timezone === 'string'
     && Boolean(profile.timezone.trim())

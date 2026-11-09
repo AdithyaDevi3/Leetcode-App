@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useRef, useState, type MouseEvent } from 'react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { practiceItems } from '@/lib/content';
 import type { LearningRecommendationRequest, LearningRecommendationResponse } from '@/lib/learning-api-types';
 
@@ -30,6 +32,7 @@ export function useRecommendationSelection({ learnerId, blocked, ownerChanged, o
   learnerId: string; blocked: boolean; ownerChanged: boolean;
   onOwnerChanged: () => void; onRefresh: () => void;
 }) {
+  const router = useRouter();
   const [pending, setPending] = useState<LearningRecommendationRequest | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -104,7 +107,7 @@ export function useRecommendationSelection({ learnerId, blocked, ownerChanged, o
       }
       // Navigation uses the locally known activity, never a URL from the response.
       remember(null);
-      window.location.assign(hrefFor(request.practiceId));
+      router.push(hrefFor(request.practiceId));
     } catch (cause) {
       if (alive.current && !stopped.current) setError(cause instanceof Error ? cause.message : 'We could not confirm this practice selection. Retry the same request.');
     } finally {
@@ -131,7 +134,7 @@ export function useRecommendationSelection({ learnerId, blocked, ownerChanged, o
     {error ? <p className="text-sm" role="alert" aria-label="Practice selection error">{error}</p> : null}
     {conflict ? <button type="button" className={button} disabled={busy || blocked} onClick={() => { setConflict(false); setError(null); onRefresh(); }}>Load latest practice plan</button> : pending && !busy ? <div className="flex flex-wrap gap-3">
       <button type="button" className={button} disabled={blocked} onClick={() => void select(currentRequest.current!)}>Retry practice selection</button>
-      <a className={button} href={hrefFor(pending.practiceId)}>Open practice without confirming selection</a>
+      <Link className={button} href={hrefFor(pending.practiceId)}>Open practice without confirming selection</Link>
     </div> : null}
   </div>;
 

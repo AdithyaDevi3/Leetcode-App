@@ -23,6 +23,7 @@ export function createConfiguredSandbox() {
       typescript: Number(process.env.JUDGE0_TYPESCRIPT_LANGUAGE_ID ?? 74),
       python: Number(process.env.JUDGE0_PYTHON_LANGUAGE_ID ?? 71),
       cpp: Number(process.env.JUDGE0_CPP_LANGUAGE_ID ?? 54),
+      java: Number(process.env.JUDGE0_JAVA_LANGUAGE_ID ?? 62),
     },
   });
 }

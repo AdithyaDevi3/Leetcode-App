@@ -52,7 +52,7 @@ test('code language changes and reload preserve independent drafts without acade
   await expect.poll(() => text(page, 'Python implementation')).toBe(python);
   await page.getByRole('button', { name: /C\+\+ C\+\+20/ }).click();
   await expect.poll(() => text(page, 'C++ implementation')).toBe(cpp);
-  await expect(page.locator('.grader-state')).toHaveText('Not run');
+  await expect(page.locator('.grader-state')).toHaveText('Not submitted');
   const editorBounds = await page.locator('.practice-code-stage .code-editor-host').boundingBox();
   expect(editorBounds?.height).toBeGreaterThanOrEqual(120);
   await page.screenshot({ path: '../../.local-docs/screens/workspace-desktop.png', fullPage: true });
@@ -108,9 +108,9 @@ test('panel resizing, collapse, run recovery and reset remain usable', async ({ 
   expect(Number(await resultsDivider.getAttribute('aria-valuenow'))).toBeLessThan(editorHeight);
   await page.getByRole('button', { name: 'Hide results', exact: true }).click();
   await expect(page.getByRole('region', { name: 'Test results', exact: true })).toBeHidden();
-  await page.getByRole('button', { name: 'Run verified tests', exact: true }).click();
+  await page.getByRole('button', { name: 'Submit', exact: true }).click();
   await expect(page.getByRole('region', { name: 'Test results', exact: true })).toBeVisible();
-  await expect(page.getByText('Save your practice session before running code.')).toBeVisible();
+  await expect(page.getByText('Save your practice session before submitting code.')).toBeVisible();
   await page.getByRole('button', { name: 'Reset panel layout' }).click();
   await expect(separator).toHaveAttribute('aria-valuenow', '42');
 });
@@ -149,10 +149,10 @@ test('focus restores the previous split and collapsing panels preserves edits af
   await expect(page.getByRole('button', { name: 'Exit focus', exact: true })).toBeVisible();
   await expect(problem).toBeHidden();
   await expect.poll(() => text(page, 'Python implementation')).toBe(source);
-  await page.getByRole('button', { name: 'Run verified tests', exact: true }).click();
+  await page.getByRole('button', { name: 'Submit', exact: true }).click();
   await expect(results).toBeVisible();
   await expect(problem).toBeHidden();
-  await expect(page.getByText('Save your practice session before running code.')).toBeVisible();
+  await expect(page.getByText('Save your practice session before submitting code.')).toBeVisible();
   await page.getByRole('button', { name: 'Show problem', exact: true }).click();
   await expect(problem).toBeVisible();
   await expect.poll(() => text(page, 'Python implementation')).toBe(source);
@@ -174,7 +174,7 @@ test('a short laptop has room to write and mobile navigation recovers collapsed 
   await expect(page.getByRole('region', { name: 'Problem & context', exact: true })).toBeVisible();
   await panels.getByRole('button', { name: 'Workspace', exact: true }).click();
   await expect(editor(page, 'Python implementation')).toBeVisible();
-  await page.getByRole('button', { name: 'Run verified tests', exact: true }).click();
+  await page.getByRole('button', { name: 'Submit', exact: true }).click();
   await expect(page.getByRole('region', { name: 'Test results', exact: true })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth && document.documentElement.scrollHeight <= innerHeight + 1)).toBe(true);
   await panels.getByRole('button', { name: 'Workspace', exact: true }).click();
@@ -219,9 +219,9 @@ test('phone users can switch context, editor and results without losing their wo
   await expect(page.getByRole('heading', { name: 'Your current approach' })).toBeVisible();
   await panels.getByRole('button', { name: 'Workspace', exact: true }).click();
   await expect.poll(() => text(page, 'Python implementation')).toBe('def sample():\n    pass');
-  await page.getByRole('button', { name: 'Run verified tests', exact: true }).click();
+  await page.getByRole('button', { name: 'Submit', exact: true }).click();
   await expect(panels.getByRole('button', { name: 'Results', exact: true })).toHaveAttribute('aria-pressed', 'true');
-  await expect(page.getByText('Save your practice session before running code.')).toBeVisible();
+  await expect(page.getByText('Save your practice session before submitting code.')).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth && document.documentElement.scrollHeight <= innerHeight + 1)).toBe(true);
   await panels.getByRole('button', { name: 'Workspace', exact: true }).click();
   await page.screenshot({ path: '../../.local-docs/screens/workspace-phone.png', fullPage: true });

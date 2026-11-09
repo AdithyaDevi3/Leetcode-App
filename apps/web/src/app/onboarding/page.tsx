@@ -1,6 +1,7 @@
 'use client';
 
 import { type FormEvent, useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
 
 import { SiteNavigation } from '@/components/site-navigation';
 import {
@@ -67,7 +68,7 @@ export default function OnboardingPage() {
     <fieldset className="space-y-6" disabled={loading || busy}>
     <label className="block">Goal<select className="mt-1 w-full rounded border p-2" value={profile.goal} onChange={(event) => setProfile({ ...profile, goal: event.target.value as LocalLearnerProfile['goal'] })}><option value="interview">Interview preparation</option><option value="coursework">Coursework</option><option value="career_change">Career change</option><option value="exploration">Exploration</option></select></label>
     <label className="block">Experience<select className="mt-1 w-full rounded border p-2" value={profile.experience} onChange={(event) => setProfile({ ...profile, experience: event.target.value as LocalLearnerProfile['experience'] })}><option value="new">New to algorithms</option><option value="some">Some experience</option><option value="experienced">Experienced</option></select></label>
-    <label className="block">Preferred language<select className="mt-1 w-full rounded border p-2" value={profile.preferredLanguage} onChange={(event) => setProfile({ ...profile, preferredLanguage: event.target.value as LocalLearnerProfile['preferredLanguage'] })}><option value="python">Python 3</option><option value="cpp">C++20</option><option value="typescript">TypeScript</option></select></label>
+    <label className="block">Preferred language<select className="mt-1 w-full rounded border p-2" value={profile.preferredLanguage} onChange={(event) => setProfile({ ...profile, preferredLanguage: event.target.value as LocalLearnerProfile['preferredLanguage'] })}><option value="python">Python 3</option><option value="cpp">C++20</option><option value="typescript">TypeScript</option><option value="java">Java</option></select></label>
     <label className="block">Weekly minutes<input className="mt-1 w-full rounded border p-2" min="30" max="1680" required type="number" value={profile.weeklyMinutes} onChange={(event) => setProfile({ ...profile, weeklyMinutes: Number(event.target.value) })} /></label>
     <label className="block">Timezone<input className="mt-1 w-full rounded border p-2" required value={profile.timezone} onChange={(event) => setProfile({ ...profile, timezone: event.target.value })} /></label>
     <label className="flex gap-2"><input checked={profile.diagnosticOptIn} type="checkbox" onChange={(event) => setProfile({ ...profile, diagnosticOptIn: event.target.checked })} /> Include an optional diagnostic challenge in my plan</label>
@@ -75,6 +76,6 @@ export default function OnboardingPage() {
     {loading ? <p role="status">Loading your learning preferences…</p> : learnerId === null ? <p className="text-sm text-[var(--muted)]">This plan will be saved on this device. Reload after signing in to save a new account plan.</p> : null}
     <button className="rounded bg-[var(--moss)] px-4 py-2 font-semibold text-white disabled:opacity-60" disabled={loading || busy} type="submit">{busy ? 'Saving plan…' : 'Save plan'}</button>
     {message ? <p aria-live="polite" className="text-[var(--muted)]">{message}</p> : null}
-    {nextPracticeId ? <div className="flex flex-wrap gap-4"><a className="font-semibold underline" href={`/practice?problem=${encodeURIComponent(nextPracticeId)}`}>Start recommended practice</a><a className="font-semibold underline" href="/learn">View my learning path</a></div> : null}
+    {nextPracticeId ? <div className="flex flex-wrap gap-4"><Link className="font-semibold underline" href={`/practice?problem=${encodeURIComponent(nextPracticeId)}`}>Start recommended practice</Link><Link className="font-semibold underline" href="/learn">View my learning path</Link></div> : null}
   </form></div></main>;
 }

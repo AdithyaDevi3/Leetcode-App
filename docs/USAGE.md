@@ -110,6 +110,16 @@ or replacing edited code with a plan asks for confirmation and retains a recover
 copy. A language change clears the active verification display; run verification
 for the selected source. These editor features require no additional paid service.
 
+In **Code & test**, **Run** executes the visible examples and your custom test
+cases. Open **Show results → Test cases** to edit the JSON array of arguments
+and optional JSON expected output. Up to eight cases are saved with the workspace,
+including unfinished inputs. Run shows actual output, errors, standard output
+and timing; it does not award completion or change a saved grade.
+**Submit** checks the full server-owned suite and saves the verified result for
+the exact submitted source and language. Editing that source clears its active
+verification display. The separate **Submit assigned task** action hands work to
+the class assignment's grading workflow; a practice result is not a class grade.
+
 The signed-in dashboard uses released, eligible quiz results, answered skills-check
 items, and newly recorded practice verification to suggest activities and explain
 **Why this question?**
@@ -371,6 +381,7 @@ in ignored local files or the deployment's managed environment settings.
 | EVALUATION_JOB_STORE | PostgreSQL mode persists evaluation jobs; memory mode is instance-local |
 | RATE_LIMIT_STORE | PostgreSQL mode shares submission counters across instances after migration; memory mode is a local fallback |
 | CODE_EXECUTION_ENABLED and CODE_EXECUTION_PROVIDER | Enable only with a configured isolated provider and verified resource limits |
+| VERCEL_SANDBOX_SNAPSHOT_ID | Optional server-only existing trusted toolchain snapshot; verify all advertised languages before enabling execution. Invalid or inaccessible configured snapshots fail without fallback |
 | Worker token settings | Server secrets for protected worker triggers; never client configuration |
 | OTEL_EXPORTER_OTLP_ENDPOINT | Optional trace/metric export; structured server error records remain available without it |
 

@@ -5,6 +5,7 @@ import { isCustomRunCaseDrafts, type CodeRunResult, type CustomRunCase } from '.
 import { buildOutputExecutionRequest, CODE_OUTPUT_MARKER, hasCodeExecutionSpec, parseExecutionOutputs } from './code-execution.server';
 import { matchesExpected } from './code-grading.server';
 import { sanitizeSandboxOutput } from './sandbox/execution-policy';
+import { getClassDesignProtocol, isClassOperationTrace } from './class-design';
 
 export class CodeRunInputError extends Error {
   constructor(message: string, readonly status: 400 | 413 = 400) { super(message); }
@@ -25,6 +26,8 @@ function validTree(value: unknown, depth = 0, budget = { nodes: 0 }): boolean {
 }
 
 function validArgs(problemId: string, args: unknown[]): boolean {
+  const protocol = getClassDesignProtocol(problemId);
+  if (protocol) return args.length === 1 && isClassOperationTrace(protocol, args[0]);
   if (problemId === 'tree-max-depth-v1') return args.length === 1 && validTree(args[0]);
   if (problemId === 'balanced-brackets-v1') return args.length === 1 && typeof args[0] === 'string' && /^[()[\]{}]*$/.test(args[0]);
   if (problemId === 'climb-stairs-v1') return args.length === 1 && integer(args[0]) && args[0] >= 0 && args[0] <= 45;

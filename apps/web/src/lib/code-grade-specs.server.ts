@@ -1,4 +1,5 @@
 import 'server-only';
+import { classGradeCases } from './class-grade-specs.server';
 
 export type Validator = 'equal' | 'pair' | 'topological-order';
 
@@ -16,6 +17,9 @@ type CodeGradeSpec = {
 };
 
 export const specs: Record<string, CodeGradeSpec> = {
+  ...Object.fromEntries(Object.entries(classGradeCases).map(([activityId, cases]) => [activityId, {
+    functionName: activityId, pythonFunctionName: activityId, validator: 'equal' as const, cases,
+  }])),
   'pair-with-target-v1': {
     functionName: 'findPair',
     pythonFunctionName: 'find_pair',

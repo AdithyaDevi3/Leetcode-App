@@ -91,6 +91,8 @@ export const practiceWorkspaceValidationError = (state: unknown): string | null 
 export const sessionStorageKey = (problemId: string) => `method:${problemId}:session`;
 export const selectedPracticeItemKey = "method:selected-practice-item";
 
+import { classDesignStarter, getClassDesignProtocolByName } from './class-design';
+
 const defaultSignatureFor = (functionName: string) =>
   functionName === "findFirstUniqueIndex" ? "values: number[]" : "values: number[], target: number";
 
@@ -150,7 +152,9 @@ export const defaultCode = (
   functionName: string,
   signature = defaultSignatureFor(functionName),
   language: CodingLanguage = "typescript",
-) => language === "python"
+) => getClassDesignProtocolByName(functionName)
+  ? classDesignStarter(getClassDesignProtocolByName(functionName)!, language)
+  : language === "python"
   ? `def ${snakeCase(functionName)}(${pythonSignature(signature)}):
     # Translate your approved plan here.
     pass`
@@ -180,6 +184,8 @@ export function buildCodeFromPlan(functionNameOrPlan: string, second?: string, t
   const functionName = third ? functionNameOrPlan : second ? functionNameOrPlan : "findPair";
   const signature = third ? second ?? defaultSignatureFor(functionName) : defaultSignatureFor(functionName);
   const plan = third ? third : second ?? functionNameOrPlan;
+  const classProtocol = getClassDesignProtocolByName(functionName);
+  if (classProtocol) return classDesignStarter(classProtocol, 'typescript', plan);
   const planComments = splitDraftIntoBlocks(plan)
     .map((line) => `  // ${line}`)
     .join("\n");
@@ -195,6 +201,8 @@ export const buildCodeFromPlanForLanguage = (
   plan: string,
   language: CodingLanguage,
 ) => {
+  const classProtocol = getClassDesignProtocolByName(functionName);
+  if (classProtocol) return classDesignStarter(classProtocol, language, plan);
   if (language === "typescript") return buildCodeFromPlan(functionName, signature, plan);
   if (language === 'java') return javaStarter(functionName, signature, splitDraftIntoBlocks(plan)
     .map(line => `        // ${line}`).join('\n') || '        // Translate your approved plan here.');

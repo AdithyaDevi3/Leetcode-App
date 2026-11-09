@@ -1,3 +1,5 @@
+import { classDesignCriticalMistakes, classDesignReasoningChecks } from './class-design-reasoning';
+
 export type FindingStatus = "pass" | "revise";
 
 export type EvaluationFinding = {
@@ -210,6 +212,7 @@ type ConfiguredCheck = {
 const all = (source: string, patterns: RegExp[]) => patterns.every((pattern) => pattern.test(source));
 
 const configuredChecks: Record<string, ConfiguredCheck[]> = {
+  ...classDesignReasoningChecks,
   "max-window-sum-v1": [
     { id: "state", label: "Initial window", pass: (source) => all(source, [/sum/i, /first window/i]), passDetail: "You seed the running sum from the first window.", reviseDetail: "Start by summing the first complete window." },
     { id: "iteration", label: "Window movement", pass: (source) => contains(source, [/each new position/i, /slide/i, /next window/i]), passDetail: "You move the window one position at a time.", reviseDetail: "Describe how the window advances through the list." },
@@ -263,6 +266,7 @@ const configuredChecks: Record<string, ConfiguredCheck[]> = {
 // These are explicit algorithm contradictions. Keyword coverage alone must not
 // approve an explanation that also proposes a wrong or slower method.
 const criticalMistakes: Record<string, RegExp[]> = {
+  ...classDesignCriticalMistakes,
   'pair-with-target-v1': [/store[\s\S]{0,100}before[\s\S]{0,80}(?:check|look up)/i, /(?:use|with|choose) (?:a )?nested loops?|sort the list/i],
   'first-unique-index-v1': [/nested loops?|compare each value with every other|sort the list/i],
   'max-window-sum-v1': [/recompute[\s\S]{0,60}every window|sum each window from scratch/i],

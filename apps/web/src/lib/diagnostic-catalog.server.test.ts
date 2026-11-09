@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { buildDiagnosticSnapshot, scoreMultipleChoiceQuiz, toLearnerQuestion } from '@leetcode-app/domain';
-import { practiceItems } from './content';
+import { questionBankPracticeItems } from './content';
 
 vi.mock('server-only', () => ({}));
 import { getDiagnosticQuestionVersions } from './diagnostic-catalog.server';
@@ -31,7 +31,7 @@ describe('dedicated diagnostic content', () => {
     expect(diagnostic).toHaveLength(10);
     expect(new Set(diagnostic.map(q => q.questionId)).size).toBe(10);
     expect(new Set(diagnostic.map(q => q.versionId)).size).toBe(10);
-    for (const activity of practiceItems) {
+    for (const activity of questionBankPracticeItems) {
       const matches = diagnostic.filter(q => q.activityIds.includes(activity.id));
       expect(matches).toHaveLength(1);
       expect(matches[0].activityIds).toEqual([activity.id]);
@@ -48,7 +48,7 @@ describe('dedicated diagnostic content', () => {
   });
 
   it('pins the balanced pool for scoring and treats skipped questions as unanswered without misconception clues', () => {
-    const snapshot = buildDiagnosticSnapshot(getDiagnosticQuestionVersions(), practiceItems.map(item => item.id));
+    const snapshot = buildDiagnosticSnapshot(getDiagnosticQuestionVersions(), questionBankPracticeItems.map(item => item.id));
     expect(snapshot.questions).toHaveLength(10);
     expect(snapshot.maxUnits).toBe(1000);
     const selected = snapshot.questions[0].question;

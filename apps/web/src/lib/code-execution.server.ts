@@ -2,6 +2,8 @@ import 'server-only';
 
 import type { ExecutionLanguage, ExecutionRequest } from '@leetcode-app/domain';
 import { executionLimits } from './sandbox/execution-policy';
+import { getClassDesignProtocol } from './class-design';
+import { buildClassExecutionSource } from './class-execution.server';
 
 export const CODE_OUTPUT_MARKER = '__METHOD_OUTPUT__';
 export type OutputCase = { actual: unknown; error?: never } | { error: string; actual?: never };
@@ -26,7 +28,7 @@ const methods: Record<string, [string, string]> = {
 };
 
 export function hasCodeExecutionSpec(problemId: string): boolean {
-  return Object.hasOwn(methods, problemId);
+  return Object.hasOwn(methods, problemId) || !!getClassDesignProtocol(problemId);
 }
 
 const treeType = 'type TreeNode = { val: number; left: TreeNode | null; right: TreeNode | null };';
@@ -128,6 +130,12 @@ export function buildOutputExecutionRequest(input: {
   problemId: string; language: ExecutionLanguage; source: string; cases: InputCase[];
 }): ExecutionRequest {
   if (!hasCodeExecutionSpec(input.problemId)) throw new Error('No code execution specification exists for this practice item');
+  const protocol = getClassDesignProtocol(input.problemId);
+  if (protocol) return {
+    language: input.language,
+    source: buildClassExecutionSource({ ...input, protocol, marker: CODE_OUTPUT_MARKER }, { cppPreamble, javaPreamble, javaJson }),
+    limits: executionLimits,
+  };
   const [method, pythonMethod] = methods[input.problemId];
   const argumentsOnly = input.cases.map(item => item.args);
   let source: string;

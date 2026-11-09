@@ -1,3 +1,5 @@
+import { classDesignProtocols } from './class-design';
+
 export const CODE_GRADING_MARKER = '__METHOD_GRADE__';
 export const CODE_GRADING_VERSION = 'code-tests-v3';
 
@@ -17,6 +19,7 @@ export type CodeGrade = {
 };
 
 const checkLabels: Record<string, string[]> = {
+  ...Object.fromEntries(classDesignProtocols.map(protocol => [protocol.activityId, [...protocol.checkLabels]])),
   "pair-with-target-v1": [
     "finds a normal pair",
     "uses distinct duplicate positions",

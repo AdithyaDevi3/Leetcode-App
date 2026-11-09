@@ -1,4 +1,5 @@
 import type { ExecutionLanguage } from '@leetcode-app/domain';
+import { getClassDesignProtocol } from './class-design';
 
 /** Raw strings keep partially edited JSON recoverable without silently discarding it. */
 export type CustomRunCase = { id: string; input: string; expected: string };
@@ -33,6 +34,8 @@ const publicExamples: Record<string, { args: unknown[]; expected: unknown }> = {
 };
 
 export function getPublicRunCases(problemId: string): CustomRunCase[] {
+  const protocol = getClassDesignProtocol(problemId);
+  if (protocol) return [{ id: 'example-1', input: JSON.stringify([protocol.example.trace]), expected: JSON.stringify(protocol.example.expected) }];
   const example = Object.hasOwn(publicExamples, problemId) ? publicExamples[problemId] : undefined;
   return example ? [{ id: 'example-1', input: JSON.stringify(example.args), expected: JSON.stringify(example.expected) }] : [];
 }

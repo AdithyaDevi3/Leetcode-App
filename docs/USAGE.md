@@ -105,7 +105,7 @@ The editor supports Tab to indent, Shift+Tab to outdent, language-aware Enter,
 undo/redo, search, wrapping, font size and two/four-space indentation. Press
 Escape, then Tab or Shift+Tab to move keyboard focus out of the editor.
 **Reindent selection** adjusts whitespace; it does not repair program logic.
-Python, C++ and TypeScript keep separate saved source drafts. Resetting a session
+Python, C++, TypeScript and Java keep separate saved source drafts. Resetting a session
 or replacing edited code with a plan asks for confirmation and retains a recovery
 copy. A language change clears the active verification display; run verification
 for the selected source. These editor features require no additional paid service.
@@ -119,6 +119,11 @@ and timing; it does not award completion or change a saved grade.
 the exact submitted source and language. Editing that source clears its active
 verification display. The separate **Submit assigned task** action hands work to
 the class assignment's grading workflow; a practice result is not a class grade.
+Stateful class-design activities use one JSON trace argument with aligned
+`operations` and `arguments` arrays. The first operation is the named constructor;
+constructor and void-method outputs are `null`. LRU Cache, Session Manager and
+the aggregated (non-matching) Order Book each start a fresh instance per case.
+Malformed, unknown, oversized or out-of-order traces are rejected before execution.
 
 The signed-in dashboard uses released, eligible quiz results, answered skills-check
 items, and newly recorded practice verification to suggest activities and explain

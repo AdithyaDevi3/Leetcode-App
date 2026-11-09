@@ -42,6 +42,24 @@ describe('visible and custom test runs', () => {
     expect(result).toMatchObject({ stdout: 'debug', durationMs: 10, cases: [{ id: 'custom', actual: [1,2], expected: [1,2], passed: true }] });
     expect(JSON.stringify(result)).not.toContain(CODE_OUTPUT_MARKER);
   });
+  it('runs an editable stateful class trace with a fresh instance and normalized void outputs', () => {
+    const id = 'lru-cache-v1';
+    const cases = parseRunCases(id, [{
+      id: 'custom',
+      input: '[{"operations":["LRUCache","put","get"],"arguments":[[1],[7,70],[7]]}]',
+      expected: '[null,null,70]',
+    }]);
+    const request = buildRunExecutionRequest({
+      problemId: id,
+      language: 'typescript',
+      source: 'class LRUCache { values=new Map<number,number>(); constructor(private capacity:number){} put(key:number,value:number){this.values.set(key,value);} get(key:number){return this.values.get(key)??-1;} }',
+      cases,
+    });
+    const result = makeCodeRunResult({ problemId: id, language: 'typescript', cases, result: {
+      status: 'completed', stdout: runTs(request.source), stderr: '', durationMs: 2, exitCode: 0, limits: request.limits,
+    } });
+    expect(result.cases[0]).toMatchObject({ actual: [null, null, 70], expected: [null, null, 70], passed: true });
+  });
   it('returns actual output without claiming a pass when expected output is blank', () => {
     const cases = parseRunCases(problemId, [{ id: 'custom', input: '[[2,5],7]', expected: '' }]);
     const request = buildRunExecutionRequest({ problemId, language: 'typescript', source: solution, cases });
@@ -111,6 +129,20 @@ describe('visible and custom test runs', () => {
     const grade = gradeExecutionOutputs(problemId, runTs(request.source));
     expect(grade).toMatchObject({ passed: false, passedCount: 0 });
     expect(JSON.stringify(grade)).not.toContain('[3,3]');
+  });
+  it('does not expose stateful-class errors or private traces in Submit grades', () => {
+    const id = 'lru-cache-v1';
+    const request = buildGradedExecutionRequest({
+      problemId: id,
+      language: 'typescript',
+      source: 'class LRUCache { constructor(capacity:number){} get(key:number){throw new Error("PRIVATE_CLASS_SENTINEL:"+key);} put(key:number,value:number){throw new Error("PRIVATE_CLASS_SENTINEL:"+value);} }',
+    });
+    const grade = gradeExecutionOutputs(id, runTs(request.source));
+    expect(grade).toMatchObject({ passed: false, passedCount: 0, totalCount: 8 });
+    expect(JSON.stringify(grade)).not.toContain('PRIVATE_CLASS_SENTINEL');
+    expect(JSON.stringify(grade)).not.toContain('"LRUCache"');
+    expect(JSON.stringify(grade)).not.toContain('"arguments"');
+    expect(grade?.tests.every(test => !test.passed && test.detail === 'The code raised an error for this check.')).toBe(true);
   });
   it('rejects incomplete, wrong-problem and malformed reports', () => {
     expect(parseExecutionOutputs(CODE_OUTPUT_MARKER + JSON.stringify({ problemId, outputs: [{ passed: true }] }), problemId, 1)).toBeNull();

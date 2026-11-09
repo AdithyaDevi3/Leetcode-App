@@ -344,7 +344,7 @@ dependent queries; retain used content/history and recover with a forward fix.
 
 ## Code execution and queues
 
-Python 3, C++20, and TypeScript verification use server-owned activity tests.
+Python 3, C++20, TypeScript and Java verification use server-owned activity tests.
 Private suites and execution harnesses are server-only modules. The isolated
 process reports actual outputs; the server compares them against expectations.
 Practice **Run** shares the execution quota but executes only public/custom cases
@@ -353,6 +353,14 @@ attempt. **Submit** uses the full suite and the existing source-bound durable
 verification flow. Existing saved grade versions remain readable.
 Versioned custom-case drafts use bounded workspace metadata and participate in
 owner-scoped save/conflict/recovery, including preservation when older tabs save.
+Stateful class activities share a typed public operation-trace contract. Fixed
+server-owned dispatch creates a fresh instance for every trace and normalizes
+constructor/void results to `null`; operation names, arities, values, chronology
+and bounds are validated before source generation. Private traces and expectations
+remain outside the learner-facing modules and comparison still occurs on the server.
+The original ten-item diagnostic/MCQ catalog stays explicitly separated from the
+expanded coding catalog, so adding coding activities cannot silently change its
+frozen coverage baseline.
 Vercel Sandbox executes code in ephemeral microVMs with network access denied
 and bounded process time/output. Learner code never executes directly in the
 ordinary application process. Provider credentials remain server-only.

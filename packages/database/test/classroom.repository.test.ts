@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { runner } from 'node-pg-migrate';
 import { GenericContainer, type StartedTestContainer } from 'testcontainers';
 import { createDatabaseClient, type DatabaseClient, type DatabaseConfig } from '../src/client.js';
 import {
@@ -12,19 +13,20 @@ import { prepareSupabaseTestDatabase } from './support/supabase.js';
 let container: StartedTestContainer;
 let database: DatabaseClient;
 let repository: PostgresClassroomRepository;
+let databaseConfig: DatabaseConfig;
 
 beforeAll(async () => {
   container = await new GenericContainer('postgres:16-alpine')
     .withEnvironment({ POSTGRES_USER: 'test', POSTGRES_PASSWORD: 'test', POSTGRES_DB: 'testdb' })
     .withExposedPorts(5432)
     .start();
-  const config: DatabaseConfig = {
+  databaseConfig = {
     host: container.getHost(), port: container.getMappedPort(5432),
     database: 'testdb', user: 'test', password: 'test',
   };
-  database = createDatabaseClient(config);
+  database = createDatabaseClient(databaseConfig);
   await prepareSupabaseTestDatabase(database);
-  await runMigrations(config);
+  await runMigrations(databaseConfig);
   repository = new PostgresClassroomRepository(database);
 }, 60_000);
 
@@ -46,6 +48,62 @@ const activityId = '20000000-0000-0000-0000-000000000001';
 const versionedActivityId = '00000000-0000-0000-0000-000000000001';
 
 describe('PostgresClassroomRepository', () => {
+  it('registers every class-design activity with an assignable published version', async () => {
+    const rows = await database.query<{ slug: string; version_id: string }>(`
+      SELECT ci.slug, cv.id::text AS version_id
+      FROM content_items ci
+      JOIN content_versions cv ON cv.content_id = ci.id AND cv.version = 1
+      WHERE ci.id IN (
+        '20000000-0000-0000-0000-000000000011',
+        '20000000-0000-0000-0000-000000000012',
+        '20000000-0000-0000-0000-000000000013'
+      ) AND ci.type = 'problem' AND ci.status = 'published'
+      ORDER BY ci.id
+    `);
+    expect(rows.rows).toEqual([
+      { slug: 'lru-cache-v1', version_id: '21000000-0000-0000-0000-000000000011' },
+      { slug: 'session-manager-v1', version_id: '21000000-0000-0000-0000-000000000012' },
+      { slug: 'order-book-v1', version_id: '21000000-0000-0000-0000-000000000013' },
+    ]);
+
+    const migrationOptions = {
+      databaseUrl: `postgresql://${databaseConfig.user}:${databaseConfig.password}@${databaseConfig.host}:${databaseConfig.port}/${databaseConfig.database}`,
+      dir: 'migrations', migrationsTable: 'pgmigrations', count: 1, singleTransaction: true, checkOrder: true, log: () => {},
+    } as const;
+    try {
+      await runner({ ...migrationOptions, direction: 'down' });
+      expect((await database.query(`SELECT 1 FROM content_items WHERE id IN (
+        '20000000-0000-0000-0000-000000000011',
+        '20000000-0000-0000-0000-000000000012',
+        '20000000-0000-0000-0000-000000000013'
+      )`)).rowCount).toBe(0);
+    } finally {
+      await runner({ ...migrationOptions, direction: 'up' });
+    }
+
+    const learnerId = await createUser('class-design-rollback');
+    const session = await database.query<{ id: string }>(`
+      INSERT INTO practice_sessions (user_id, content_version, content_id, current_stage, status, session_metadata, revision)
+      VALUES ($1, 1, '20000000-0000-0000-0000-000000000011', 'implement', 'in_progress', '{}'::jsonb, 1)
+      RETURNING id
+    `, [learnerId]);
+    await expect(runner({ ...migrationOptions, direction: 'down' }))
+      .rejects.toThrow('Cannot remove class-design content after dependent work exists');
+    expect((await database.query('SELECT 1 FROM practice_sessions WHERE id = $1', [session.rows[0].id])).rowCount).toBe(1);
+    expect((await database.query("SELECT 1 FROM content_items WHERE id = '20000000-0000-0000-0000-000000000011'")).rowCount).toBe(1);
+    await database.query('DELETE FROM practice_sessions WHERE id = $1', [session.rows[0].id]);
+
+    const laterVersionId = randomUUID();
+    await database.query(`
+      INSERT INTO content_versions (id, content_id, version, title, description, markdown_content, test_cases)
+      VALUES ($1, '20000000-0000-0000-0000-000000000012', 2, 'Session Manager revision', 'Later authored revision', 'Preserve this revision.', '[]'::jsonb)
+    `, [laterVersionId]);
+    await expect(runner({ ...migrationOptions, direction: 'down' }))
+      .rejects.toThrow('Cannot remove class-design content after additional versions exist');
+    expect((await database.query('SELECT 1 FROM content_versions WHERE id = $1', [laterVersionId])).rowCount).toBe(1);
+    await database.query('DELETE FROM content_versions WHERE id = $1', [laterVersionId]);
+  });
+
   it('isolates instructor class lists, join codes, learners, and assignment writes by owner', async () => {
     const alice = await createUser('instructor-alice', 'instructor');
     const bob = await createUser('instructor-bob', 'instructor');

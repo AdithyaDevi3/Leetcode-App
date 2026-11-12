@@ -1,8 +1,9 @@
 import { randomUUID } from 'node:crypto';
+import type { ExecutionLanguage } from '@leetcode-app/domain';
 import type { DatabaseClient } from '../client.js';
 
 export type GradebookVerificationJob = {
-  id: string; attemptId: string; language: 'python' | 'cpp' | 'typescript'; source: string;
+  id: string; attemptId: string; language: ExecutionLanguage; source: string;
   pinnedTests: unknown[]; verifierVersionId: string; attempts: number; maxAttempts: number; leaseToken: string;
 };
 

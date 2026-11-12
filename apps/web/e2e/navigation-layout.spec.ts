@@ -21,6 +21,12 @@ const pageRoutes = [
   '/teach/start',
 ] as const;
 
+async function openHydratedNavigation(page: Page, path: string) {
+  const identityLoaded = page.waitForResponse(response => new URL(response.url()).pathname === '/api/viewer');
+  await page.goto(path);
+  await identityLoaded;
+}
+
 test('signed-out visitors are redirected away from administration', async ({ page }) => {
   await page.goto('/admin');
   await expect(page).toHaveURL(/\/auth\?next=%2Fadmin$/);
@@ -203,21 +209,112 @@ test('instructors can discover signup and previews stay unavailable in productio
   }
 });
 
-test('shared navigation performs a reliable document navigation', async ({ page }) => {
-  await page.goto('/learn');
-  await page.evaluate(() => {
-    document.documentElement.dataset.navigationSentinel = 'old-document';
+for (const mobile of [false, true]) {
+  test(`navigation keeps the document and restores a practice draft on ${mobile ? 'phone' : 'desktop'}`, async ({ page }) => {
+    await page.setViewportSize(mobile ? { width: 390, height: 844 } : { width: 1440, height: 900 });
+    await page.route('**/api/practice/owner', route => route.fulfill({ json: { owner: { kind: 'guest', id: 'navigation-guest' } } }));
+    await page.route('**/api/viewer', route => route.fulfill({ json: { viewer: null } }));
+    // A navigation must preserve a device draft even while server saves are unavailable.
+    await page.route('**/api/practice/sessions**', route => route.fulfill({ status: 503, json: { error: 'offline for navigation regression' } }));
+    await openHydratedNavigation(page, '/learn');
+    await page.evaluate(() => { document.documentElement.dataset.navigationSentinel = 'same-document'; });
+    const documentRequests: string[] = [];
+    page.on('request', request => { if (request.isNavigationRequest() && request.frame() === page.mainFrame()) documentRequests.push(request.url()); });
+
+    const navigation = page.getByRole('navigation', { name: mobile ? 'Mobile navigation' : 'Primary navigation', exact: true });
+    await navigation.getByRole('link', { name: 'Practice', exact: true }).click();
+    await expect(page).toHaveURL(/\/practice$/);
+    await expect(page.getByRole('heading', { level: 1, name: defaultPracticeItem.problem.title })).toBeVisible();
+    await expect(page.locator('html')).toHaveAttribute('data-navigation-sentinel', 'same-document');
+
+    const draft = 'Remember each number and check its complement before adding it.';
+    const editor = page.locator('[data-editor-ready="true"]').getByRole('textbox', { name: 'Pseudocode draft', exact: true });
+    await expect(editor).toBeVisible();
+    await editor.fill(draft);
+    const cacheKey = `method:guest:navigation-guest:${defaultPracticeItem.id}:workspace-v2`;
+    await expect.poll(() => page.evaluate(key => {
+      const cached = localStorage.getItem(key);
+      return cached ? JSON.parse(cached).state.draft : null;
+    }, cacheKey)).toBe(draft);
+
+    await page.getByRole('link', { name: 'Questions', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'Question roadmap', exact: true })).toBeVisible();
+    if (mobile) await page.getByRole('button', { name: 'Menu', exact: true }).click();
+    await page.getByRole('navigation', { name: 'Primary navigation', exact: true }).getByRole('link', { name: 'Practice', exact: true }).click();
+    await expect(page).toHaveURL(/\/practice$/);
+    await expect(editor).toBeVisible();
+    await expect.poll(() => editor.locator('.cm-line').evaluateAll(lines => lines.map(line => line.textContent ?? '').join('\n'))).toBe(draft);
+    await expect(page.locator('html')).toHaveAttribute('data-navigation-sentinel', 'same-document');
+    expect(documentRequests).toEqual([]);
   });
+}
 
-  const navigation = page.waitForEvent('framenavigated');
-  await page.getByRole('navigation', { name: 'Primary navigation' }).getByRole('link', { name: 'Practice' }).click();
-  await navigation;
+test('home practice entry and browser history keep client navigation', async ({ page }) => {
+  await page.route('**/api/practice/owner', route => route.fulfill({ json: { owner: { kind: 'guest', id: 'navigation-home' } } }));
+  await openHydratedNavigation(page, '/');
+  await page.evaluate(() => { document.documentElement.dataset.navigationSentinel = 'home-document'; });
+  await page.getByRole('link', { name: 'Start a practice session', exact: false }).click();
+  await expect(page.getByRole('heading', { level: 1, name: defaultPracticeItem.problem.title })).toBeVisible();
+  await expect(page.locator('html')).toHaveAttribute('data-navigation-sentinel', 'home-document');
+  await page.goBack();
+  await expect(page).toHaveURL(/\/$/);
+  await expect(page.getByRole('heading', { level: 1 })).toContainText('Good code starts');
+  await expect(page.locator('html')).toHaveAttribute('data-navigation-sentinel', 'home-document');
+  await page.goForward();
+  await expect(page).toHaveURL(/\/practice/);
+  await expect(page.getByRole('heading', { level: 1, name: defaultPracticeItem.problem.title })).toBeVisible();
+  await expect(page.locator('html')).toHaveAttribute('data-navigation-sentinel', 'home-document');
+});
 
-  await expect(page).toHaveURL(/\/practice$/);
-  await expect(page.locator('html')).not.toHaveAttribute('data-navigation-sentinel');
-  await expect(
-    page.getByRole('heading', { level: 1, name: defaultPracticeItem.problem.title }),
-  ).toBeVisible();
+test('the retained shell refreshes sign-in identity and ignores an earlier account response', async ({ page }) => {
+  const firstViewer = { id: 'navigation-first', email: 'first@example.invalid', displayName: 'First learner', canAccessAdministration: false };
+  const nextViewer = { id: 'navigation-next', email: 'next@example.invalid', displayName: 'Next learner', canAccessAdministration: false };
+  let viewer: typeof firstViewer | null = null;
+  let delayNext = false;
+  let started!: () => void;
+  const delayedStarted = new Promise<void>(resolve => { started = resolve; });
+  let release!: () => void;
+  const delayedReply = new Promise<void>(resolve => { release = resolve; });
+  let finished!: () => void;
+  const delayedFinished = new Promise<void>(resolve => { finished = resolve; });
+  await page.route('**/api/viewer', async route => {
+    const snapshot = viewer;
+    if (delayNext) {
+      delayNext = false;
+      started();
+      await delayedReply;
+      await route.fulfill({ json: { viewer: snapshot } });
+      finished();
+      return;
+    }
+    await route.fulfill({ json: { viewer: snapshot } });
+  });
+  await openHydratedNavigation(page, '/learn');
+  await expect(page.locator('.shell-identity')).toContainText('Guest learner');
+  await page.evaluate(() => { document.documentElement.dataset.navigationSentinel = 'identity-document'; });
+
+  // Server-action sign-in changes cookies before navigating, while the layout stays mounted.
+  viewer = firstViewer;
+  await page.getByRole('navigation', { name: 'Primary navigation', exact: true }).getByRole('link', { name: 'Dashboard', exact: true }).click();
+  await expect(page.locator('.shell-identity')).toContainText('First learner');
+  await expect(page.locator('html')).toHaveAttribute('data-navigation-sentinel', 'identity-document');
+
+  delayNext = true;
+  await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+  await delayedStarted;
+  await expect(page.locator('.shell-identity')).toContainText('First learner');
+  viewer = nextViewer;
+  await page.evaluate(() => window.dispatchEvent(new StorageEvent('storage', { key: 'sb-navigation-auth-token' })));
+  await expect(page.locator('.shell-identity')).toContainText('Next learner');
+  release();
+  await delayedFinished;
+  await expect(page.locator('.shell-identity')).toContainText('Next learner');
+  await expect(page.locator('.shell-identity')).not.toContainText('First learner');
+
+  viewer = null;
+  await page.evaluate(() => window.dispatchEvent(new Event('practice-owner-changed')));
+  await expect(page.locator('.shell-identity')).toContainText('Guest learner');
+  await expect(page.locator('html')).toHaveAttribute('data-navigation-sentinel', 'identity-document');
 });
 
 test('guest can browse both question tracks and save a system-design analysis', async ({ page }) => {

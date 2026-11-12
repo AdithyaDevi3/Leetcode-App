@@ -14,7 +14,7 @@ export function readPracticeVerification(value: unknown, problemId: string): Pra
   if (!value || typeof value !== 'object') return null;
   const candidate = value as Partial<PracticeVerificationSnapshot>;
   if (typeof candidate.requestId !== 'string' || typeof candidate.source !== 'string'
-    || !['python', 'cpp', 'typescript'].includes(candidate.language ?? '')
+    || !['python', 'cpp', 'typescript', 'java'].includes(candidate.language ?? '')
     || typeof candidate.verifiedAt !== 'string' || !Number.isFinite(Date.parse(candidate.verifiedAt))) return null;
   const state = deserializePracticeSession(JSON.stringify({
     draft: '', mode: 'text', language: candidate.language, code: candidate.source,

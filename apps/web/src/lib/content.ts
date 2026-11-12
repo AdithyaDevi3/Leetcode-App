@@ -1,3 +1,6 @@
+import type { StatefulClassProtocol } from './class-design';
+import { classDesignPracticeItems } from './class-design-content';
+
 export type PracticeTopic =
   | "dynamic-programming"
   | "graphs"
@@ -37,6 +40,7 @@ export type PracticeItem = {
   flawedDraft: string;
   codeFunction: string;
   codeSignature: string;
+  classProtocol?: StatefulClassProtocol;
   trace: {
     title: string;
     subtitle: string;
@@ -46,7 +50,8 @@ export type PracticeItem = {
   blockOptions: Array<{ label: string; value: string }>;
 };
 
-export const practiceItems: PracticeItem[] = [
+/** Activities with a separately reviewed six-question assessment bank. */
+export const questionBankPracticeItems: PracticeItem[] = [
   {
     id: "pair-with-target-v1",
     label: "Pair With Target",
@@ -607,6 +612,7 @@ Return -1.`,
   },
 ];
 
+export const practiceItems: PracticeItem[] = [...questionBankPracticeItems, ...classDesignPracticeItems];
 export const defaultPracticeItem = practiceItems[0];
 
 export const findPracticeItem = (id: string) =>

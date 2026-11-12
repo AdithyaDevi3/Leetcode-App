@@ -105,10 +105,25 @@ The editor supports Tab to indent, Shift+Tab to outdent, language-aware Enter,
 undo/redo, search, wrapping, font size and two/four-space indentation. Press
 Escape, then Tab or Shift+Tab to move keyboard focus out of the editor.
 **Reindent selection** adjusts whitespace; it does not repair program logic.
-Python, C++ and TypeScript keep separate saved source drafts. Resetting a session
+Python, C++, TypeScript and Java keep separate saved source drafts. Resetting a session
 or replacing edited code with a plan asks for confirmation and retains a recovery
 copy. A language change clears the active verification display; run verification
 for the selected source. These editor features require no additional paid service.
+
+In **Code & test**, **Run** executes the visible examples and your custom test
+cases. Open **Show results → Test cases** to edit the JSON array of arguments
+and optional JSON expected output. Up to eight cases are saved with the workspace,
+including unfinished inputs. Run shows actual output, errors, standard output
+and timing; it does not award completion or change a saved grade.
+**Submit** checks the full server-owned suite and saves the verified result for
+the exact submitted source and language. Editing that source clears its active
+verification display. The separate **Submit assigned task** action hands work to
+the class assignment's grading workflow; a practice result is not a class grade.
+Stateful class-design activities use one JSON trace argument with aligned
+`operations` and `arguments` arrays. The first operation is the named constructor;
+constructor and void-method outputs are `null`. LRU Cache, Session Manager and
+the aggregated (non-matching) Order Book each start a fresh instance per case.
+Malformed, unknown, oversized or out-of-order traces are rejected before execution.
 
 The signed-in dashboard uses released, eligible quiz results, answered skills-check
 items, and newly recorded practice verification to suggest activities and explain
@@ -371,6 +386,7 @@ in ignored local files or the deployment's managed environment settings.
 | EVALUATION_JOB_STORE | PostgreSQL mode persists evaluation jobs; memory mode is instance-local |
 | RATE_LIMIT_STORE | PostgreSQL mode shares submission counters across instances after migration; memory mode is a local fallback |
 | CODE_EXECUTION_ENABLED and CODE_EXECUTION_PROVIDER | Enable only with a configured isolated provider and verified resource limits |
+| VERCEL_SANDBOX_SNAPSHOT_ID | Optional server-only existing trusted toolchain snapshot; verify all advertised languages before enabling execution. Invalid or inaccessible configured snapshots fail without fallback |
 | Worker token settings | Server secrets for protected worker triggers; never client configuration |
 | OTEL_EXPORTER_OTLP_ENDPOINT | Optional trace/metric export; structured server error records remain available without it |
 

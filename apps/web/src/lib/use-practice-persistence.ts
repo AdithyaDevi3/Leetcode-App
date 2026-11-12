@@ -57,7 +57,7 @@ export function usePracticePersistence(input: {
     const initialState = latest.current.state;
     const generation = latest.current.generation.current;
     void loadRemotePracticeSession(contentId, scope).then(remote => {
-      if (!current || latest.current.contentId !== contentId || latest.current.generation.current !== generation) return;
+      if (!current || latest.current.contentId !== contentId) return;
       const state = latest.current.state;
       let local = readPracticeCache(contentId, scope);
       if (!local && serializePracticeSession(state) !== serializePracticeSession(initialState)) {
@@ -68,13 +68,18 @@ export function usePracticePersistence(input: {
       const remoteState = remote.state ?? { ...state, draft: remote.draft ?? '' };
       const base = { sessionId: remote.sessionId, revisionNumber: remote.latestRevisionNumber ?? 0, state: remote.state };
       if (decision === 'conflict' && local) {
-        const preserved = restoreVerifiedWorkspace({ workspaceState: state, verification: remote.verification }, contentId) ?? state;
+        // Edits invalidate evaluation/verification replies, but must still expose
+        // a conflicting server draft without applying its older grading state.
+        const preserved = latest.current.generation.current === generation
+          ? restoreVerifiedWorkspace({ workspaceState: state, verification: remote.verification }, contentId) ?? state
+          : state;
         writePracticeCache(contentId, scope, { ...local, state: preserved, conflict: remote }, { share: false });
         latest.current.restore(preserved);
         setConflict(remote);
         latest.current.status('Conflict', 'conflict');
         return;
       }
+      if (latest.current.generation.current !== generation) return;
       if (decision === 'remote') {
         // Empty remote sessions must not replace the selected activity's starter code.
         const restored = remote.state || remote.draft ? remoteState : state;

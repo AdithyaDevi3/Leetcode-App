@@ -4,6 +4,7 @@ import {
   calculateGradebook,
   freezeAssignmentGradePolicy,
   GRADEBOOK_CALCULATION_VERSION,
+  isExecutionLanguage,
   type AssignmentGradePolicy,
   type AssignmentGradeResult,
   type GradebookCell,
@@ -366,7 +367,7 @@ export class PostgresGradebookRepository {
       if (!result.rows[0]) throw new GradebookAccessError();
       await this.supersedeActiveDispute(client, recipient, `system:attempt:${result.rows[0].id}`, 'A newer submission replaced the disputed outcome');
       if (recipient.policy.scoring.mode !== 'verified_completion') return mapAttempt(result.rows[0]);
-      if (!['python', 'cpp', 'typescript'].includes(response.language ?? '')) throw new Error('Verified submissions require a supported language');
+      if (!isExecutionLanguage(response.language)) throw new Error('Verified submissions require a supported language');
       const tests = recipient.content_snapshot.test_cases;
       if (!Array.isArray(tests) || !tests.length) throw new Error('The pinned verifier has no test suite');
       const job = await client.query<{ id: string }>(`INSERT INTO gradebook_verification_jobs

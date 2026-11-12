@@ -6,7 +6,7 @@ import {
 } from '@leetcode-app/database';
 import { getSession } from './auth/session';
 import { assessmentUuid } from './assessment-draft-input';
-import { practiceItems } from './content';
+import { questionBankPracticeItems } from './content';
 import { getDiagnosticQuestionVersions } from './diagnostic-catalog.server';
 import { decodeQuizRequest, parseQuizAnswerSaveRequest, parseQuizSubmissionRequest, QuizInputError } from './quiz-assignment-input';
 
@@ -33,7 +33,7 @@ async function withRepository<T>(userId: string, action: (repository: PostgresPr
   const db = createDatabaseClient(databaseConfigFromEnv());
   try {
     return await action(new PostgresPracticeDiagnosticRepository(db, userId, {
-      questions: getDiagnosticQuestionVersions(), activityIds: practiceItems.map(item => item.id),
+      questions: getDiagnosticQuestionVersions(), activityIds: questionBankPracticeItems.map(item => item.id),
     }));
   } finally { await db.close(); }
 }

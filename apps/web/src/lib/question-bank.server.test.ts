@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { freezeQuizQuestionSelection, reviewQuestionVersion, scoreMultipleChoiceQuiz, toLearnerQuestion } from '@leetcode-app/domain';
-import { practiceItems } from './content';
+import { practiceItems, questionBankPracticeItems } from './content';
 
 vi.mock('server-only', () => ({}));
 import { getQuestionBankCandidates, getReviewedQuestionVersion, getReviewedQuestionVersions } from './question-bank.server';
@@ -13,7 +13,10 @@ describe('original assignable question bank', () => {
     expect(new Set(candidates.map(question => question.versionId)).size).toBe(60);
     expect(candidates.filter(question => question.provenance.authorId === 'automated-curriculum-author-v1')).toHaveLength(20);
     expect(candidates.filter(question => question.provenance.authorId === 'automated-curriculum-author-v2')).toHaveLength(40);
-    for (const activity of practiceItems) expect(candidates.filter(question => question.activityIds.includes(activity.id))).toHaveLength(6);
+    expect(questionBankPracticeItems).toHaveLength(10);
+    expect(practiceItems.length).toBeGreaterThan(questionBankPracticeItems.length);
+    for (const activity of questionBankPracticeItems) expect(candidates.filter(question => question.activityIds.includes(activity.id))).toHaveLength(6);
+    expect(candidates.every(question => question.activityIds.every(id => questionBankPracticeItems.some(item => item.id === id)))).toBe(true);
     for (const question of candidates) {
       expect(question.status).toBe('in_review');
       expect(question.provenance.kind).toBe('original');

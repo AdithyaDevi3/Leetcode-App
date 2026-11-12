@@ -9,6 +9,9 @@ const persistedContentIds: Record<string, string> = {
   'two-sum-window-v1': '20000000-0000-0000-0000-000000000008',
   'coin-change-lite-v1': '20000000-0000-0000-0000-000000000009',
   'first-unique-index-v1': '20000000-0000-0000-0000-000000000010',
+  'lru-cache-v1': '20000000-0000-0000-0000-000000000011',
+  'session-manager-v1': '20000000-0000-0000-0000-000000000012',
+  'order-book-v1': '20000000-0000-0000-0000-000000000013',
 };
 
 export const toPersistedContentId = (contentId: string): string => persistedContentIds[contentId] ?? contentId;

@@ -1,7 +1,7 @@
 import { GradebookAccessError, GradebookConflictError, GradebookRateLimitError } from '@leetcode-app/database';
 
 export type AssignmentSubmissionInput = Readonly<{
-  language: 'python' | 'cpp' | 'typescript';
+  language: 'python' | 'cpp' | 'typescript' | 'java';
   source: string;
   requestKey: string;
 }>;
@@ -19,7 +19,7 @@ export class AssignmentSubmissionValidationError extends Error {
 }
 
 const publicFields = new Set(['language', 'source', 'requestKey']);
-const languages = new Set(['python', 'cpp', 'typescript']);
+const languages = new Set(['python', 'cpp', 'typescript', 'java']);
 
 /**
  * Parses the complete public request body. Ownership, policy, response-revision,

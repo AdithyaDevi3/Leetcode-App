@@ -234,6 +234,13 @@ export async function appendPracticeRevision(
           throw new PracticeRevisionConflict(nextRevisionNumber - 1, 'workspace_capacity');
         }
       }
+      // Older tabs do not know this metadata; only a versioned empty list clears it.
+      if (workspaceState && workspaceState.runCaseDraftVersion === undefined && previousState?.runCaseDraftVersion === 1) {
+        workspaceState = { ...workspaceState, runCaseDraftVersion: 1, runCaseDrafts: previousState.runCaseDrafts };
+        if (practiceWorkspaceValidationError(workspaceState)) {
+          throw new PracticeRevisionConflict(nextRevisionNumber - 1, 'workspace_capacity');
+        }
+      }
       const result: AppendPracticeRevisionResult = {
         revision: {
           sessionId: session.id, revisionNumber: nextRevisionNumber, sessionRevision: session.revision + 1,

@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+vi.mock('server-only', () => ({}));
 import { spawnSync } from 'node:child_process';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -7,12 +8,13 @@ import ts from 'typescript';
 
 import { practiceItems } from './content';
 import {
-  buildGradedExecutionRequest,
   CODE_GRADING_MARKER,
   CODE_GRADING_VERSION,
   codeCheckLabels,
   parseCodeGrade,
 } from './code-grading';
+import { buildGradedExecutionRequest, gradeExecutionOutputs } from './code-grading.server';
+import { CODE_OUTPUT_MARKER } from './code-execution.server';
 
 describe('code grading specifications', () => {
   it.each(practiceItems)('defines meaningful hidden checks for $label', (item) => {
@@ -22,8 +24,13 @@ describe('code grading specifications', () => {
       language: 'typescript',
       source: `function ${item.codeFunction}() { return null; }`,
     });
-    expect(request.source).toContain(CODE_GRADING_MARKER);
+    expect(request.source).toContain(CODE_OUTPUT_MARKER);
     expect(request.source).toContain(item.codeFunction);
+    const output: string[] = [];
+    Function('console', ts.transpileModule(request.source, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText)({ log: (value: unknown) => output.push(String(value)) });
+    const grade = gradeExecutionOutputs(item.id, output.join('\n'));
+    expect(grade).not.toBeNull();
+    expect(parseCodeGrade(CODE_GRADING_MARKER + JSON.stringify(grade))).toEqual(grade);
   });
 
   it('builds Python grading around the expected snake-case function', () => {
@@ -74,7 +81,7 @@ describe('code grading specifications', () => {
     const javascript = ts.transpileModule(request.source, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText;
     const output: string[] = [];
     Function('console', javascript)({ log: (value: unknown) => output.push(String(value)) });
-    expect(parseCodeGrade(output.join('\n'))).toMatchObject({ problemId, passed: true });
+    expect(gradeExecutionOutputs(problemId, output.join('\n'))).toMatchObject({ problemId, passed: true });
   });
 
   it('executes a complete Python test harness', () => {
@@ -92,7 +99,7 @@ describe('code grading specifications', () => {
     });
     const result = spawnSync('python3', ['-c', request.source], { encoding: 'utf8' });
     expect(result.status, result.stderr).toBe(0);
-    expect(parseCodeGrade(result.stdout)).toMatchObject({ problemId: 'pair-with-target-v1', passed: true });
+    expect(gradeExecutionOutputs('pair-with-target-v1', result.stdout)).toMatchObject({ problemId: 'pair-with-target-v1', passed: true });
   });
 
   it.each(Object.entries({
@@ -118,7 +125,7 @@ describe('code grading specifications', () => {
       expect(compilation.status, compilation.stderr).toBe(0);
       const result = spawnSync(binary, [], { encoding: 'utf8' });
       expect(result.status, result.stderr).toBe(0);
-      expect(parseCodeGrade(result.stdout)).toMatchObject({ problemId, passed: true });
+      expect(gradeExecutionOutputs(problemId, result.stdout)).toMatchObject({ problemId, passed: true });
     } finally {
       rmSync(directory, { recursive: true, force: true });
     }

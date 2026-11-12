@@ -1,7 +1,7 @@
 'use client';
 
-/* eslint-disable @next/next/no-html-link-for-pages */
 import { createContext, useContext, useState, type ReactNode } from 'react';
+import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { BookOpen, Braces, Compass, GraduationCap, History, LayoutDashboard, Menu, X, Settings, MessageSquare, GitBranch, ArrowUpRight } from 'lucide-react';
 import { useViewer } from '@/lib/use-viewer';
@@ -23,16 +23,16 @@ export function AppShell({ children }: { children: ReactNode }) {
   const title = groups.flatMap(group => group.items).find(item => item.href === pathname)?.label ?? 'Your account';
   return <ShellContext.Provider value={true}><div className="learner-shell">
     <a className="skip-link" href="#page-content">Skip to content</a>
-    <header className="shell-mobile-header"><a className="shell-brand" href="/"><span className="shell-mark">M</span>Method</a><button className="shell-menu-button" aria-expanded={menuOpen} aria-controls="learner-navigation" onClick={() => setMenuOpen(!menuOpen)}>{menuOpen ? <X size={20} /> : <Menu size={20} />}{menuOpen ? 'Close menu' : 'Menu'}</button></header>
+    <header className="shell-mobile-header"><Link className="shell-brand" href="/" onNavigate={() => setMenuOpen(false)}><span className="shell-mark">M</span>Method</Link><button className="shell-menu-button" aria-expanded={menuOpen} aria-controls="learner-navigation" onClick={() => setMenuOpen(!menuOpen)}>{menuOpen ? <X size={20} /> : <Menu size={20} />}{menuOpen ? 'Close menu' : 'Menu'}</button></header>
     <aside className={`shell-rail ${menuOpen ? 'is-open' : ''}`} id="learner-navigation">
-      <a className="shell-brand" href="/"><span className="shell-mark">M</span>Method<span className="shell-brand-dot">·</span></a>
+      <Link className="shell-brand" href="/" onNavigate={() => setMenuOpen(false)}><span className="shell-mark">M</span>Method<span className="shell-brand-dot">·</span></Link>
       <nav aria-label="Primary navigation">
-        <a className="shell-home" href="/">Home <ArrowUpRight size={14} /></a>
-        {groups.map(group => <div className="shell-nav-group" key={group.label}><p>{group.label}</p>{group.items.map(({ href, label, icon: Icon }) => <a key={href} href={href} aria-current={pathname === href ? 'page' : undefined} onClick={() => setMenuOpen(false)}><Icon size={18} strokeWidth={1.7} />{label}</a>)}</div>)}
+        <Link className="shell-home" href="/" onNavigate={() => setMenuOpen(false)}>Home <ArrowUpRight size={14} /></Link>
+        {groups.map(group => <div className="shell-nav-group" key={group.label}><p>{group.label}</p>{group.items.map(({ href, label, icon: Icon }) => <Link key={href} href={href} aria-current={pathname === href ? 'page' : undefined} onNavigate={() => setMenuOpen(false)}><Icon size={18} strokeWidth={1.7} />{label}</Link>)}</div>)}
       </nav>
-      <div className="shell-account"><a href="/settings"><Settings size={17} />Settings</a><a href="/onboarding">Set learning goals</a><a href="/requests"><MessageSquare size={17} />Feedback</a>{viewer?.canAccessAdministration ? <a href="/admin">Administration <ArrowUpRight size={14} /></a> : null}<a className="shell-identity" href={viewer ? '/settings' : '/auth'}><span className="shell-user-icon">{(viewer?.displayName || 'G').slice(0, 1).toUpperCase()}</span><span><strong>{viewer?.displayName || 'Guest learner'}</strong><small>{viewer ? 'Account settings' : 'Sign in to save progress'}</small></span></a></div>
+      <div className="shell-account"><Link href="/settings" onNavigate={() => setMenuOpen(false)}><Settings size={17} />Settings</Link><Link href="/onboarding" onNavigate={() => setMenuOpen(false)}>Set learning goals</Link><Link href="/requests" onNavigate={() => setMenuOpen(false)}><MessageSquare size={17} />Feedback</Link>{viewer?.canAccessAdministration ? <Link href="/admin" onNavigate={() => setMenuOpen(false)}>Administration <ArrowUpRight size={14} /></Link> : null}<Link className="shell-identity" href={viewer ? '/settings' : '/auth'} onNavigate={() => setMenuOpen(false)}><span className="shell-user-icon">{(viewer?.displayName || 'G').slice(0, 1).toUpperCase()}</span><span><strong>{viewer?.displayName || 'Guest learner'}</strong><small>{viewer ? 'Account settings' : 'Sign in to save progress'}</small></span></Link></div>
     </aside>
-    <div className="shell-body"><div className="shell-pagebar"><span>Workspace <span aria-hidden="true">/</span> <strong>{title}</strong></span><a href="/roadmap">Explore questions <ArrowUpRight size={14} /></a></div><div id="page-content" tabIndex={-1}>{children}</div></div>
-    <nav className="shell-bottom-nav" aria-label="Mobile navigation">{[{href:'/dashboard',label:'Dashboard',icon:LayoutDashboard},{href:'/roadmap',label:'Roadmap',icon:Compass},{href:'/practice',label:'Practice',icon:Braces},{href:'/classes',label:'Classes',icon:GraduationCap}].map(({href,label,icon:Icon})=><a key={href} href={href} aria-current={pathname===href?'page':undefined}><Icon size={19}/>{label}</a>)}</nav>
+    <div className="shell-body"><div className="shell-pagebar"><span>Workspace <span aria-hidden="true">/</span> <strong>{title}</strong></span><Link href="/roadmap">Explore questions <ArrowUpRight size={14} /></Link></div><div id="page-content" tabIndex={-1}>{children}</div></div>
+    <nav className="shell-bottom-nav" aria-label="Mobile navigation">{[{href:'/dashboard',label:'Dashboard',icon:LayoutDashboard},{href:'/roadmap',label:'Roadmap',icon:Compass},{href:'/practice',label:'Practice',icon:Braces},{href:'/classes',label:'Classes',icon:GraduationCap}].map(({href,label,icon:Icon})=><Link key={href} href={href} aria-current={pathname===href?'page':undefined} onNavigate={() => setMenuOpen(false)}><Icon size={19}/>{label}</Link>)}</nav>
   </div></ShellContext.Provider>;
 }

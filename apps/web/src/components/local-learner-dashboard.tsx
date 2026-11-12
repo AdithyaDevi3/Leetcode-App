@@ -123,7 +123,7 @@ export function LocalLearnerDashboard() {
             <p className="mt-2 text-sm text-[var(--muted)]">{profile.personalizationOptOut ? 'Next in the standard curriculum' : recommendation.reasons.join(' · ')}</p>
           </li>)}
         </ol>
-        {nextPractice ? <a className="mt-5 inline-block rounded bg-[var(--moss)] px-4 py-2 font-semibold text-white" href={practiceHref(nextPractice.practiceItemId)}>Start {nextPractice.label}</a> : null}
+        {nextPractice ? <Link className="mt-5 inline-block rounded bg-[var(--moss)] px-4 py-2 font-semibold text-white" href={practiceHref(nextPractice.practiceItemId)}>Start {nextPractice.label}</Link> : null}
       </section> : null}
       <section aria-labelledby="profile-heading" className="border-t pt-6"><div className="flex flex-wrap items-center justify-between gap-3"><h2 className="text-xl font-bold" id="profile-heading">Profile at a glance</h2><Link className="font-semibold underline underline-offset-4" href="/settings">Edit settings</Link></div><dl className="mt-4 grid gap-4 sm:grid-cols-4"><div><dt className="text-sm text-[var(--muted)]">Goal</dt><dd className="font-medium">{profile.goal.replace('_', ' ')}</dd></div><div><dt className="text-sm text-[var(--muted)]">Experience</dt><dd className="font-medium">{profile.experience}</dd></div><div><dt className="text-sm text-[var(--muted)]">Weekly time</dt><dd className="font-medium">{profile.weeklyMinutes} minutes</dd></div><div><dt className="text-sm text-[var(--muted)]">Language</dt><dd className="font-medium capitalize">{profile.preferredLanguage}</dd></div></dl></section>
     </div> : null}

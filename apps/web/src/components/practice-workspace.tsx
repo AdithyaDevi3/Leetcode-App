@@ -23,6 +23,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { defaultPracticeItem, getPracticeItem, practiceItems } from "@/lib/content";
 import type { CodeGrade } from '@/lib/code-grading';
+import { getPublicRunCases, type CodeRunResult, type CustomRunCase } from '@/lib/code-running';
 import { evaluatePseudocode, REASONING_RUBRIC_VERSION, type Evaluation } from "@/lib/evaluator";
 import { evaluationPolicy } from '@/lib/evaluation-policy';
 import { readLocalLearnerProfile } from "@/lib/local-learner";
@@ -55,6 +56,7 @@ import { usePracticePersistence } from '@/lib/use-practice-persistence';
 import { CodeEditor, type CodeEditorHandle } from '@/components/code-editor';
 import { PracticePanels, type PracticePanel } from '@/components/practice-panels';
 import { PracticeSaveStatus } from '@/components/practice-save-status';
+import { PracticeCodeResults, type CodeResultsTab } from '@/components/practice-code-results';
 import { parsePracticeStage, practiceStageUrl, type PracticeStage } from '@/lib/practice-view';
 import { practiceCodeDrafts, practiceWorkspaceValidationError } from '@/lib/practice-session';
 import './practice-workspace.css';
@@ -96,6 +98,11 @@ function OwnedPracticeWorkspace({ scope, assignmentRecipientId }: { scope: strin
   const [remoteRevision, setRemoteRevision] = useState(1);
   const [executionStatus, setExecutionStatus] = useState<'idle' | 'running' | 'completed' | 'failed' | 'timed_out' | 'unavailable'>('idle');
   const [executionOutput, setExecutionOutput] = useState('');
+  const [runCaseDrafts, setRunCaseDrafts] = useState<CustomRunCase[] | undefined>();
+  const [runResult, setRunResult] = useState<CodeRunResult | null>(null);
+  const [runStatus, setRunStatus] = useState<'idle' | 'running' | 'completed' | 'failed'>('idle');
+  const [runMessage, setRunMessage] = useState('');
+  const [resultsTab, setResultsTab] = useState<CodeResultsTab>('cases');
   const [assignmentSubmissionStatus, setAssignmentSubmissionStatus] = useState<'idle' | 'submitting' | 'queued' | 'submitted' | 'error'>('idle');
   const [assignmentSubmissionMessage, setAssignmentSubmissionMessage] = useState<string | null>(null);
   const [noteDraft, setNoteDraft] = useState('');
@@ -119,8 +126,14 @@ function OwnedPracticeWorkspace({ scope, assignmentRecipientId }: { scope: strin
   const activePracticeNumber = practiceItems.findIndex((item) => item.id === activePracticeItem.id) + 1;
   const trace = activePracticeItem.trace;
   const verificationGeneration = useRef(0);
+  const runGeneration = useRef(0);
   const workspaceMounted = useRef(true);
-  const liveWorkspace = useRef({ practiceId: activePracticeItem.id, draft, code, language: codingLanguage, mode });
+  const liveWorkspace = useRef({ practiceId: activePracticeItem.id, draft, code, language: codingLanguage, mode, runCaseDrafts: JSON.stringify(runCaseDrafts) });
+  const runCases = runCaseDrafts ?? getPublicRunCases(activePracticeItem.id);
+  const clearRun = () => {
+    runGeneration.current += 1;
+    setRunResult(null); setRunStatus('idle'); setRunMessage('');
+  };
 
   const changeStage = (next: PracticeStage) => {
     if (next !== stage) window.history.pushState(null, '', practiceStageUrl(window.location.href, next));
@@ -141,12 +154,12 @@ function OwnedPracticeWorkspace({ scope, assignmentRecipientId }: { scope: strin
   }, [assignmentRecipientId]);
 
   useEffect(() => {
-    liveWorkspace.current = { practiceId: activePracticeItem.id, draft, code, language: codingLanguage, mode };
-  }, [activePracticeItem.id, draft, code, codingLanguage, mode]);
+    liveWorkspace.current = { practiceId: activePracticeItem.id, draft, code, language: codingLanguage, mode, runCaseDrafts: JSON.stringify(runCaseDrafts) };
+  }, [activePracticeItem.id, draft, code, codingLanguage, mode, runCaseDrafts]);
 
   useEffect(() => {
     workspaceMounted.current = true;
-    return () => { workspaceMounted.current = false; verificationGeneration.current += 1; };
+    return () => { workspaceMounted.current = false; verificationGeneration.current += 1; runGeneration.current += 1; };
   }, []);
 
   const overrideKey = `method:reasoning-continue:${scope}:${activePracticeItem.id}`;
@@ -189,13 +202,17 @@ function OwnedPracticeWorkspace({ scope, assignmentRecipientId }: { scope: strin
   const workspaceState = useMemo<PracticeSessionState>(() => ({
     draft, mode, language: codingLanguage, code, codeChecked, completed, evaluation, codeGrade,
     ...(codeByLanguage ? { codeDraftVersion: 1, codeByLanguage: { ...codeByLanguage, [codingLanguage]: code } } : {}),
-  }), [draft, mode, codingLanguage, code, codeChecked, completed, evaluation, codeGrade, codeByLanguage]);
+    ...(runCaseDrafts !== undefined ? { runCaseDraftVersion: 1, runCaseDrafts } : {}),
+  }), [draft, mode, codingLanguage, code, codeChecked, completed, evaluation, codeGrade, codeByLanguage, runCaseDrafts]);
   const restoreWorkspace = useCallback((state: PracticeSessionState) => {
     verificationGeneration.current += 1;
     setDraft(state.draft); setMode(state.mode); setCodingLanguage(state.language);
     setCode(state.code); setCodeChecked(state.codeChecked); setCompleted(state.completed);
     setEvaluation(state.evaluation); setCodeGrade(state.codeGrade);
     setCodeByLanguage(state.codeByLanguage); setEditorMessage(null);
+    setRunCaseDrafts(state.runCaseDrafts); runGeneration.current += 1;
+    setRunResult(null); setRunStatus('idle'); setRunMessage('');
+    setResultsTab(state.codeChecked ? 'submission' : 'cases');
     setEvaluationJobId(null); setEvaluationStatus(state.evaluation ? 'completed' : 'idle'); setEvaluationMessage(null);
     setExecutionStatus('idle'); setExecutionOutput('');
   }, []);
@@ -203,7 +220,7 @@ function OwnedPracticeWorkspace({ scope, assignmentRecipientId }: { scope: strin
     setSavedAt(label); setSyncStatus(status);
     if (revision !== undefined) setRemoteRevision(revision);
   }, []);
-  const hasWorkspaceWork = Boolean(draft || mode !== 'text' || code !== defaultCode(activePracticeItem.codeFunction, activePracticeItem.codeSignature, codingLanguage) || evaluation || codeGrade || codeByLanguage);
+  const hasWorkspaceWork = Boolean(draft || mode !== 'text' || code !== defaultCode(activePracticeItem.codeFunction, activePracticeItem.codeSignature, codingLanguage) || evaluation || codeGrade || codeByLanguage || runCaseDrafts !== undefined);
   const persistence = usePracticePersistence({
     scope, contentId: activePracticeItem.id, state: workspaceState, enabled: localRestoreComplete,
     restore: restoreWorkspace, status: persistenceStatus,
@@ -220,6 +237,7 @@ function OwnedPracticeWorkspace({ scope, assignmentRecipientId }: { scope: strin
     const error = practiceWorkspaceValidationError({ ...workspaceState, draft: nextDraft });
     if (error) { setEditorMessage(error); return false; }
     setEditorMessage(null);
+    verificationGeneration.current += 1;
     liveWorkspace.current = { ...liveWorkspace.current, draft: nextDraft };
     setDraft(nextDraft);
     setEvaluationStatus('idle');
@@ -247,6 +265,7 @@ function OwnedPracticeWorkspace({ scope, assignmentRecipientId }: { scope: strin
     const error = practiceWorkspaceValidationError(nextState);
     if (error) { setEditorMessage(error); return false; }
     verificationGeneration.current += 1;
+    clearRun();
     liveWorkspace.current = { ...liveWorkspace.current, language, code: nextCode };
     setCodeByLanguage(nextState.codeByLanguage);
     setCodingLanguage(language);
@@ -263,6 +282,8 @@ function OwnedPracticeWorkspace({ scope, assignmentRecipientId }: { scope: strin
     const nextState = { ...workspaceState, code: source, codeDraftVersion: 1 as const, codeByLanguage: { ...practiceCodeDrafts(workspaceState), [codingLanguage]: source } };
     const error = practiceWorkspaceValidationError(nextState);
     if (error) { setEditorMessage(error); return false; }
+    verificationGeneration.current += 1;
+    clearRun();
     liveWorkspace.current = { ...liveWorkspace.current, code: source };
     setCode(source); setCodeByLanguage(nextState.codeByLanguage); setEditorMessage(null);
     setCodeChecked(false); setCompleted(false); setCodeGrade(null);
@@ -367,13 +388,59 @@ function OwnedPracticeWorkspace({ scope, assignmentRecipientId }: { scope: strin
     }
   };
 
+  const updateRunCases = (next: CustomRunCase[]) => {
+    const error = practiceWorkspaceValidationError({ ...workspaceState, runCaseDraftVersion: 1, runCaseDrafts: next });
+    if (error) { setEditorMessage(error); return; }
+    liveWorkspace.current = { ...liveWorkspace.current, runCaseDrafts: JSON.stringify(next) };
+    setEditorMessage(null); setRunCaseDrafts(next); clearRun();
+  };
+
   const runInSandbox = async () => {
+    if (runStatus === 'running' || executionStatus === 'running') return;
+    setResultsTab('run'); setMobilePanel('results');
     const sessionId = readCachedPracticeSessionId(activePracticeItem.id, scope);
-    if (!sessionId) { setExecutionStatus('unavailable'); setExecutionOutput('Save your practice session before running code.'); return; }
+    if (!sessionId) { setRunStatus('failed'); setRunMessage('Save your practice session before running code.'); return; }
+    if (!runCases.length) { setRunStatus('failed'); setRunMessage('Add at least one test case before running.'); return; }
+    for (let index = 0; index < runCases.length; index += 1) {
+      try {
+        if (!Array.isArray(JSON.parse(runCases[index].input))) throw new Error('Arguments must be a JSON array.');
+        if (runCases[index].expected.trim()) JSON.parse(runCases[index].expected);
+      } catch {
+        setRunStatus('failed'); setRunMessage(`Case ${index + 1}: use a valid JSON array of arguments and a JSON expected output, or leave expected output blank.`); return;
+      }
+    }
+    const submitted = { practiceId: activePracticeItem.id, code, language: codingLanguage };
+    const generation = ++runGeneration.current;
+    const stillCurrent = () => workspaceMounted.current && runGeneration.current === generation
+      && liveWorkspace.current.practiceId === submitted.practiceId && liveWorkspace.current.code === submitted.code
+      && liveWorkspace.current.language === submitted.language;
+    setRunStatus('running'); setRunResult(null); setRunMessage('Running your test cases…');
+    try {
+      const response = await fetch(`/api/practice/sessions/${sessionId}/run`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ language: codingLanguage, source: code, cases: runCases }),
+      });
+      const body = await response.json().catch(() => null) as { run?: CodeRunResult; error?: string } | null;
+      if (!stillCurrent()) return;
+      if (!response.ok || !body?.run) throw new Error(body?.error ?? 'Code could not run. Check your connection and try again.');
+      setRunResult(body.run); setRunStatus('completed');
+      setRunMessage(body.run.cases.some(item => item.error) ? 'Review the execution errors below.'
+        : body.run.cases.some(item => item.passed === false) ? 'Some outputs differ from the expected values.' : 'Run complete. Submit to check the full suite and save a verified result.');
+    } catch (error) {
+      if (!stillCurrent()) return;
+      setRunStatus('failed'); setRunMessage(error instanceof Error ? error.message : 'Code could not run. Try again.');
+    }
+  };
+
+  const submitCode = async () => {
+    if (executionStatus === 'running' || runStatus === 'running') return;
+    setResultsTab('submission'); setMobilePanel('results');
+    const sessionId = readCachedPracticeSessionId(activePracticeItem.id, scope);
+    if (!sessionId) { setExecutionStatus('unavailable'); setExecutionOutput('Save your practice session before submitting code.'); return; }
     const submitted = { practiceId: activePracticeItem.id, source: code, language: codingLanguage };
     const generation = ++verificationGeneration.current;
     setExecutionStatus('running');
-    setExecutionOutput('Running isolated correctness and edge-case tests…');
+    setExecutionOutput('Checking the full test suite and saving your result…');
     setCodeGrade(null);
     setCodeChecked(false);
     setCompleted(false);
@@ -384,10 +451,10 @@ function OwnedPracticeWorkspace({ scope, assignmentRecipientId }: { scope: strin
       });
       const body = await response.json().catch(() => null) as { status?: 'completed' | 'failed' | 'timed_out'; grade?: CodeGrade; error?: string } | null;
       const latest = liveWorkspace.current;
-      if (verificationGeneration.current !== generation || latest.practiceId !== submitted.practiceId) return;
+      if (!workspaceMounted.current || verificationGeneration.current !== generation || latest.practiceId !== submitted.practiceId) return;
       if (latest.code !== submitted.source || latest.language !== submitted.language) {
         setExecutionStatus('idle');
-        setExecutionOutput('The earlier submission finished. Run your edited code to verify it.');
+        setExecutionOutput('The earlier submission finished. Submit your edited code to verify it.');
         return;
       }
       if (response.status === 503) {
@@ -422,7 +489,7 @@ function OwnedPracticeWorkspace({ scope, assignmentRecipientId }: { scope: strin
       }
     } catch (error) {
       const latest = liveWorkspace.current;
-      if (verificationGeneration.current !== generation || latest.practiceId !== submitted.practiceId || latest.code !== submitted.source || latest.language !== submitted.language) return;
+      if (!workspaceMounted.current || verificationGeneration.current !== generation || latest.practiceId !== submitted.practiceId || latest.code !== submitted.source || latest.language !== submitted.language) return;
       setExecutionStatus('unavailable');
       setExecutionOutput(error instanceof Error ? error.message : 'Unable to run verified execution.');
     }
@@ -507,7 +574,7 @@ function OwnedPracticeWorkspace({ scope, assignmentRecipientId }: { scope: strin
       && !window.confirm('Reset this practice session? Your current workspace will be kept as a recovery copy.')) return;
     const resetCode = defaultCode(activePracticeItem.codeFunction, activePracticeItem.codeSignature, codingLanguage);
     const resetDrafts = { [codingLanguage]: resetCode };
-    persistence.restoreCopy({ ...workspaceState, draft: '', mode: 'text', code: resetCode, codeByLanguage: resetDrafts, codeDraftVersion: 1, evaluation: null, codeGrade: null, codeChecked: false, completed: false });
+    persistence.restoreCopy({ ...workspaceState, draft: '', mode: 'text', code: resetCode, codeByLanguage: resetDrafts, codeDraftVersion: 1, runCaseDraftVersion: 1, runCaseDrafts: getPublicRunCases(activePracticeItem.id), evaluation: null, codeGrade: null, codeChecked: false, completed: false });
     setCodeByLanguage(resetDrafts);
     verificationGeneration.current += 1;
     setDraft("");
@@ -629,46 +696,16 @@ function OwnedPracticeWorkspace({ scope, assignmentRecipientId }: { scope: strin
           {editorMessage ? <p role="alert">{editorMessage}</p> : null}
           {continuationMessage && stage !== 'feedback' ? <p role="status">{continuationMessage}</p> : null}
         </div>
-        {activeAssignmentRecipientId ? <div className="workbench-assignment" aria-label="Class assignment submission instructions"><p><strong>Class assignment.</strong> Run verified tests checks your code. <strong>Submit assigned task</strong> sends it to your instructor for grading.</p>{stage !== 'code' ? <button className="text-button" type="button" onClick={() => changeStage('code')}>Go to submission →</button> : null}</div> : null}
+        {activeAssignmentRecipientId ? <div className="workbench-assignment" aria-label="Class assignment submission instructions"><p><strong>Class assignment.</strong> Run checks your test cases. Submit saves a full-suite result. <strong>Submit assigned task</strong> sends your work to your instructor for grading.</p>{stage !== 'code' ? <button className="text-button" type="button" onClick={() => changeStage('code')}>Go to submission →</button> : null}</div> : null}
         <PracticePanels key={`${scope}:${activePracticeItem.id}:panels`} activePanel={mobilePanel} onPanelChange={setMobilePanel} navigation={<div className="workbench-stagebar">
           <nav className="practice-stage-nav" aria-label="Practice stages">
             {([{value:'approach', label:'Approach'}, {value:'feedback', label:'Feedback'}, {value:'code', label:'Code & test'}] as const).map((item, index) => <button key={item.value} type="button" aria-label={`${String(index + 1).padStart(2, '0')} ${item.label}`} aria-current={stage === item.value ? 'step' : undefined} onClick={() => changeStage(item.value)}><span>{String(index + 1).padStart(2, '0')}</span>{item.label}</button>)}
           </nav>
           <h2 className="sr-only" ref={stageHeading} tabIndex={-1}>{stage === 'approach' ? 'Write your approach' : stage === 'feedback' ? 'Review reasoning feedback' : 'Implement and test'}</h2>
         </div>} results={stage === 'code' ? (
-              <div className="test-panel">
-                <div className="test-panel-heading">
-                  <div>
-                    <span>Server-owned suite</span>
-                    <strong>Verified code tests</strong>
-                  </div>
-                  <span className={`grader-state ${completed ? 'pass' : codeChecked ? 'revise' : ''}`}>
-                    {completed ? 'Passed' : codeChecked ? 'Revise' : 'Not run'}
-                  </span>
-                </div>
-                {(codeGrade?.tests ?? [{ name: 'Correct outputs and return contract', passed: false }, { name: 'Problem-specific edge cases', passed: false }, { name: 'Isolated time and memory limits', passed: false }]).map((check) => (
-                  <div className={`test-row ${codeChecked ? (check.passed ? "pass" : "revise") : ""}`} key={check.name}>
-                    <span className="test-icon">
-                      {codeChecked ? check.passed ? <Check size={12} /> : <X size={12} /> : null}
-                    </span>
-                    {check.name}
-                  </div>
-                ))}
-                {executionStatus !== 'idle' || executionOutput.length > 0 ? (
-                  <div className={`completion-panel ${executionStatus === 'idle' || executionStatus === 'failed' || executionStatus === 'timed_out' || executionStatus === 'unavailable' || (codeGrade && !codeGrade.passed) ? 'revise' : ''}`} aria-live="polite">
-                    {executionStatus === 'completed' && codeGrade?.passed ? <Check size={16} /> : <Clock3 size={16} />} {executionOutput || `Execution ${executionStatus}.`}
-                  </div>
-                ) : null}
-                {completed ? (
-                  <div className="completion-panel" aria-live="polite">
-                    <Check size={16} /> Verified and saved to your local progress.
-                  </div>
-                ) : codeChecked ? (
-                  <div className="completion-panel revise" aria-live="polite">
-                    <X size={16} /> Fix the failing cases and run verification again.
-                  </div>
-                ) : null}
-              </div>
+          <PracticeCodeResults tab={resultsTab} onTabChange={setResultsTab} cases={runCases} onCasesChange={updateRunCases}
+            run={runResult} runMessage={runMessage} running={runStatus === 'running'} grade={codeGrade}
+            checked={codeChecked} submissionMessage={executionOutput} submitting={executionStatus === 'running'} />
 
         ) : undefined} context={(
           <div className="practice-context">
@@ -1014,7 +1051,8 @@ function OwnedPracticeWorkspace({ scope, assignmentRecipientId }: { scope: strin
             <CodeEditor key={`${scope}:${activePracticeItem.id}:code`} ref={codeEditor} editorKey={codingLanguage} label={`${codingLanguage === 'python' ? 'Python' : codingLanguageLabel(codingLanguage)} implementation`} language={codingLanguage} value={code} onChange={updateCode} disabled={!canAccessCoding} className="code-editor" />
             <div className="practice-code-actions">
               <button className="button secondary" type="button" disabled={!canAccessCoding} onClick={seedFromPlan}><Code2 size={15} />Seed from plan</button>
-              <button className="button" disabled={!canAccessCoding || executionStatus === 'running'} onClick={() => { setMobilePanel('results'); void runInSandbox(); }} type="button"><Play size={15} />{executionStatus === 'running' ? 'Running verified tests…' : completed ? 'Run verified tests again' : 'Run verified tests'}</button>
+              <button className="button secondary" disabled={!canAccessCoding || !code.trim() || runStatus === 'running' || executionStatus === 'running'} onClick={() => void runInSandbox()} type="button"><Play size={15} />{runStatus === 'running' ? 'Running…' : 'Run'}</button>
+              <button className="button" disabled={!canAccessCoding || !code.trim() || executionStatus === 'running' || runStatus === 'running'} onClick={() => void submitCode()} type="button"><Check size={15} />{executionStatus === 'running' ? 'Submitting…' : 'Submit'}</button>
               {activeAssignmentRecipientId ? <button className="button secondary" disabled={!code.trim() || assignmentSubmissionStatus === 'submitting' || assignmentSubmissionStatus === 'queued'} onClick={() => void submitAssignedTask()} type="button">{assignmentSubmissionStatus === 'submitting' ? 'Submitting assignment…' : assignmentSubmissionStatus === 'queued' ? 'Verification queued' : assignmentSubmissionStatus === 'submitted' ? 'Submit another attempt' : 'Submit assigned task'}</button> : null}
             </div>
             {assignmentSubmissionMessage ? <p className="completion-panel" role={assignmentSubmissionStatus === 'error' ? 'alert' : 'status'}>{assignmentSubmissionMessage}</p> : null}

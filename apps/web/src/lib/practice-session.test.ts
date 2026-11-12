@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildCodeFromPlan,
+  buildCodeFromPlanForLanguage,
   defaultCode,
   deserializePracticeSession,
   joinBlocksIntoDraft,
@@ -42,6 +43,34 @@ describe("practice-session helpers", () => {
   it("builds C++20 starters with translated signatures", () => {
     expect(defaultCode("taskOrder", "tasks: string[], prerequisites: string[][]", "cpp"))
       .toContain("vector<string> taskOrder(vector<string> tasks, vector<vector<string>> prerequisites)");
+  });
+
+  it('builds Java Solution methods with correct array, boolean and tree signatures', () => {
+    expect(defaultCode('taskOrder', 'tasks: string[], prerequisites: string[][]', 'java'))
+      .toContain('public String[] taskOrder(String[] tasks, String[][] prerequisites)');
+    expect(defaultCode('isBalanced', 'value: string', 'java')).toContain('public boolean isBalanced(String value)');
+    expect(defaultCode('maxDepth', 'root: TreeNode | null', 'java')).toContain('public int maxDepth(TreeNode root)');
+    expect(buildCodeFromPlanForLanguage('findPair', 'values: number[], target: number', 'Track seen values.\nReturn both indices.', 'java'))
+      .toContain('        // Return both indices.');
+    const java = { ...workspace, language: 'java' as const, code: 'class Solution {}', codeDraftVersion: 1 as const,
+      codeByLanguage: { python: workspace.code, java: 'stale active copy' } };
+    expect(deserializePracticeSession(serializePracticeSession(java))).toMatchObject({
+      language: 'java', codeByLanguage: { java: java.code, python: workspace.code },
+    });
+  });
+
+  it('round-trips unfinished custom cases and an explicit empty reset without inventing a grade', () => {
+    const extra = { runCaseDraftVersion: 1 as const, runCaseDrafts: [{ id: 'custom-1', input: '[[1,', expected: '' }] };
+    expect(deserializePracticeSession(serializePracticeSession({ ...workspace, ...extra }))).toEqual({ ...workspace, ...extra });
+    expect(deserializePracticeSession(serializePracticeSession({ ...workspace, runCaseDraftVersion: 1, runCaseDrafts: [] })))
+      .toMatchObject({ runCaseDraftVersion: 1, runCaseDrafts: [], codeChecked: false, completed: false });
+    for (const invalid of [
+      { runCaseDrafts: extra.runCaseDrafts }, { runCaseDraftVersion: 2, runCaseDrafts: [] },
+      { runCaseDraftVersion: 1 }, { runCaseDraftVersion: 1, runCaseDrafts: [{ id: 'x', input: 1, expected: '' }] },
+      { runCaseDraftVersion: 1, runCaseDrafts: [...extra.runCaseDrafts, ...extra.runCaseDrafts] },
+      { runCaseDraftVersion: 1, runCaseDrafts: [{ ...extra.runCaseDrafts[0], source: 'unexpected' }] },
+      { runCaseDraftVersion: 1, runCaseDrafts: [{ ...extra.runCaseDrafts[0], input: 'x'.repeat(4_001) }] },
+    ]) expect(deserializePracticeSession(JSON.stringify({ ...workspace, ...invalid }))).toBeNull();
   });
 
   it("round-trips a practice session snapshot", () => {

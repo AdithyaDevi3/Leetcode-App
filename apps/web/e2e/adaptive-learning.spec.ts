@@ -72,7 +72,8 @@ async function connectSelections(page: Page, state: Model) {
   const selections = { requests: [] as LearningRecommendationRequest[], receipts: new Map<string, LearningRecommendationReceipt>(),
     reply: 'ok' as 'ok' | 'lost' | 'missing' | 'mismatch' | 'owner' | 'foreign' | 'stale' };
   await connect(page, state);
-  await page.route('**/practice?problem=*', route => route.fulfill({ contentType: 'text/html', body: '<h1>Practice destination</h1>' }));
+  await page.route('**/api/practice/owner', route => route.fulfill({ json: { owner: { kind: 'guest', id: 'adaptive-destination' } } }));
+  await page.route('**/api/practice/sessions**', route => route.fulfill({ status: 503, json: { error: 'offline practice fixture' } }));
   await page.route('**/api/learner/learning/recommendations', async route => {
     const owner = route.request().headers()['x-learning-owner'];
     expect(owner).toBe(first);
@@ -107,8 +108,10 @@ test('recommendation viewing and plan refresh do not record choices; an explicit
   await page.getByRole('button', { name: 'Refresh plan', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Recommended algorithms', exact: true })).toBeVisible();
   expect(selections.requests).toHaveLength(0);
+  await page.evaluate(() => { document.documentElement.dataset.recommendationNavigation = 'same-document'; });
   await page.getByRole('link', { name: 'Start Pair With Target', exact: true }).click();
   await expect(page).toHaveURL(/\/practice\?problem=pair-with-target-v1$/);
+  await expect(page.locator('html')).toHaveAttribute('data-recommendation-navigation', 'same-document');
   expect(selections.requests).toHaveLength(1); expect(selections.receipts.size).toBe(1);
   expect(selections.requests[0]).toMatchObject({ practiceId: 'pair-with-target-v1', expectedDecisionKey: 'a'.repeat(64) });
   expect(await page.evaluate(key => sessionStorage.getItem(key), selectionCacheKey)).toBeNull();

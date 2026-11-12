@@ -26,7 +26,7 @@ import { GET as READ } from '@/app/api/learner/diagnostics/[diagnosticId]/route'
 import { POST as SAVE } from '@/app/api/learner/diagnostics/[diagnosticId]/answers/route';
 import { POST as SUBMIT } from '@/app/api/learner/diagnostics/[diagnosticId]/submissions/route';
 import { getDiagnosticQuestionVersions } from './diagnostic-catalog.server';
-import { practiceItems } from './content';
+import { questionBankPracticeItems } from './content';
 
 const owner = '11111111-1111-4111-8111-111111111111';
 const otherOwner = '22222222-2222-4222-8222-222222222222';
@@ -72,7 +72,7 @@ describe('personal diagnostic HTTP authorization and persistence', () => {
     expect(response.status).toBe(200); privateResponse(response);
     expect(await response.json()).toEqual({ learnerId: owner, current: view(), history: [] });
     expect(mocks.session).toHaveBeenCalledWith({ failOnAuthError: true });
-    expect(mocks.construct).toHaveBeenCalledWith(expect.anything(), owner, { questions: pool, activityIds: practiceItems.map(item => item.id) });
+    expect(mocks.construct).toHaveBeenCalledWith(expect.anything(), owner, { questions: pool, activityIds: questionBankPracticeItems.map(item => item.id) });
     expect(mocks.list).toHaveBeenCalledOnce(); expect(mocks.start).not.toHaveBeenCalled();
     expect(mocks.close).toHaveBeenCalledOnce();
   });

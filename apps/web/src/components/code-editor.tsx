@@ -33,7 +33,7 @@ export function CodeEditor({ value, onChange, language, label, editorKey, disabl
   const [ready, setReady] = useState(false);
   const [loadFailed, setLoadFailed] = useState(false);
   const [indentOverride, setIndentOverride] = useState<number | null>(null);
-  const indentSize = indentOverride ?? (language === 'python' ? 4 : 2);
+  const indentSize = indentOverride ?? (language === 'python' || language === 'java' ? 4 : 2);
   const [wrap, setWrap] = useState(true);
   const [fontSize, setFontSize] = useState(14);
   const [position, setPosition] = useState({ line: 1, column: 1 });

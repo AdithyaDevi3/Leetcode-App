@@ -55,6 +55,7 @@ export function writePracticeCache(contentId: string, scope: string, cache: Prac
 export const samePracticeWork = (a: PracticeSessionState | null, b: PracticeSessionState | null) => {
   if (a?.draft !== b?.draft || a?.code !== b?.code || a?.language !== b?.language || a?.mode !== b?.mode) return false;
   if (!a || !b) return a === b;
+  if (JSON.stringify(a.runCaseDrafts) !== JSON.stringify(b.runCaseDrafts)) return false;
   const first = practiceCodeDrafts(a);
   const second = practiceCodeDrafts(b);
   return codingLanguages.every(({ value }) => first[value] === second[value]);

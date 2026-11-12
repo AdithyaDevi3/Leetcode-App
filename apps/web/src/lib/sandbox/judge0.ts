@@ -10,11 +10,13 @@ export function createJudge0Sandbox(config: Judge0Config) {
     async execute(request: ExecutionRequest): Promise<ExecutionResult> {
       const policyErrors = validateExecutionPolicy(request);
       if (policyErrors.length) throw new Error(policyErrors.join('; '));
+      const languageId = config.languageIds[request.language];
+      if (!Number.isInteger(languageId) || languageId <= 0) throw new Error('Sandbox language is not configured');
       const response = await fetcher(`${config.endpoint.replace(/\/$/, '')}/submissions?base64_encoded=false&wait=true`, {
         method: 'POST',
         signal: AbortSignal.timeout(request.limits.timeoutMs + 10_000),
         headers: { 'Content-Type': 'application/json', 'X-Auth-Token': config.token },
-        body: JSON.stringify({ source_code: request.source, stdin: request.stdin ?? '', language_id: config.languageIds[request.language], cpu_time_limit: request.limits.timeoutMs / 1000, memory_limit: request.limits.memoryMb * 1024, max_file_size: Math.ceil(request.limits.outputBytes / 1024) }),
+        body: JSON.stringify({ source_code: request.source, stdin: request.stdin ?? '', language_id: languageId, cpu_time_limit: request.limits.timeoutMs / 1000, memory_limit: request.limits.memoryMb * 1024, max_file_size: Math.ceil(request.limits.outputBytes / 1024) }),
       });
       if (!response.ok) throw new Error(`Sandbox request failed with status ${response.status}`);
       const result = await response.json() as Judge0Response;

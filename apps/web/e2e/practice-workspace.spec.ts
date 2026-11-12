@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { defaultPracticeItem } from '../src/lib/content';
+import { localPracticeHistoryKey } from '../src/lib/local-practice-history';
 
 const workspaceEditor = (page: Page, label: string) => page.locator('[data-editor-ready="true"]').getByRole('textbox', { name: label, exact: true });
 async function expectEditorSource(page: Page, label: string, expected: string | RegExp) {
@@ -78,7 +79,7 @@ test('reload restores verification even when both browser result saves are missi
   await page.goto(assignedPracticePath);
   await expectEditorSource(page, 'Python implementation', verifiedSource);
   await expect.poll(() => page.evaluate(() => localStorage.getItem('method:user:verification-learner:pair-with-target-v1:remote-session'))).toBe('session-verified');
-  await page.getByRole('button', { name: 'Run verified tests', exact: true }).click();
+  await page.getByRole('button', { name: 'Submit', exact: true }).click();
   await expect(page.locator('.grader-state')).toHaveText('Passed');
   await page.reload();
   await expectEditorSource(page, 'Python implementation', verifiedSource);
@@ -95,10 +96,10 @@ test('account verification preserves a newer local draft and does not grade its 
   await openStage(page, 'approach');
   await expectEditorSource(page, 'Pseudocode draft', 'Keep this newer local reasoning.');
   await openStage(page, 'code');
-  await expect(page.locator('.grader-state')).toHaveText('Not run');
+  await expect(page.locator('.grader-state')).toHaveText('Not submitted');
 });
 
-test('a verification response cannot mark code edited during the run as passed', async ({ page }) => {
+test('a verification response cannot mark code edited during submission as passed', async ({ page }) => {
   await mockOwnedPractice(page, {});
   let release!: () => void;
   const responseReady = new Promise<void>(resolve => { release = resolve; });
@@ -109,13 +110,16 @@ test('a verification response cannot mark code edited during the run as passed',
   await page.goto(assignedPracticePath);
   await workspaceEditor(page, 'Python implementation').fill(verifiedSource);
   await expect(page.getByRole('button', { name: 'Practice save status: Saved to server', exact: true })).toBeVisible();
-  await page.getByRole('button', { name: 'Run verified tests', exact: true }).click();
-  await expect(page.getByRole('button', { name: 'Running verified tests…' })).toBeVisible();
+  await page.getByRole('button', { name: 'Submit', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Submitting…', exact: true })).toBeDisabled();
   await workspaceEditor(page, 'Python implementation').fill(editedSource);
+  const finished = page.waitForResponse('**/api/practice/sessions/*/verify');
   release();
-  await expect(page.getByText('The earlier submission finished. Run your edited code to verify it.')).toBeVisible();
+  await finished;
   await expectEditorSource(page, 'Python implementation', editedSource);
-  await expect(page.locator('.grader-state')).toHaveText('Not run');
+  await expect(page.locator('.grader-state')).toHaveText('Not submitted');
+  await expect(page.getByRole('button', { name: 'Submit', exact: true })).toBeEnabled();
+  await expect(page.getByText('Verified: all 4 hidden tests passed.', { exact: true })).toHaveCount(0);
 });
 
 async function openHydratedWorkspace(page: Page) {
@@ -268,6 +272,8 @@ test('a delayed remote load cannot overwrite work typed while it was loading', a
   release();
   await expect(page.getByRole('alert', { name: 'Resolve practice conflict' })).toBeVisible();
   await expectEditorSource(page, 'Pseudocode draft', 'New plan typed before the server responded.');
+  await page.getByText('View server copy', { exact: true }).click();
+  await expect(page.getByRole('alert', { name: 'Resolve practice conflict' })).toContainText('Existing account plan.');
   expect(writes).toBe(0);
 });
 
@@ -346,7 +352,7 @@ test('another tab cannot silently advance the base of an unsaved local edit', as
   await other.close();
 });
 
-test('home practice button performs a document navigation into the workspace', async ({ page }) => {
+test('home practice button opens the workspace without reloading the document', async ({ page }) => {
   await page.goto('/');
 
   const practiceLink = page.getByRole('link', { name: 'Start a practice session' });
@@ -355,12 +361,10 @@ test('home practice button performs a document navigation into the workspace', a
     document.documentElement.dataset.navigationSentinel = 'old-document';
   });
 
-  const navigation = page.waitForEvent('framenavigated');
   await practiceLink.click();
-  await navigation;
 
   await expect(page).toHaveURL(/\/practice$/);
-  await expect(page.locator('html')).not.toHaveAttribute('data-navigation-sentinel');
+  await expect(page.locator('html')).toHaveAttribute('data-navigation-sentinel', 'old-document');
   await expect(
     page.getByRole('heading', { level: 1, name: defaultPracticeItem.problem.title }),
   ).toBeVisible();
@@ -382,7 +386,7 @@ test('assigned task can be submitted from its practice workspace', async ({ page
   await expect(page.getByText('Assignment coding is open')).toBeVisible();
   await openStage(page, 'code');
   await expect(workspaceEditor(page, 'Python implementation')).toBeEnabled();
-  await expect(page.getByRole('button', { name: /Run verified tests/i })).toBeEnabled();
+  await expect(page.getByRole('button', { name: 'Submit', exact: true })).toBeEnabled();
   await page.getByRole('button', { name: 'Submit assigned task' }).click();
 
   await expect(page.getByRole('status').filter({ hasText: 'added to your instructor’s class review inbox' })).toBeVisible();
@@ -557,7 +561,7 @@ test('guest can insert the example answer and pass the reasoning check', async (
 
   await expect(page.getByText('Implementation unlocked')).toBeVisible();
   await openStage(page, 'code');
-  await expect(page.getByRole('button', { name: /Run verified tests/i })).toBeEnabled();
+  await expect(page.getByRole('button', { name: 'Submit', exact: true })).toBeEnabled();
 
   await page.getByRole('button', { name: /TypeScript Node\.js/ }).click();
   await workspaceEditor(page, 'TypeScript implementation').fill(`function findPair(values: number[], target: number) {
@@ -597,9 +601,14 @@ test('guest can insert the example answer and pass the reasoning check', async (
       return originalFetch(input, init);
     };
   });
-  await page.getByRole('button', { name: /Run verified tests/i }).click();
+  await page.getByRole('button', { name: 'Submit', exact: true }).click();
 
-  await expect(page.getByText('Verified and saved to your local progress.')).toBeVisible();
+  await expect(page.getByText('Verified: all 4 hidden tests passed.', { exact: true })).toBeVisible();
+  await expect(page.locator('.grader-state')).toHaveText('Passed');
+  await expect.poll(() => page.evaluate(key => {
+    const history = JSON.parse(localStorage.getItem(key) ?? '[]') as Array<{ practiceItemId: string }>;
+    return history.filter(item => item.practiceItemId === 'pair-with-target-v1').length;
+  }, localPracticeHistoryKey)).toBe(1);
 });
 
 test('guest draft resumes after reload', async ({ page }) => {
@@ -690,7 +699,7 @@ test('unavailable execution never records an unverified completion', async ({ pa
       ? new Response(JSON.stringify({ error: 'Verified execution is unavailable' }), { status: 503, headers: { 'Content-Type': 'application/json' } })
       : new Response('', { status: 401 });
   });
-  await page.getByRole('button', { name: /Run verified tests/i }).click();
+  await page.getByRole('button', { name: 'Submit', exact: true }).click();
 
   await expect(page.getByText(/Verified execution is not enabled/)).toBeVisible();
   await expect(page.getByText('Verified and saved to your local progress.')).toHaveCount(0);

@@ -8,6 +8,7 @@ import { PostgresClassroomRepository } from '../src/repositories/classroom.repos
 import { ASSIGNMENT_VERIFIER_VERSION, PostgresGradebookRepository } from '../src/repositories/gradebook.repository.js';
 import { PostgresGradebookVerificationRepository } from '../src/repositories/gradebook-verification.repository.js';
 import { prepareSupabaseTestDatabase } from './support/supabase.js';
+import * as javaVerificationMigration from '../migrations/1794189755877_java-assignment-verification.js';
 
 let container: StartedTestContainer;
 let database: DatabaseClient;
@@ -58,6 +59,14 @@ async function fixture(mode: 'verified' | 'reviewed' = 'verified', closesAt: Dat
   return { instructorId, learnerId, classroom, policy, recipientId, instructor, learner, submit };
 }
 
+async function applyLanguageMigration(direction: 'up' | 'down') {
+  const statements: string[] = [];
+  await javaVerificationMigration[direction]({ sql: (statement: string) => statements.push(statement) } as never);
+  await database.transaction(async client => {
+    for (const statement of statements) await client.query(statement);
+  });
+}
+
 describe('assignment verification persistence', () => {
   it('rejects a verified policy whose adapter is not implemented', async () => {
     await expect(fixture('verified', null, 'suite-v7')).rejects.toThrow('supported pinned stdin/stdout suite');
@@ -79,6 +88,69 @@ describe('assignment verification persistence', () => {
     expect(jobs.rows[0]).toMatchObject({ learner_id: f.learnerId, verifier_version_id: ASSIGNMENT_VERIFIER_VERSION, language: 'python', source: 'print("ok")', pinned_tests: pinnedTests, status: 'queued', attempts: 0 });
     const events = await database.query('SELECT status,reason FROM gradebook_verification_events WHERE verification_job_id=$1', [first.verificationJobId]);
     expect(events.rows).toEqual([{ status: 'queued', reason: 'assignment-submitted' }]);
+  });
+
+  it('persists, claims and grades a Java assignment without changing its immutable source or auto-releasing it', async () => {
+    const f = await fixture();
+    const source = 'public class Main { public static void main(String[] args) { System.out.println("ok"); } }';
+    const command = { recipientId: f.recipientId, policyVersionId: f.policy.versionId,
+      response: { text: source, language: 'java' }, requestKey: randomUUID() };
+    const attempt = await f.learner.submitAttempt(command);
+    await expect(f.learner.submitAttempt(command)).resolves.toEqual(attempt);
+    const verifier = new PostgresGradebookVerificationRepository(database);
+    const job = await verifier.claimNext();
+    expect(job).toMatchObject({ id: attempt.verificationJobId, attemptId: attempt.id, language: 'java', source, pinnedTests });
+    await expect(database.query("UPDATE gradebook_verification_jobs SET language='python' WHERE id=$1", [job!.id]))
+      .rejects.toMatchObject({ code: '23514' });
+    await expect(database.query('UPDATE gradebook_verification_jobs SET source=$1 WHERE id=$2', ['different source', job!.id]))
+      .rejects.toMatchObject({ code: '23514' });
+    const gradeId = await verifier.resolve({ jobId: job!.id, leaseToken: job!.leaseToken, outcome: 'passed',
+      summary: { passedTests: 2, totalTests: 2, durationMs: 25 } });
+    expect(gradeId).toBeTruthy();
+    expect((await database.query('SELECT attempt_id,verification_job_id,earned_units,authored_by FROM gradebook_grade_revisions WHERE id=$1', [gradeId])).rows[0])
+      .toMatchObject({ attempt_id: attempt.id, verification_job_id: job!.id, earned_units: '1000', authored_by: null });
+    expect((await database.query('SELECT id FROM gradebook_publications')).rows).toEqual([]);
+    expect((await database.query('SELECT language,source FROM gradebook_verification_jobs WHERE id=$1', [job!.id])).rows[0])
+      .toEqual({ language: 'java', source });
+  });
+
+  it('rejects an unsupported assignment language without retaining a partial attempt or job', async () => {
+    const f = await fixture();
+    await expect(f.learner.submitAttempt({ recipientId: f.recipientId, policyVersionId: f.policy.versionId,
+      response: { text: 'console.log("ok")', language: 'javascript' }, requestKey: randomUUID() }))
+      .rejects.toThrow('Verified submissions require a supported language');
+    for (const table of ['gradebook_attempts', 'gradebook_verification_jobs', 'gradebook_verification_events']) {
+      expect((await database.query(`SELECT id FROM ${table}`)).rows).toEqual([]);
+    }
+  });
+
+  it('reverses the additive language constraint without changing an existing non-Java job', async () => {
+    const f = await fixture();
+    const attempt = await f.submit();
+    const before = (await database.query('SELECT * FROM gradebook_verification_jobs WHERE id=$1', [attempt.verificationJobId])).rows;
+    try {
+      await applyLanguageMigration('down');
+      await expect(f.learner.submitAttempt({ recipientId: f.recipientId, policyVersionId: f.policy.versionId,
+        response: { text: 'public class Main {}', language: 'java' }, requestKey: randomUUID() }))
+        .rejects.toMatchObject({ code: '23514', constraint: 'gradebook_verification_jobs_language_check' });
+      expect((await database.query('SELECT * FROM gradebook_verification_jobs WHERE id=$1', [attempt.verificationJobId])).rows).toEqual(before);
+      expect((await database.query('SELECT id FROM gradebook_attempts')).rows).toEqual([{ id: attempt.id }]);
+    } finally {
+      await applyLanguageMigration('up');
+    }
+  });
+
+  it('refuses to roll back Java support while Java verification evidence exists', async () => {
+    const f = await fixture();
+    const attempt = await f.learner.submitAttempt({ recipientId: f.recipientId, policyVersionId: f.policy.versionId,
+      response: { text: 'public class Main {}', language: 'java' }, requestKey: randomUUID() });
+    await expect(applyLanguageMigration('down')).rejects.toMatchObject({ code: '23514', constraint: 'gradebook_verification_jobs_language_check' });
+    expect((await database.query('SELECT language FROM gradebook_verification_jobs WHERE id=$1', [attempt.verificationJobId])).rows)
+      .toEqual([{ language: 'java' }]);
+    // Failed rollback is transactional: another Java attempt remains admissible.
+    const next = await f.learner.submitAttempt({ recipientId: f.recipientId, policyVersionId: f.policy.versionId,
+      response: { text: 'public class Main { }', language: 'java' }, requestKey: randomUUID() });
+    expect(next.id).not.toBe(attempt.id);
   });
 
   it('reports aggregate queue health without exposing job payloads', async () => {

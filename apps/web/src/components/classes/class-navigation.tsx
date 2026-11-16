@@ -18,10 +18,10 @@ function Navigation({ classId, workspace }: { classId: string; workspace: ClassP
   const base = learner ? `/classes/${classId}` : workspace === 'teach' ? `/teach/${classId}` : `/admin/classes/${classId}`;
   const links = learner ? [
     ['Overview', base], ['Assignments', `${base}/assignments`], ['My grades', `${base}/grades`],
-    ['Announcements', `${base}/announcements`], ['Class results', `${base}/results`], ['People', `${base}/people`],
+    ['Announcements', `${base}/announcements`], ['Rooms', `${base}/rooms`], ['Class results', `${base}/results`], ['People', `${base}/people`],
   ] : [
     ['Overview', base], ['Assignments', `${base}?view=assignments`], ['Grades', `${base}/${workspace === 'teach' ? 'gradebook' : 'grades'}`],
-    ['Announcements', `${base}/announcements`], ['People', `${base}?view=people`], ['Insights', `${base}/insights`],
+    ['Announcements', `${base}/announcements`], ['Rooms', `${base}/rooms`], ['People', `${base}?view=people`], ['Insights', `${base}/insights`],
   ];
   const active = (href: string, label: string) => {
     if (label === 'Assignments' && (path.startsWith(`${base}/written`) || !learner && path.startsWith(`${base}/assessments`))) return true;

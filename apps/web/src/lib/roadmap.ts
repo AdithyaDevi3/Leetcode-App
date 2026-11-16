@@ -40,6 +40,35 @@ export const roadmapTopics: { id: RoadmapTopic; track: RoadmapTrack; title: stri
 
 export const roadmapLevels: PracticeDifficulty[] = ['foundation', 'intermediate', 'advanced'];
 
+export type CodingRoadmapNode = Readonly<{
+  id: string;
+  title: string;
+  questionCount: number;
+  prerequisites: readonly string[];
+}>;
+
+/** Original topic sequence for the planned personal coding catalog. */
+export const codingRoadmapNodes: readonly CodingRoadmapNode[] = Object.freeze([
+  { id: 'arrays-hashing', title: 'Arrays and hashing', questionCount: 22, prerequisites: [] },
+  { id: 'two-pointers', title: 'Two pointers', questionCount: 13, prerequisites: ['arrays-hashing'] },
+  { id: 'stacks', title: 'Stacks', questionCount: 14, prerequisites: ['arrays-hashing'] },
+  { id: 'binary-search', title: 'Binary search', questionCount: 14, prerequisites: ['two-pointers'] },
+  { id: 'sliding-window', title: 'Sliding window', questionCount: 9, prerequisites: ['two-pointers'] },
+  { id: 'linked-lists', title: 'Linked lists', questionCount: 14, prerequisites: ['two-pointers'] },
+  { id: 'trees', title: 'Trees', questionCount: 23, prerequisites: ['linked-lists', 'stacks'] },
+  { id: 'tries', title: 'Tries', questionCount: 4, prerequisites: ['trees'] },
+  { id: 'backtracking', title: 'Backtracking', questionCount: 17, prerequisites: ['trees'] },
+  { id: 'heaps', title: 'Heaps and priority queues', questionCount: 12, prerequisites: ['trees'] },
+  { id: 'graphs', title: 'Graphs', questionCount: 21, prerequisites: ['trees', 'heaps'] },
+  { id: 'dynamic-programming-1d', title: 'One-dimensional dynamic programming', questionCount: 17, prerequisites: ['backtracking'] },
+  { id: 'intervals', title: 'Intervals', questionCount: 7, prerequisites: ['heaps'] },
+  { id: 'greedy', title: 'Greedy', questionCount: 14, prerequisites: ['intervals', 'heaps'] },
+  { id: 'advanced-graphs', title: 'Advanced graphs', questionCount: 10, prerequisites: ['graphs'] },
+  { id: 'dynamic-programming-2d', title: 'Two-dimensional dynamic programming', questionCount: 16, prerequisites: ['graphs', 'dynamic-programming-1d'] },
+  { id: 'bit-manipulation', title: 'Bit manipulation', questionCount: 10, prerequisites: ['dynamic-programming-2d'] },
+  { id: 'math-geometry', title: 'Math and geometry', questionCount: 13, prerequisites: ['bit-manipulation'] },
+]);
+
 export const roadmapQuestions: RoadmapQuestion[] = [
   { track: 'algorithms', id: 'hash-pair', topic: 'hashing', level: 'foundation', title: 'Pair with target', prompt: 'Given an unsorted list and a target, find two distinct positions whose values sum to the target.', example: '[4, 7, 1, 9], target 8 → positions 1 and 2', focus: 'Explain the lookup, its order, an edge case, and the cost.', practiceItemId: 'pair-with-target-v1', approach: [/map|dictionary|hash/i, /target\s*(?:minus|-)\s*(?:the\s+)?(?:current\s+)?value|complement/i, /(?:check|look\s*up|find)[\s\S]*(?:before|then)[\s\S]*(?:store|insert|add)|(?:check|look\s*up|find)[\s\S]*(?:map|dictionary)/i], edgeCase: [/same (?:index|position|element)|distinct|duplicate/i], complexity: [/O\(n\)/i, /O\(n\)\s*(?:extra\s+)?(?:space|memory)|space[\s\S]*O\(n\)/i] },
   { track: 'algorithms', id: 'hash-unique', topic: 'hashing', level: 'intermediate', title: 'First unique value', prompt: 'Return the first position whose value occurs exactly once, or -1 if none exists.', example: '[9, 4, 9, 6, 4] → 3', focus: 'Show how counting and original order work together.', practiceItemId: 'first-unique-index-v1', approach: [/map|dictionary|frequency|count/i, /(?:second|again|another|two)[\s\S]*(?:pass|scan|loop)|(?:count|frequenc)[\s\S]*(?:then|after)[\s\S]*(?:scan|iterate)/i], edgeCase: [/no (?:unique|single)|none|-1/i], complexity: [/O\(n\)/i] },

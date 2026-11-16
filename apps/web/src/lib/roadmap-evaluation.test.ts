@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { evaluateRoadmapAnswer } from './roadmap-evaluation';
-import { findRoadmapQuestion, roadmapQuestions, roadmapTopics } from './roadmap';
+import { codingRoadmapNodes, findRoadmapQuestion, roadmapQuestions, roadmapTopics } from './roadmap';
 
 describe('roadmap curriculum', () => {
   it('provides one question at each level for every topic', () => {
@@ -13,6 +13,17 @@ describe('roadmap curriculum', () => {
       expect(question.approach.length).toBeGreaterThan(0);
       expect(question.edgeCase.length).toBeGreaterThan(0);
       expect(question.complexity.length).toBeGreaterThan(0);
+    }
+  });
+
+  it('keeps the original coding skill map complete and connected', () => {
+    expect(codingRoadmapNodes).toHaveLength(18);
+    expect(codingRoadmapNodes.reduce((total, node) => total + node.questionCount, 0)).toBe(250);
+    expect(new Set(codingRoadmapNodes.map(node => node.id)).size).toBe(codingRoadmapNodes.length);
+    const ids = new Set(codingRoadmapNodes.map(node => node.id));
+    for (const node of codingRoadmapNodes) {
+      expect(node.questionCount).toBeGreaterThan(0);
+      expect(node.prerequisites.every(id => ids.has(id) && id !== node.id)).toBe(true);
     }
   });
 

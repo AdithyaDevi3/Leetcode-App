@@ -2,7 +2,8 @@
 
 This guide describes current application behavior. Development requirements and
 release rules are in [conventions](CONVENTIONS.md); trust boundaries are in
-[architecture](ARCHITECTURE.md).
+ [architecture](ARCHITECTURE.md). For production route and role guidance, see
+ [Production feature access](PRODUCTION_FEATURE_ACCESS.md).
 
 ## Local setup
 
@@ -69,8 +70,10 @@ is also expected in the default setup.
 
 - Use /practice for structured-English or block-style reasoning, feedback, and
   optional Python 3, C++20, or TypeScript verification.
-- Use /roadmap for the algorithm and system-design analysis catalog. Only entries
-  connected to a coding activity offer verified code practice.
+- Use /roadmap for the typed question browser and original skill map. The list
+  labels coding concepts and system-design prompts separately. Select
+  **Customize my weekly plan** to take the skills check before recommendations.
+  Only entries connected to a coding activity offer verified code practice.
 - Use /onboarding and /settings for preferences, /dashboard for recommendations
   and due reviews, and /history for prior practice.
 - Use /diagnostic for an optional signed-in, ten-question skills check.

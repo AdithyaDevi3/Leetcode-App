@@ -655,7 +655,11 @@ function OwnedPracticeWorkspace({ scope, assignmentRecipientId }: { scope: strin
             <label className="workbench-picker"><span className="sr-only">Practice activity</span><select aria-label="Practice activity" disabled={Boolean(activeAssignmentRecipientId) || movingOn} value={activePracticeItem.id} onChange={event => void switchPracticeItem(event.target.value)}>{practiceItems.map((item, index) => <option key={item.id} value={item.id}>{index + 1}. {item.label}</option>)}</select></label>
           </div>
           <div className="top-actions">
-            <PracticeSaveStatus key={activePracticeItem.id} label={savedAt} status={syncStatus} scope={scope} onRetry={persistence.retry} />
+            <PracticeSaveStatus key={activePracticeItem.id} label={savedAt} status={syncStatus} scope={scope} onRetry={persistence.retry} recoveryActions={[
+              ...(persistence.recovery ? [{ id: 'recovery', label: 'Restore recovery copy', description: 'Restore the earlier browser copy. Your current draft stays available for recovery.', onRestore: () => persistence.restoreCopy(persistence.recovery!), disabled: syncStatus === 'saving' || Boolean(persistence.conflict) }] : []),
+              ...(persistence.legacy ? [{ id: 'legacy', label: 'Import older browser draft', description: 'This draft predates account-specific storage. Import it only if it belongs to you.', onRestore: () => persistence.restoreCopy(persistence.legacy!), disabled: syncStatus === 'saving' || Boolean(persistence.conflict) }] : []),
+              ...(persistence.deviceDraft ? [{ id: 'device', label: 'Import offline draft', description: 'This draft was created while the account connection was unavailable.', onRestore: () => persistence.restoreCopy(persistence.deviceDraft!), disabled: syncStatus === 'saving' || Boolean(persistence.conflict) }] : []),
+            ]} />
             <span className="workbench-timer" aria-label="Time this visit"><Clock3 size={14} />{formatElapsed(elapsedSeconds)}</span>
             <Link className="avatar" href={viewer ? '/settings' : '/auth'} aria-label={viewer ? `${viewer.displayName || 'Learner'} account` : 'Sign in'}>{initialsFor(viewer?.displayName || viewer?.email)}</Link>
             <details className="workbench-menu"><summary>More</summary><nav aria-label="Workspace links"><Link href="/dashboard">Dashboard</Link><Link href="/learn">Learning plan</Link><Link href="/system-design">System design</Link><Link href="/classes">Classes</Link><Link href="/teach">Instructor workspace</Link><Link href="/history">History</Link><Link href="/library">Library</Link><Link href="/settings">Settings</Link><Link href="/onboarding">Learning goals</Link><Link href="/requests">Feedback</Link>{viewer?.canAccessAdministration ? <Link href="/admin">Administration</Link> : null}</nav></details>
@@ -675,21 +679,6 @@ function OwnedPracticeWorkspace({ scope, assignmentRecipientId }: { scope: strin
             </div>
             <details className="mt-3"><summary>View server copy</summary><pre className="max-h-72 overflow-auto whitespace-pre-wrap">{persistence.conflict.state?.draft ?? persistence.conflict.draft}{'\n\n'}{persistence.conflict.state?.code}</pre></details>
           </section> : null}
-          {persistence.recovery ? <details className="mb-5 rounded-xl border border-[var(--line)] p-4">
-            <summary>Saved recovery copy</summary>
-            <pre className="max-h-72 overflow-auto whitespace-pre-wrap">{persistence.recovery.draft}{'\n\n'}{persistence.recovery.code}</pre>
-            <button className="button secondary" type="button" disabled={syncStatus === 'saving' || Boolean(persistence.conflict)} onClick={() => persistence.restoreCopy(persistence.recovery!)}>Restore recovery copy</button>
-          </details> : null}
-          {persistence.legacy ? <details className="mb-5 rounded-xl border border-[var(--line)] p-4">
-            <summary>Older draft saved in this browser</summary>
-            <p>This draft predates account-specific storage. Import it only if it belongs to you. Your current draft will be retained as a recovery copy.</p>
-            <button className="button secondary" type="button" disabled={syncStatus === 'saving' || Boolean(persistence.conflict)} onClick={() => persistence.restoreCopy(persistence.legacy!)}>Import older browser draft</button>
-          </details> : null}
-          {persistence.deviceDraft ? <details className="mb-5 rounded-xl border border-[var(--line)] p-4">
-            <summary>Offline draft from this browser</summary>
-            <p>Work created while the account connection was unavailable stays separate. Import it to continue here and retain your current draft as a recovery copy.</p>
-            <button className="button secondary" type="button" disabled={syncStatus === 'saving' || Boolean(persistence.conflict)} onClick={() => persistence.restoreCopy(persistence.deviceDraft!)}>Import offline draft</button>
-          </details> : null}
           {syncStatus === 'offline' && scope !== 'device' ? <button className="button secondary mb-5" type="button" onClick={persistence.retry}>Retry saving</button> : null}
           {syncStatus === 'conflict' && !persistence.conflict ? <button className="button secondary mb-5" type="button" onClick={persistence.retry}>Reload server copy</button> : null}
 

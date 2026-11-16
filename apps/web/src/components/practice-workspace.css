@@ -82,6 +82,11 @@
 .practice-immersive .code-editor-host .cm-scroller { overflow: auto; }
 .practice-immersive .code-editor-fallback { flex: 1; min-height: 140px; width: 100%; padding: 12px; border: 0; resize: none; background: var(--surface); color: var(--ink); font-family: var(--font-geist-mono); }
 .practice-immersive .code-editor-footer { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; flex: 0 0 auto; padding: 5px 8px; border-top: 1px solid var(--line); color: var(--muted); font-size: 10px; background: var(--surface); }
+.practice-save-recovery { display: grid; gap: 8px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); }
+.practice-save-recovery h3, .practice-save-recovery p { margin: 0; }
+.practice-save-recovery h3 { font-size: 13px; }
+.practice-save-recovery p { color: var(--muted); font-size: 12px; line-height: 1.5; }
+.practice-save-recovery > div { display: grid; gap: 4px; }
 .code-editor-help { margin-left: auto; }
 .code-editor-help summary { cursor: pointer; }
 .code-editor-help p { max-width: 380px; line-height: 1.6; }

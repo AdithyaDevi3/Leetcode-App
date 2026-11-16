@@ -4,11 +4,12 @@ import { Check, Save, X } from 'lucide-react';
 import { useEffect, useId, useRef, useState } from 'react';
 import type { PracticeSyncStatus } from '@/lib/practice-sync';
 
-export function PracticeSaveStatus({ label, status, scope, onRetry }: {
+export function PracticeSaveStatus({ label, status, scope, onRetry, recoveryActions }: {
   label: string;
   status: PracticeSyncStatus;
   scope: string;
   onRetry: () => void;
+  recoveryActions?: { id: string; label: string; description: string; onRestore: () => void; disabled?: boolean }[];
 }) {
   const [open, setOpen] = useState(false);
   const id = useId();
@@ -53,6 +54,10 @@ export function PracticeSaveStatus({ label, status, scope, onRetry }: {
         : 'Your work saves automatically as you practice. A confirmed save will appear here.'}</p>
       {scope === 'device' ? <button type="button" className="text-button" onClick={() => window.dispatchEvent(new Event('practice-owner-changed'))}>Reconnect account</button>
         : status === 'offline' ? <button type="button" className="text-button" onClick={onRetry}>Retry account save</button> : null}
+      {recoveryActions?.length ? <section className="practice-save-recovery" aria-label="Saved draft recovery">
+        <h3>Saved drafts</h3>
+        {recoveryActions.map(action => <div key={action.id}><p>{action.description}</p><button type="button" className="text-button" disabled={action.disabled} onClick={() => { action.onRestore(); close(); }}>{action.label}</button></div>)}
+      </section> : null}
     </section> : null}
   </div>;
 }

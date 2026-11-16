@@ -25,6 +25,8 @@ export * from './system-design-flow';
 export * from './notifications';
 export * from './gradebook';
 export * from './question-bank';
+export * from './interview-curriculum';
+export * from './coding-question';
 export * from './learning-evidence';
 export * from './diagnostic.js';
 export * from './class-insights.js';

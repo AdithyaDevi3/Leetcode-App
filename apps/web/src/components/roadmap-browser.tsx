@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { SiteNavigation } from '@/components/site-navigation';
-import { roadmapLevels, roadmapQuestions, roadmapTopics, type RoadmapQuestion, type RoadmapTopic, type RoadmapTrack } from '@/lib/roadmap';
+import { codingRoadmapNodes, roadmapLevels, roadmapQuestions, roadmapTopics, type RoadmapQuestion, type RoadmapTopic, type RoadmapTrack } from '@/lib/roadmap';
 import { evaluateRoadmapAnswer, type RoadmapAnswer, type RoadmapEvaluation } from '@/lib/roadmap-evaluation';
 import { readRoadmapProgress, writeRoadmapProgress, type RoadmapProgress } from '@/lib/roadmap-progress';
 
@@ -21,6 +21,7 @@ export function RoadmapBrowser() {
   const [answer, setAnswer] = useState<RoadmapAnswer>(emptyAnswer);
   const [evaluation, setEvaluation] = useState<RoadmapEvaluation | null>(null);
   const [storageError, setStorageError] = useState(false);
+  const [view, setView] = useState<'list' | 'map'>('list');
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -77,9 +78,19 @@ export function RoadmapBrowser() {
     <div className="mx-auto max-w-7xl space-y-8">
       <SiteNavigation currentPath="/roadmap" />
       <header className="grid gap-5 border-b border-[var(--line)] pb-7 md:grid-cols-[1fr_auto] md:items-end">
-        <div><p className="eyebrow">Explore by topic</p><h1 className="mt-2 text-3xl font-bold sm:text-4xl">Question roadmap</h1><p className="mt-3 max-w-2xl leading-7 text-[var(--muted)]">Browse algorithm and system design questions from foundation through advanced. Analyze the solution before moving into implementation or a full design.</p></div>
+        <div><p className="eyebrow">Personal interview practice</p><h1 className="mt-2 text-3xl font-bold sm:text-4xl">Question browser</h1><p className="mt-3 max-w-2xl leading-7 text-[var(--muted)]">Browse coding concepts and system-design prompts. Every item labels its question type. Use the skills check to build a weekly plan from the concepts that need more work.</p></div>
         <div className="rounded-xl border border-[var(--line)] bg-[var(--surface)] px-5 py-4 text-sm"><strong className="block text-2xl">{loaded ? totalReady : '…'} / {roadmapQuestions.length}</strong><span className="text-[var(--muted)]">analysis steps ready</span></div>
       </header>
+
+      <section aria-label="Question browser controls" className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[var(--line)] bg-[var(--surface)] p-3 sm:p-4">
+        <div className="flex flex-wrap gap-2" role="tablist" aria-label="Question browser view">
+          <button aria-selected={view === 'list'} className={`min-h-10 rounded-md px-4 text-sm font-bold ${view === 'list' ? 'bg-[var(--moss)] text-white' : 'border border-[var(--line)] hover:bg-[var(--moss-soft)]'}`} onClick={() => setView('list')} role="tab" type="button">Question list</button>
+          <button aria-selected={view === 'map'} className={`min-h-10 rounded-md px-4 text-sm font-bold ${view === 'map' ? 'bg-[var(--moss)] text-white' : 'border border-[var(--line)] hover:bg-[var(--moss-soft)]'}`} onClick={() => setView('map')} role="tab" type="button">Skill map</button>
+        </div>
+        <div className="flex flex-wrap gap-2"><Link className="inline-flex min-h-10 items-center rounded-md border border-[var(--line)] px-4 text-sm font-bold text-[var(--ink)] no-underline hover:bg-[var(--moss-soft)]" href="/roadmap/coding">Browse coding catalog</Link><Link className="inline-flex min-h-10 items-center rounded-md border border-[var(--moss)] px-4 text-sm font-bold text-[var(--moss)] no-underline hover:bg-[var(--moss-soft)]" href="/diagnostic">Customize my weekly plan →</Link></div>
+      </section>
+
+      {view === 'map' ? <CodingSkillMap /> : <>
 
       <div className="grid gap-7 lg:grid-cols-[17rem_minmax(0,1fr)]">
         <aside aria-label="Roadmap topics" className="space-y-2">
@@ -105,7 +116,7 @@ export function RoadmapBrowser() {
 
           <div className="grid gap-5 xl:grid-cols-[minmax(15rem,0.75fr)_minmax(0,1.25fr)]">
             <section aria-label="Roadmap questions" className="space-y-3">
-              {visibleQuestions.map((question, index) => <button aria-current={selected?.id === question.id ? 'true' : undefined} className={`w-full rounded-xl border p-4 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--moss)] ${selected?.id === question.id ? 'border-[var(--moss)] bg-[var(--moss-soft)]' : 'border-[var(--line)] bg-[var(--surface)] hover:border-[var(--moss)]'}`} key={question.id} onClick={() => openQuestion(question)} type="button"><span className="text-xs font-bold uppercase tracking-wide text-[var(--moss)]">{levelTitle[question.level]} · Step {roadmapLevels.indexOf(question.level) + 1}</span><strong className="mt-2 block text-lg">{question.title}</strong><span className="mt-2 block text-sm text-[var(--muted)]">{progress[question.id]?.ready ? 'Analysis complete ✓' : index === 0 && !loaded ? 'Loading progress…' : 'Explore question →'}</span></button>)}
+              {visibleQuestions.map((question, index) => <button aria-current={selected?.id === question.id ? 'true' : undefined} className={`grid w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 rounded-lg border px-4 py-3 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--moss)] ${selected?.id === question.id ? 'border-[var(--moss)] bg-[var(--moss-soft)]' : 'border-[var(--line)] bg-[var(--surface)] hover:border-[var(--moss)]'}`} key={question.id} onClick={() => openQuestion(question)} type="button"><span aria-label={progress[question.id]?.ready ? 'Analysis complete' : 'Not complete'} className={`size-2 rounded-full ${progress[question.id]?.ready ? 'bg-[var(--moss)]' : 'border border-[var(--muted)]'}`} /><span className="min-w-0"><strong className="block truncate text-sm">{question.title}</strong><span className="mt-1 block text-xs text-[var(--muted)]">{question.track === 'algorithms' ? 'Coding concept' : 'System-design prompt'} · {levelTitle[question.level]}</span></span><span className="text-xs font-bold text-[var(--moss)]">{progress[question.id]?.ready ? 'Ready' : index === 0 && !loaded ? '…' : 'Open'}</span></button>)}
               {visibleQuestions.length === 0 ? <p className="rounded-xl border border-[var(--line)] bg-[var(--surface)] p-5 text-sm text-[var(--muted)]">No questions match this search and level.</p> : null}
             </section>
 
@@ -126,6 +137,24 @@ export function RoadmapBrowser() {
           </div>
         </div>
       </div>
+      </>}
     </div>
   </main>;
+}
+
+function CodingSkillMap() {
+  const nodes = new Map(codingRoadmapNodes.map(node => [node.id, node]));
+  return <section aria-label="Original coding-question skill map" className="rounded-xl border border-[var(--line)] bg-[var(--surface)] p-5 sm:p-7">
+    <p className="eyebrow">Planned coding catalog</p>
+    <h2 className="mt-1 text-2xl font-bold">Original 250-question skill map</h2>
+    <p className="mt-3 max-w-3xl leading-7 text-[var(--muted)]">This is an original learning sequence. It shows prerequisite relationships and planned coding-question counts. It is not a copied third-party roadmap.</p>
+    <ol className="mt-7 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+      {codingRoadmapNodes.map((node, index) => <li className="rounded-lg border border-[var(--line)] bg-white p-4" key={node.id}>
+        <div className="flex items-start justify-between gap-3"><span className="font-mono text-xs font-bold text-[var(--moss)]">{String(index + 1).padStart(2, '0')}</span><span className="rounded-full bg-[var(--moss-soft)] px-2 py-1 text-xs font-bold text-[var(--moss)]">{node.questionCount} coding questions</span></div>
+        <h3 className="mt-3 font-bold">{node.title}</h3>
+        <p className="mt-2 text-xs leading-5 text-[var(--muted)]">{node.prerequisites.length ? `Build after: ${node.prerequisites.map(id => nodes.get(id)?.title ?? id).join(', ')}.` : 'Starting topic.'}</p>
+      </li>)}
+    </ol>
+    <p className="mt-5 text-sm text-[var(--muted)]">Take the skills check before you follow this sequence. Your weekly plan should prioritize weak concepts before later topics.</p>
+  </section>;
 }

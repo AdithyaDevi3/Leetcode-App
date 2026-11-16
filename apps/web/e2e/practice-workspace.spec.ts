@@ -283,7 +283,7 @@ test('an older unscoped draft is kept for explicit recovery and never imported i
   await page.route('**/api/practice/sessions**', route => route.fulfill({ status: 503 }));
   await openHydratedWorkspace(page);
   await expectEditorSource(page, 'Pseudocode draft', '');
-  await page.getByText('Older draft saved in this browser', { exact: true }).click();
+  await page.getByRole('button', { name: /Practice save status/ }).click();
   await page.getByRole('button', { name: 'Import older browser draft' }).click();
   await expectEditorSource(page, 'Pseudocode draft', 'Unclaimed older browser work.');
   expect(await page.evaluate(() => localStorage.getItem('method:pair-with-target-v1:session'))).toContain('Unclaimed older browser work.');

@@ -1,8 +1,11 @@
 import { SharedCodingRooms } from '@/components/classes/shared-coding-rooms';
-import { classPortalPageData } from '@/lib/class-portal-page';
+import { notFound, redirect } from 'next/navigation';
+import { readSharedCodingRoomData } from '@/lib/shared-coding-room-access';
 
 export default async function LearnerSharedCodingRoomsPage({ params }: { params: Promise<{ classId: string }> }) {
   const { classId } = await params;
-  const { classroom } = await classPortalPageData('learner', classId);
-  return <main className="px-5 py-6 sm:px-8"><div className="mx-auto max-w-6xl"><SharedCodingRooms classId={classroom.id} base={`/classes/${classroom.id}`} canCreate /></div></main>;
+  const access = await readSharedCodingRoomData(repository => repository.list(classId));
+  if (access.status === 'unauthenticated') redirect(`/auth?next=${encodeURIComponent(`/classes/${classId}/rooms`)}`);
+  if (access.status !== 'authorized') notFound();
+  return <main className="px-5 py-6 sm:px-8"><div className="mx-auto max-w-6xl"><SharedCodingRooms classId={classId} base={`/classes/${classId}`} canCreate /></div></main>;
 }

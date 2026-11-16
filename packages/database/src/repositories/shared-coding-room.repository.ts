@@ -62,6 +62,18 @@ export class PostgresSharedCodingRoomRepository {
     });
   }
 
+  /** Let an enrolled learner join an open collaboration room as an editor. */
+  async join(roomId:string):Promise<SharedCodingRoom> { roomId=uuid(roomId);
+    return this.db.transaction(async client=>{const room=(await client.query<{class_id:string;mode:SharedCodingRoomMode;status:'open'|'closed'}>('SELECT class_id,mode,status FROM shared_coding_rooms WHERE id=$1 FOR SHARE',[roomId])).rows[0];
+      if(!room||room.mode!=='collaboration'||room.status!=='open')throw new SharedCodingRoomAccessError();
+      await this.classAccess(client,room.class_id,true);
+      if(this.principal.role==='administrator')return this.readInside(client,roomId);
+      await client.query(`INSERT INTO shared_coding_room_members(room_id,user_id,role,revoked_at) VALUES($1,$2,'editor',NULL)
+        ON CONFLICT(room_id,user_id) DO NOTHING`,[roomId,this.principal.userId]);
+      return this.readInside(client,roomId);
+    });
+  }
+
   /** Revoke a non-owner member without deleting the room audit history. */
   async revoke(roomId:string,userId:string):Promise<SharedCodingRoom> { roomId=uuid(roomId);userId=uuid(userId);
     return this.db.transaction(async client=>{const access=await this.roomAccess(client,roomId,true);if((access.role!=='owner'&&this.principal.role!=='administrator')||access.status!=='open'||userId===this.principal.userId)throw new SharedCodingRoomAccessError();
@@ -118,7 +130,7 @@ export class PostgresSharedCodingRoomRepository {
     await this.classAccess(client,classId);const rows=await client.query<{id:string;class_id:string;title:string;status:'open'|'closed';mode:SharedCodingRoomMode;language:SharedCodingLanguage;revision:number}>(`
       SELECT r.id,r.class_id,r.title,r.status,r.mode,s.language,s.revision FROM shared_coding_rooms r
       JOIN LATERAL(SELECT language,revision FROM shared_coding_room_snapshots WHERE room_id=r.id ORDER BY revision DESC LIMIT 1) s ON true
-      WHERE r.class_id=$1 AND ($2::boolean OR EXISTS(SELECT 1 FROM shared_coding_room_members m WHERE m.room_id=r.id AND m.user_id=$3 AND m.revoked_at IS NULL))
+      WHERE r.class_id=$1 AND ($2::boolean OR r.mode='collaboration' AND r.status='open' OR EXISTS(SELECT 1 FROM shared_coding_room_members m WHERE m.room_id=r.id AND m.user_id=$3 AND m.revoked_at IS NULL))
       ORDER BY r.created_at DESC,r.id DESC`,[classId,this.principal.role!=='learner',this.principal.userId]);
     return rows.rows.map(row=>({id:row.id,classId:row.class_id,title:row.title,status:row.status,mode:row.mode,language:row.language,revision:row.revision}));
   }); }

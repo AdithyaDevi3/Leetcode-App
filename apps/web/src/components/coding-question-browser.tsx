@@ -31,9 +31,10 @@ export function CodingQuestionBrowser({ items, targetCount = 250 }: { items: rea
     && (difficulty === 'all' || item.difficulty === difficulty)
     && (!query.trim() || `${item.title} ${item.prompt} ${item.conceptIds.join(' ')}`.toLowerCase().includes(query.trim().toLowerCase()))
   ), [items, topic, difficulty, query]);
+  const grouped = useMemo(() => topics.map(topicId => ({ topicId, items: visible.filter(item => item.topic === topicId) })).filter(group => group.items.length), [topics, visible]);
 
-  return <main className="min-h-screen px-5 py-6 text-[var(--ink)] sm:px-8">
-    <div className="mx-auto max-w-6xl space-y-6">
+  return <main className="min-h-screen px-5 py-6 text-[var(--ink)] sm:px-8 lg:h-[calc(100dvh-3rem)] lg:min-h-0 lg:overflow-hidden">
+    <div className="mx-auto max-w-6xl space-y-6 lg:flex lg:h-full lg:min-h-0 lg:flex-col">
       <header className="grid gap-5 border-b border-[var(--line)] pb-7 md:grid-cols-[1fr_auto] md:items-end">
         <div><p className="eyebrow">Original personal curriculum</p><h1 className="mt-2 text-3xl font-bold sm:text-4xl">Coding question browser</h1><p className="mt-3 max-w-3xl leading-7 text-[var(--muted)]">Every row is an original coding question. These are review-gated candidates, not copied third-party questions. The catalog will grow to {targetCount} questions before publication.</p></div>
         <div className="rounded-xl border border-[var(--line)] bg-[var(--surface)] px-5 py-4 text-sm"><strong className="block text-2xl">{items.length} / {targetCount}</strong><span className="text-[var(--muted)]">coding questions in review</span></div>
@@ -46,14 +47,14 @@ export function CodingQuestionBrowser({ items, targetCount = 250 }: { items: rea
         <Link className="inline-flex min-h-11 items-center self-end rounded-md border border-[var(--moss)] px-4 text-sm font-bold text-[var(--moss)] no-underline hover:bg-[var(--moss-soft)]" href="/diagnostic">Customize weekly plan →</Link>
       </section>
 
-      <section aria-label="Coding questions" className="overflow-hidden rounded-xl border border-[var(--line)] bg-[var(--surface)]">
+      <section aria-label="Coding questions" className="overflow-hidden rounded-xl border border-[var(--line)] bg-[var(--surface)] lg:flex lg:min-h-0 lg:flex-1 lg:flex-col">
         <div className="grid grid-cols-[minmax(0,1fr)_7rem_7rem] gap-3 border-b border-[var(--line)] bg-[#f5f5f1] px-4 py-3 text-xs font-bold uppercase tracking-wide text-[var(--muted)] sm:grid-cols-[minmax(0,1fr)_11rem_8rem_7rem]">
           <span>Coding question</span><span className="hidden sm:block">Topic</span><span>Difficulty</span><span>Time</span>
         </div>
-        <ol>{visible.map(item => <li className="grid grid-cols-[minmax(0,1fr)_7rem_7rem] gap-3 border-b border-[var(--line)] px-4 py-4 last:border-b-0 sm:grid-cols-[minmax(0,1fr)_11rem_8rem_7rem]" key={item.id}>
+        <div className="lg:min-h-0 lg:flex-1 lg:overflow-y-auto"><ol>{grouped.map(group => <li key={group.topicId}><div className="sticky top-0 z-10 flex items-center justify-between border-b border-[var(--line)] bg-[var(--paper)] px-4 py-2"><h2 className="text-sm font-bold text-[var(--ink)]">{topicLabel(group.topicId)}</h2><span className="text-xs font-bold text-[var(--muted)]">{group.items.length} questions</span></div>{group.items.map(item => <article className="grid grid-cols-[minmax(0,1fr)_7rem_7rem] gap-3 border-b border-[var(--line)] px-4 py-4 sm:grid-cols-[minmax(0,1fr)_11rem_8rem_7rem]" key={item.id}>
           <div className="min-w-0"><span className="mb-1 inline-flex rounded-full bg-[var(--moss-soft)] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[var(--moss)]">Coding question</span><h2 className="truncate font-bold">{item.title}</h2><p className="mt-1 line-clamp-2 text-sm leading-6 text-[var(--muted)]">{item.prompt}</p></div>
           <span className="hidden self-center text-sm sm:block">{topicLabel(item.topic)}</span><span className="self-center text-sm font-bold text-[var(--moss)]">{difficultyLabel[item.difficulty]}</span><span className="self-center text-sm text-[var(--muted)]">{item.estimatedMinutes} min</span>
-        </li>)}</ol>
+        </article>)}</li>)}</ol></div>
         {!visible.length ? <p className="p-5 text-sm text-[var(--muted)]">No coding questions match these filters.</p> : null}
       </section>
       <p className="text-sm leading-6 text-[var(--muted)]">Complete the skills check before you select a weekly plan. The plan should prioritize concepts with weaker answered evidence.</p>

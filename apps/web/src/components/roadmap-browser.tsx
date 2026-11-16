@@ -74,8 +74,8 @@ export function RoadmapBrowser() {
     catch { setStorageError(true); }
   };
 
-  return <main className="min-h-screen px-5 py-6 text-[var(--ink)] sm:px-8">
-    <div className="mx-auto max-w-7xl space-y-8">
+  return <main className={`min-h-screen px-5 py-6 text-[var(--ink)] sm:px-8 ${view === 'list' ? 'lg:h-[calc(100dvh-3rem)] lg:min-h-0 lg:overflow-hidden' : ''}`}>
+    <div className={`mx-auto max-w-7xl space-y-8 ${view === 'list' ? 'lg:flex lg:h-full lg:min-h-0 lg:flex-col' : ''}`}>
       <SiteNavigation currentPath="/roadmap" />
       <header className="grid gap-5 border-b border-[var(--line)] pb-7 md:grid-cols-[1fr_auto] md:items-end">
         <div><p className="eyebrow">Personal interview practice</p><h1 className="mt-2 text-3xl font-bold sm:text-4xl">Question browser</h1><p className="mt-3 max-w-2xl leading-7 text-[var(--muted)]">Browse coding concepts and system-design prompts. Every item labels its question type. Use the skills check to build a weekly plan from the concepts that need more work.</p></div>
@@ -92,8 +92,8 @@ export function RoadmapBrowser() {
 
       {view === 'map' ? <CodingSkillMap /> : <>
 
-      <div className="grid gap-7 lg:grid-cols-[17rem_minmax(0,1fr)]">
-        <aside aria-label="Roadmap topics" className="space-y-2">
+      <div className="grid gap-7 lg:min-h-0 lg:flex-1 lg:grid-cols-[17rem_minmax(0,1fr)]">
+        <aside aria-label="Roadmap topics" className="space-y-2 lg:overflow-y-auto lg:pr-2">
           <div aria-label="Question track" className="mb-5 grid grid-cols-2 gap-2">
             {(['algorithms', 'system-design'] as const).map((value) => <button aria-pressed={track === value} className={`min-h-11 rounded-md px-3 text-sm font-bold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--moss)] ${track === value ? 'bg-[var(--moss)] text-white' : 'border border-[var(--line)] bg-[var(--surface)]'}`} key={value} onClick={() => chooseTrack(value)} type="button">{value === 'algorithms' ? 'Algorithms' : 'System design'}</button>)}
           </div>
@@ -105,7 +105,7 @@ export function RoadmapBrowser() {
           })}
         </aside>
 
-        <div className="min-w-0 space-y-6">
+        <div className="min-w-0 space-y-6 lg:flex lg:min-h-0 lg:flex-col">
           <section className="rounded-xl border border-[var(--line)] bg-[var(--surface)] p-5 sm:p-6">
             <p className="eyebrow">{topic === 'all' ? 'Question catalog' : 'Topic path'}</p><h2 className="mt-1 text-2xl font-bold">{topic === 'all' ? (track === 'algorithms' ? 'All algorithm questions' : 'All system design questions') : roadmapTopics.find((item) => item.id === topic)?.title}</h2><p className="mt-2 text-[var(--muted)]">{topic === 'all' ? `Browse the complete ${track === 'algorithms' ? 'algorithm' : 'system design'} track.` : roadmapTopics.find((item) => item.id === topic)?.description} {topicProgress} of {topicQuestions.length} analyses complete.</p>
             <div aria-label="Difficulty filter" className="mt-5 flex flex-wrap gap-2">
@@ -114,13 +114,13 @@ export function RoadmapBrowser() {
             <label className="mt-4 grid gap-1.5 text-sm font-bold" htmlFor="roadmap-search">Search questions<input className="min-h-11 rounded-md border border-[var(--line)] bg-white px-3 font-normal focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--moss)]" id="roadmap-search" onChange={(event) => setQuery(event.target.value)} placeholder="Search title, prompt, or skill" type="search" value={query} /></label>
           </section>
 
-          <div className="grid gap-5 xl:grid-cols-[minmax(15rem,0.75fr)_minmax(0,1.25fr)]">
-            <section aria-label="Roadmap questions" className="space-y-3">
+          <div className="grid gap-5 xl:min-h-0 xl:flex-1 xl:grid-cols-[minmax(15rem,0.75fr)_minmax(0,1.25fr)]">
+            <section aria-label="Roadmap questions" className="space-y-3 xl:overflow-y-auto xl:pr-2">
               {visibleQuestions.map((question, index) => <button aria-current={selected?.id === question.id ? 'true' : undefined} className={`grid w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 rounded-lg border px-4 py-3 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--moss)] ${selected?.id === question.id ? 'border-[var(--moss)] bg-[var(--moss-soft)]' : 'border-[var(--line)] bg-[var(--surface)] hover:border-[var(--moss)]'}`} key={question.id} onClick={() => openQuestion(question)} type="button"><span aria-label={progress[question.id]?.ready ? 'Analysis complete' : 'Not complete'} className={`size-2 rounded-full ${progress[question.id]?.ready ? 'bg-[var(--moss)]' : 'border border-[var(--muted)]'}`} /><span className="min-w-0"><strong className="block truncate text-sm">{question.title}</strong><span className="mt-1 block text-xs text-[var(--muted)]">{question.track === 'algorithms' ? 'Coding concept' : 'System-design prompt'} · {levelTitle[question.level]}</span></span><span className="text-xs font-bold text-[var(--moss)]">{progress[question.id]?.ready ? 'Ready' : index === 0 && !loaded ? '…' : 'Open'}</span></button>)}
               {visibleQuestions.length === 0 ? <p className="rounded-xl border border-[var(--line)] bg-[var(--surface)] p-5 text-sm text-[var(--muted)]">No questions match this search and level.</p> : null}
             </section>
 
-            {selected ? <section aria-labelledby="question-heading" className="min-w-0 rounded-xl border border-[var(--line)] bg-[var(--surface)] p-5 shadow-[0_10px_30px_rgba(34,46,38,0.05)] sm:p-6">
+            {selected ? <section aria-labelledby="question-heading" className="min-w-0 rounded-xl border border-[var(--line)] bg-[var(--surface)] p-5 shadow-[0_10px_30px_rgba(34,46,38,0.05)] xl:overflow-y-auto sm:p-6">
               <p className="eyebrow">{levelTitle[selected.level]} analysis</p><h2 className="mt-1 text-2xl font-bold" id="question-heading">{selected.title}</h2>
               <p className="mt-4 leading-7">{selected.prompt}</p><div className="mt-4 rounded-lg bg-[var(--sky)] p-4 text-sm"><strong>Example</strong><p className="mt-1 font-mono">{selected.example}</p></div>
               <p className="mt-4 text-sm text-[var(--muted)]">Focus: {selected.focus}</p>

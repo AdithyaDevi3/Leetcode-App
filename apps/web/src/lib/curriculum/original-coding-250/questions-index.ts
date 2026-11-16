@@ -12,6 +12,8 @@ import { originalCoding250Batch8 } from './questions-batch-8';
 import { originalCoding250Batch9 } from './questions-batch-9';
 import { originalCoding250Batch10 } from './questions-batch-10';
 import { originalCoding250Batch11 } from './questions-batch-11';
+import { originalCoding250Batch12 } from './questions-batch-12';
+import { originalCoding250Batch13 } from './questions-batch-13';
 
 /** Unpublished original coding questions. Do not expose server checks from here. */
 export const originalCoding250Candidates: readonly OriginalCodingQuestion[] = Object.freeze([
@@ -26,6 +28,8 @@ export const originalCoding250Candidates: readonly OriginalCodingQuestion[] = Ob
   ...originalCoding250Batch9,
   ...originalCoding250Batch10,
   ...originalCoding250Batch11,
+  ...originalCoding250Batch12,
+  ...originalCoding250Batch13,
 ]);
 
 export function validateOriginalCoding250Candidates(

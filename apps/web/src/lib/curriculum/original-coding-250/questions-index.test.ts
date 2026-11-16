@@ -5,8 +5,8 @@ vi.mock('server-only', () => ({}));
 import { originalCoding250Candidates, validateOriginalCoding250Candidates } from './questions-index';
 
 describe('original coding 250 catalog', () => {
-  it('indexes the first 220 review-gated coding questions', () => {
-    expect(originalCoding250Candidates).toHaveLength(220);
+  it('indexes 250 review-gated coding questions', () => {
+    expect(originalCoding250Candidates).toHaveLength(250);
     expect(validateOriginalCoding250Candidates()).toEqual(originalCoding250Candidates);
     expect(new Set(originalCoding250Candidates.map(item => item.topic)).size).toBe(18);
   });

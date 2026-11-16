@@ -74,15 +74,15 @@ export function RoadmapBrowser() {
     catch { setStorageError(true); }
   };
 
-  return <main className={`min-h-screen px-5 py-6 text-[var(--ink)] sm:px-8 ${view === 'list' ? 'lg:h-[calc(100dvh-3rem)] lg:min-h-0 lg:overflow-hidden' : ''}`}>
-    <div className={`mx-auto max-w-7xl space-y-8 ${view === 'list' ? 'lg:flex lg:h-full lg:min-h-0 lg:flex-col' : ''}`}>
+  return <main className={`min-h-screen px-5 py-6 text-[var(--ink)] sm:px-8 ${view === 'list' ? 'lg:h-[calc(100dvh-68px)] lg:min-h-0 lg:overflow-hidden' : ''}`}>
+    <div className={`mx-auto max-w-7xl space-y-8 ${view === 'list' ? 'lg:flex lg:h-full lg:min-h-0 lg:space-y-4 lg:flex-col' : ''}`}>
       <SiteNavigation currentPath="/roadmap" />
-      <header className="grid gap-5 border-b border-[var(--line)] pb-7 md:grid-cols-[1fr_auto] md:items-end">
-        <div><p className="eyebrow">Personal interview practice</p><h1 className="mt-2 text-3xl font-bold sm:text-4xl">Question browser</h1><p className="mt-3 max-w-2xl leading-7 text-[var(--muted)]">Browse coding concepts and system-design prompts. Every item labels its question type. Use the skills check to build a weekly plan from the concepts that need more work.</p></div>
-        <div className="rounded-xl border border-[var(--line)] bg-[var(--surface)] px-5 py-4 text-sm"><strong className="block text-2xl">{loaded ? totalReady : '…'} / {roadmapQuestions.length}</strong><span className="text-[var(--muted)]">analysis steps ready</span></div>
+      <header className="grid gap-5 border-b border-[var(--line)] pb-7 md:grid-cols-[1fr_auto] md:items-end lg:gap-4 lg:pb-4">
+        <div><p className="eyebrow">Personal interview practice</p><h1 className="mt-2 text-3xl font-bold sm:text-4xl lg:text-3xl">Question browser</h1><p className="mt-3 max-w-2xl leading-7 text-[var(--muted)] lg:mt-2 lg:text-sm lg:leading-6">Browse coding concepts and system-design prompts. Every item labels its question type. Use the skills check to build a weekly plan from the concepts that need more work.</p></div>
+        <div className="rounded-xl border border-[var(--line)] bg-[var(--surface)] px-5 py-4 text-sm lg:px-4 lg:py-3"><strong className="block text-2xl lg:text-xl">{loaded ? totalReady : '…'} / {roadmapQuestions.length}</strong><span className="text-[var(--muted)]">analysis steps ready</span></div>
       </header>
 
-      <section aria-label="Question browser controls" className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[var(--line)] bg-[var(--surface)] p-3 sm:p-4">
+      <section aria-label="Question browser controls" className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[var(--line)] bg-[var(--surface)] p-3 sm:p-4 lg:gap-2 lg:p-3">
         <div className="flex flex-wrap gap-2" role="tablist" aria-label="Question browser view">
           <button aria-selected={view === 'list'} className={`min-h-10 rounded-md px-4 text-sm font-bold ${view === 'list' ? 'bg-[var(--moss)] text-white' : 'border border-[var(--line)] hover:bg-[var(--moss-soft)]'}`} onClick={() => setView('list')} role="tab" type="button">Question list</button>
           <button aria-selected={view === 'map'} className={`min-h-10 rounded-md px-4 text-sm font-bold ${view === 'map' ? 'bg-[var(--moss)] text-white' : 'border border-[var(--line)] hover:bg-[var(--moss-soft)]'}`} onClick={() => setView('map')} role="tab" type="button">Skill map</button>
@@ -92,7 +92,7 @@ export function RoadmapBrowser() {
 
       {view === 'map' ? <CodingSkillMap /> : <>
 
-      <div className="grid gap-7 lg:min-h-0 lg:flex-1 lg:grid-cols-[17rem_minmax(0,1fr)]">
+      <div className="grid gap-7 lg:min-h-0 lg:flex-1 lg:grid-cols-[17rem_minmax(0,1fr)] lg:gap-5">
         <aside aria-label="Roadmap topics" className="space-y-2 lg:overflow-y-auto lg:pr-2">
           <div aria-label="Question track" className="mb-5 grid grid-cols-2 gap-2">
             {(['algorithms', 'system-design'] as const).map((value) => <button aria-pressed={track === value} className={`min-h-11 rounded-md px-3 text-sm font-bold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--moss)] ${track === value ? 'bg-[var(--moss)] text-white' : 'border border-[var(--line)] bg-[var(--surface)]'}`} key={value} onClick={() => chooseTrack(value)} type="button">{value === 'algorithms' ? 'Algorithms' : 'System design'}</button>)}
@@ -105,13 +105,13 @@ export function RoadmapBrowser() {
           })}
         </aside>
 
-        <div className="min-w-0 space-y-6 lg:flex lg:min-h-0 lg:flex-col">
-          <section className="rounded-xl border border-[var(--line)] bg-[var(--surface)] p-5 sm:p-6">
+        <div className="min-w-0 space-y-6 lg:flex lg:min-h-0 lg:flex-col lg:space-y-4">
+          <section className="rounded-xl border border-[var(--line)] bg-[var(--surface)] p-5 sm:p-6 lg:p-4">
             <p className="eyebrow">{topic === 'all' ? 'Question catalog' : 'Topic path'}</p><h2 className="mt-1 text-2xl font-bold">{topic === 'all' ? (track === 'algorithms' ? 'All algorithm questions' : 'All system design questions') : roadmapTopics.find((item) => item.id === topic)?.title}</h2><p className="mt-2 text-[var(--muted)]">{topic === 'all' ? `Browse the complete ${track === 'algorithms' ? 'algorithm' : 'system design'} track.` : roadmapTopics.find((item) => item.id === topic)?.description} {topicProgress} of {topicQuestions.length} analyses complete.</p>
-            <div aria-label="Difficulty filter" className="mt-5 flex flex-wrap gap-2">
+            <div aria-label="Difficulty filter" className="mt-5 flex flex-wrap gap-2 lg:mt-3">
               {(['all', ...roadmapLevels] as const).map((value) => <button aria-pressed={level === value} className={`min-h-10 rounded-md px-3 text-sm font-bold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--moss)] ${level === value ? 'bg-[var(--moss)] text-white' : 'border border-[var(--line)] hover:bg-[var(--moss-soft)]'}`} key={value} onClick={() => chooseLevel(value)} type="button">{value === 'all' ? 'All levels' : levelTitle[value]}</button>)}
             </div>
-            <label className="mt-4 grid gap-1.5 text-sm font-bold" htmlFor="roadmap-search">Search questions<input className="min-h-11 rounded-md border border-[var(--line)] bg-white px-3 font-normal focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--moss)]" id="roadmap-search" onChange={(event) => setQuery(event.target.value)} placeholder="Search title, prompt, or skill" type="search" value={query} /></label>
+            <label className="mt-4 grid gap-1.5 text-sm font-bold lg:mt-3" htmlFor="roadmap-search">Search questions<input className="min-h-11 rounded-md border border-[var(--line)] bg-white px-3 font-normal focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--moss)]" id="roadmap-search" onChange={(event) => setQuery(event.target.value)} placeholder="Search title, prompt, or skill" type="search" value={query} /></label>
           </section>
 
           <div className="grid gap-5 xl:min-h-0 xl:flex-1 xl:grid-cols-[minmax(15rem,0.75fr)_minmax(0,1.25fr)]">

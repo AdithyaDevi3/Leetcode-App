@@ -311,7 +311,9 @@ h1 { line-height: 1.15; }
 .shell-pagebar a { display: flex; align-items: center; gap: 8px; color: var(--moss); text-decoration: none; }
 .shell-mobile-header, .shell-bottom-nav { display: none; }
 #page-content > main { min-height: auto; padding: 36px; }
-#page-content > main > div { max-width: 1440px; }
+/* Let learner workspaces use the available desktop width. Individual cards still
+   control their own readable line length. */
+#page-content > main > div { width: 100%; max-width: none; }
 #page-content > main > div > section:first-child, #page-content > main > div > form:first-child { margin-top: 0; }
 #page-content > main > div > header:first-child { margin-top: 0; }
 #page-content :where(input:not([type="checkbox"]), select) { min-height: 44px; border-radius: 8px; }

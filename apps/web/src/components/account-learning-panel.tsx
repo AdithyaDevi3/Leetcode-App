@@ -212,8 +212,8 @@ function OwnedLearningPanel({ learnerId }: { learnerId: string }) {
   const concepts = showAll ? snapshot.concepts : snapshot.concepts.slice(0, 6);
   const reasons = { recovery: 'Targeted practice', review: 'Due review', diagnostic: 'Diagnostic practice', broaden: 'Broaden your practice' };
 
-  return <section className="space-y-6 rounded-xl border border-[var(--line)] bg-[var(--surface)] p-5 sm:p-6" aria-label="Account learning plan">
-    <div className="flex flex-wrap items-start justify-between gap-3">
+  return <section className="space-y-6 rounded-xl border border-[var(--line)] bg-[var(--surface)] p-5 sm:p-6 lg:grid lg:grid-cols-2 lg:gap-6 lg:space-y-0" aria-label="Account learning plan">
+    <div className="flex flex-wrap items-start justify-between gap-3 lg:col-span-2">
       <div><p className="text-sm font-semibold uppercase tracking-wide text-[var(--muted)]">Account learning</p><h2 className="mt-1 text-2xl font-bold">{disabled ? 'Follow the standard curriculum' : 'Practice with a clear purpose'}</h2></div>
       <button className={secondary} disabled={busy || selection.busy} type="button" onClick={reload}>Refresh plan</button>
     </div>
@@ -222,10 +222,10 @@ function OwnedLearningPanel({ learnerId }: { learnerId: string }) {
       <ol className="space-y-3" aria-label="Standard curriculum">{practiceItems.slice(0, 3).map((item, index) => <li className="rounded-lg border border-[var(--line)] bg-white p-4" key={item.id}><p className="text-sm text-[var(--muted)]">Curriculum step {index + 1} · {item.estimatedMinutes} min</p><h3 className="mt-1 font-bold">{item.label}</h3><Link className={`${primary} mt-3`} href={hrefFor(item.id)}>Start {item.label}</Link></li>)}</ol>
       <Link className="inline-flex min-h-11 items-center font-semibold underline underline-offset-4" href="/settings">Change personalization settings</Link>
     </> : <>
-      <p className="text-sm text-[var(--muted)]">Synced across your devices from released quiz results, your skills check, and server-recorded practice verification. Estimates guide practice; your class grades stay separate.</p>
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[var(--line)] bg-white p-4"><div><h3 className="font-bold">Optional skills check</h3><p className="mt-1 text-sm text-[var(--muted)]">Ten questions to build your first concept picture. Save and resume across devices.</p></div><Link className={secondary} href="/diagnostic">Open skills check</Link></div>
+      <p className="text-sm text-[var(--muted)] lg:col-span-2">Synced across your devices from released quiz results, your skills check, and server-recorded practice verification. Estimates guide practice; your class grades stay separate.</p>
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[var(--line)] bg-white p-4 lg:col-span-2"><div><h3 className="font-bold">Optional skills check</h3><p className="mt-1 text-sm text-[var(--muted)]">Ten questions to build your first concept picture. Save and resume across devices.</p></div><Link className={secondary} href="/diagnostic">Open skills check</Link></div>
       {snapshot.processing.pending ? <p className="rounded-lg border border-[var(--line)] bg-white p-3 text-sm" role="status">Updating your account evidence. This plan reflects the evidence processed so far; refresh to check for the latest results.</p> : null}
-      <dl className="grid grid-cols-2 gap-4 rounded-lg bg-white p-4 sm:grid-cols-3" aria-label="Account evidence sources"><div><dt className="text-sm text-[var(--muted)]">Released quiz items</dt><dd className="text-2xl font-bold">{snapshot.sourceSummary.releasedQuizItems}</dd></div><div><dt className="text-sm text-[var(--muted)]">Verified practice items</dt><dd className="text-2xl font-bold">{snapshot.sourceSummary.verifiedPracticeItems}</dd></div>{snapshot.sourceSummary.diagnosticItems ? <div><dt className="text-sm text-[var(--muted)]">Skills check items</dt><dd className="text-2xl font-bold">{snapshot.sourceSummary.diagnosticItems}</dd></div> : null}<div><dt className="text-sm text-[var(--muted)]">Independent items</dt><dd className="text-2xl font-bold">{snapshot.sourceSummary.independentItems}</dd></div></dl>
+      <dl className="grid grid-cols-2 gap-4 rounded-lg bg-white p-4 sm:grid-cols-3 lg:col-span-2" aria-label="Account evidence sources"><div><dt className="text-sm text-[var(--muted)]">Released quiz items</dt><dd className="text-2xl font-bold">{snapshot.sourceSummary.releasedQuizItems}</dd></div><div><dt className="text-sm text-[var(--muted)]">Verified practice items</dt><dd className="text-2xl font-bold">{snapshot.sourceSummary.verifiedPracticeItems}</dd></div>{snapshot.sourceSummary.diagnosticItems ? <div><dt className="text-sm text-[var(--muted)]">Skills check items</dt><dd className="text-2xl font-bold">{snapshot.sourceSummary.diagnosticItems}</dd></div> : null}<div><dt className="text-sm text-[var(--muted)]">Independent items</dt><dd className="text-2xl font-bold">{snapshot.sourceSummary.independentItems}</dd></div></dl>
       <section aria-labelledby="account-concepts-heading">
         <h3 className="text-lg font-bold" id="account-concepts-heading">Your concept picture</h3>
         <p className="mt-2 text-sm text-[var(--muted)]">Limited evidence is a starting point. Different questions build confidence; repeating the same item does not count as extra coverage.</p>
@@ -247,7 +247,7 @@ function OwnedLearningPanel({ learnerId }: { learnerId: string }) {
         </li>)}</ol>
         {!plan.recommendations.length ? <p className="mt-3 text-sm">No recommended activity is available yet. <Link className="font-bold underline" href="/roadmap">Explore the question bank</Link> to choose your next practice.</p> : null}
       </section>
-      <section className="border-t border-[var(--line)] pt-5" aria-labelledby="account-reviews-heading"><h3 className="text-lg font-bold" id="account-reviews-heading">{due.length ? `${due.length} review${due.length === 1 ? '' : 's'} due` : 'Your review schedule'}</h3>
+      <section className="border-t border-[var(--line)] pt-5 lg:col-span-2" aria-labelledby="account-reviews-heading"><h3 className="text-lg font-bold" id="account-reviews-heading">{due.length ? `${due.length} review${due.length === 1 ? '' : 's'} due` : 'Your review schedule'}</h3>
         <p className="mt-2 text-sm text-[var(--muted)]">A delayed return to a concept helps check what you remember. Moving a review changes its date, not your estimate or class grade.</p>
         {due.length ? <ul className="mt-4 space-y-3" aria-label="Due concept reviews">{due.map(concept => {
           const activity = plan.recommendations.find(item => item.conceptIds.includes(concept.conceptId));
@@ -255,7 +255,7 @@ function OwnedLearningPanel({ learnerId }: { learnerId: string }) {
         })}</ul> : <p className="mt-3 text-sm">{snapshot.concepts.length ? 'You’re caught up. Reviews are scheduled from your saved account evidence.' : 'Your first trusted result will start your review schedule.'}</p>}
         {!due.length && snapshot.concepts.length ? <p className="mt-2 text-sm text-[var(--muted)]">Next review: {dateFor([...snapshot.concepts].sort((a, b) => a.reviewDueAt.localeCompare(b.reviewDueAt))[0].reviewDueAt)}.</p> : null}
       </section>
-      <p className="text-xs text-[var(--muted)]">Updated {dateFor(snapshot.generatedAt)}. Browser-only scores and manual continue actions do not change your account estimate.</p>
+      <p className="text-xs text-[var(--muted)] lg:col-span-2">Updated {dateFor(snapshot.generatedAt)}. Browser-only scores and manual continue actions do not change your account estimate.</p>
     </>}
     {message ? <p className="text-sm" role="status" aria-label="Review change status">{message}</p> : null}
     {error ? <p className="text-sm" role="alert" aria-label="Learning review error">{error}</p> : null}

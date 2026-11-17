@@ -30,6 +30,14 @@ type Rule = {
 const contains = (source: string, terms: RegExp[]) =>
   terms.some((term) => term.test(source));
 
+/** Maps common plain-English terms to the rubric vocabulary. */
+const normalizeReasoning = (draft: string) => draft
+  .replace(/hash[ -]?table|lookup[ -]?table|associative array/gi, 'map')
+  .replace(/go through|walk through|traverse|visit each/gi, 'iterate')
+  .replace(/send back|give back|output/gi, 'return')
+  .replace(/indexes/gi, 'indices')
+  .replace(/record|remember/gi, 'store');
+
 const rules: Rule[] = [
   {
     id: "state",
@@ -42,7 +50,7 @@ const rules: Rule[] = [
     id: "iteration",
     label: "Single pass",
     pass: (source) =>
-      contains(source, [/for each/i, /iterate/i, /loop/i]) &&
+      contains(source, [/for each/i, /iterate/i, /loop/i, /one pass/i, /once through/i]) &&
       !contains(source, [/use\s+(a\s+)?nested loop/i, /with\s+(a\s+)?nested loop/i, /nested loop approach/i, /every other/i, /for each[\s\S]*for each/i]),
     passDetail: "The list is traversed once rather than searched repeatedly.",
     reviseDetail: "Describe one pass over the list; avoid scanning all other values for every item.",
@@ -52,7 +60,7 @@ const rules: Rule[] = [
     label: "Complement",
     pass: (source) =>
       contains(source, [/complement/i, /needed/i, /difference/i]) &&
-      contains(source, [/target\s*(minus|-)/i, /subtract.*from target/i]),
+      contains(source, [/target\s*(minus|-)/i, /subtract.*from (?:the )?target/i, /target.*subtract/i]),
     passDetail: "You derive the exact value needed to complete the target.",
     reviseDetail: "Define a complement as target minus the current value.",
   },
@@ -60,7 +68,7 @@ const rules: Rule[] = [
     id: "lookup",
     label: "Fast lookup",
     pass: (source) =>
-      contains(source, [/exists? in (the )?map/i, /map contains/i, /look up.*map/i, /find.*map/i]),
+      contains(source, [/exists? in (the )?map/i, /map contains/i, /(?:look up|find|check|search|test).*map/i]),
     passDetail: "The complement is checked against values seen earlier.",
     reviseDetail: "Check whether the complement already exists in the map.",
   },
@@ -68,11 +76,11 @@ const rules: Rule[] = [
     id: "ordering",
     label: "Distinct positions",
     pass: (source) => {
-      const lookupAt = source.search(/exists? in (the )?map|map contains|look up.*map|find.*map/i);
+      const lookupAt = source.search(/exists? in (the )?map|map contains|(?:look up|find|check|search|test).*map/i);
       // Ignore initial map setup (for example, "create a dictionary that stores
       // values") and require the mutation that occurs after the lookup.
       const mutationAfterLookup = lookupAt >= 0
-        ? source.slice(lookupAt).search(/\b(store|insert)\b|\badd\b.*\bmap\b|\bmap\[.*\]\s*=/i)
+        ? source.slice(lookupAt).search(/\b(store|insert|record|remember)\b|\badd\b.*\bmap\b|\bmap\[.*\]\s*=/i)
         : -1;
       return lookupAt >= 0 && mutationAfterLookup > 0;
     },
@@ -98,7 +106,7 @@ const rules: Rule[] = [
 ];
 
 const pairWithTargetEvaluation = (draft: string): Evaluation => {
-  const source = draft.trim();
+  const source = normalizeReasoning(draft.trim());
   const findings = rules.map<EvaluationFinding>((rule) => {
     const passed = source.length > 0 && rule.pass(source);
     return {
@@ -126,7 +134,7 @@ const pairWithTargetEvaluation = (draft: string): Evaluation => {
 };
 
 const firstUniqueIndexEvaluation = (draft: string): Evaluation => {
-  const source = draft.trim();
+  const source = normalizeReasoning(draft.trim());
   const findings: EvaluationFinding[] = [
     {
       id: "state",
@@ -279,7 +287,7 @@ const criticalMistakes: Record<string, RegExp[]> = {
   'coin-change-lite-v1': [/greedy|first combination|largest coin first/i],
 };
 
-const instructionAttack = /ignore (?:the|all|previous|above|these)?\s*(?:evaluator|instructions|rubric|checks)|mark (?:this|it|me) (?:as )?(?:approved|correct)|always (?:pass|approve)/i;
+const instructionAttack = /(?:ignore|disregard|override|bypass)\b[\s\S]{0,80}\b(?:evaluator|instructions?|rubric|checks?|rules?|grading|guardrails?)\b|(?:mark|grade|treat|declare)\b[\s\S]{0,60}\b(?:me|this|it|the answer)\b[\s\S]{0,40}\b(?:approved|correct|passed|pass)\b|(?:always|must|should)\b[\s\S]{0,30}\b(?:pass|approve|unlock)\b|\b(?:system|developer)\s*(?:message|prompt|instruction)\b/i;
 
 const contradictionFinding = (source: string, problemId: string): EvaluationFinding | null => {
   if (!instructionAttack.test(source) && !(criticalMistakes[problemId] ?? []).some((pattern) => pattern.test(source))) return null;
@@ -290,7 +298,7 @@ const contradictionFinding = (source: string, problemId: string): EvaluationFind
 };
 
 const configuredEvaluation = (draft: string, checks: ConfiguredCheck[], problemId: string): Evaluation => {
-  const source = draft.trim();
+  const source = normalizeReasoning(draft.trim());
   const findings = checks.map<EvaluationFinding>((check) => {
     const passed = source.length > 0 && check.pass(source);
     return { id: check.id, label: check.label, status: passed ? "pass" : "revise", detail: passed ? check.passDetail : check.reviseDetail };

@@ -974,6 +974,12 @@ function OwnedPracticeWorkspace({ scope, assignmentRecipientId }: { scope: strin
                   </div>
                 ))}
               </div>
+              {evaluation && !evaluation.approved ? <section className="mt-5 rounded-lg border border-[var(--mustard)] bg-[#fbf5e6] p-4" aria-labelledby="reasoning-hints-title">
+                <h3 className="font-bold" id="reasoning-hints-title">Hints for your next revision</h3>
+                <ol className="mt-2 list-decimal space-y-2 pl-5 text-sm leading-6">
+                  {evaluation.findings.filter((finding) => finding.status === 'revise').slice(0, 3).map((finding) => <li key={finding.id}>{finding.detail}</li>)}
+                </ol>
+              </section> : null}
 
               {canAccessCoding ? (
                 <div className="approved-panel">

@@ -4,7 +4,7 @@ export type RoadmapAnswer = { approach: string; edgeCase: string; complexity: st
 export type RoadmapFinding = { id: keyof RoadmapAnswer; label: string; passed: boolean; detail: string };
 export type RoadmapEvaluation = { ready: boolean; findings: RoadmapFinding[] };
 
-const instructionAttack = /ignore (?:the|all|previous|above|these)?\s*(?:evaluator|instructions|rubric|checks)|mark (?:this|it|me) (?:as )?(?:approved|correct)|always (?:pass|approve)/i;
+const instructionAttack = /(?:ignore|disregard|override|bypass)\b[\s\S]{0,80}\b(?:evaluator|instructions?|rubric|checks?|rules?|grading|guardrails?)\b|(?:mark|grade|treat|declare)\b[\s\S]{0,60}\b(?:me|this|it|the answer)\b[\s\S]{0,40}\b(?:approved|correct|passed|pass)\b|(?:always|must|should)\b[\s\S]{0,30}\b(?:pass|approve|unlock)\b|\b(?:system|developer)\s*(?:message|prompt|instruction)\b/i;
 const contradictoryCost = /O\(n\^2\)|O\(n²\)|quadratic|nested loops?/i;
 
 export function evaluateRoadmapAnswer(question: RoadmapQuestion, answer: RoadmapAnswer): RoadmapEvaluation {

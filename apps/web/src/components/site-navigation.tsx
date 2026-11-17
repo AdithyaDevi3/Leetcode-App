@@ -8,6 +8,7 @@ const navigationItems = [
   { href: "/practice", label: "Practice" },
   { href: "/roadmap", label: "Roadmap" },
   { href: "/dashboard", label: "Dashboard" },
+  { href: "/jobs", label: "Jobs" },
   { href: "/teach", label: "Teach" },
 ] as const;
 

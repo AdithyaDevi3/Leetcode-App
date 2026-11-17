@@ -11,7 +11,7 @@ export function AdminAccessDenied() {
         <p className="mb-3 text-xs font-bold uppercase tracking-[0.16em] text-[var(--coral)]">Restricted workspace</p>
         <h1 className="text-3xl font-bold">Administration access required</h1>
         <p className="mx-auto mt-4 max-w-md leading-7 text-[var(--muted)]">Your account is signed in, but it has no operator role for this workspace. Ask an administrator to assign the appropriate role.</p>
-        <a className="mt-7 inline-flex min-h-11 items-center rounded-md bg-[var(--moss)] px-5 font-bold text-white no-underline" href="/">Return to Method</a>
+        <a className="mt-7 inline-flex min-h-11 items-center rounded-md bg-[var(--moss)] px-5 font-bold text-white no-underline" href="/dashboard">Return to Method</a>
       </section>
     </div>
   </main>;

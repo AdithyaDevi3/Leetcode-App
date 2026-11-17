@@ -31,7 +31,7 @@ export function AdminShell({ principal, children, preview = false }: { principal
           <span className="grid h-9 w-9 place-items-center rounded-md bg-[var(--mustard)] font-mono text-sm text-[var(--ink)]">M</span>
           <span><span className="block text-lg leading-none">Method</span><span className="mt-1 block text-[10px] uppercase tracking-[0.16em] text-[#aeb8b0]">Administration</span></span>
         </a>
-        <a className="text-xs font-bold text-[#cad1cb] underline underline-offset-4 lg:hidden" href="/">Learner app</a>
+        <a className="text-xs font-bold text-[#cad1cb] underline underline-offset-4 lg:hidden" href="/dashboard">Learner app</a>
       </div>
 
       <nav aria-label="Administration navigation" className="mt-5 flex gap-2 overflow-x-auto pb-1 lg:mt-9 lg:grid lg:gap-1 lg:overflow-visible">
@@ -42,7 +42,7 @@ export function AdminShell({ principal, children, preview = false }: { principal
         <p className="mb-1 truncate text-sm font-bold">{displayName}</p>
         <p className="mb-3 truncate text-xs text-[#aeb8b0]">{principal.roles.map(roleLabel).join(' · ')}</p>
         <div className="flex flex-wrap gap-3 text-xs font-bold">
-          <a className="text-[#cad1cb] underline underline-offset-4" href="/">Learner app</a>
+          <a className="text-[#cad1cb] underline underline-offset-4" href="/dashboard">Learner app</a>
           {preview ? <span className="text-[#cad1cb]">Sample account</span> : <form action={signOut}><button className="border-0 bg-transparent p-0 text-[#cad1cb] underline underline-offset-4" type="submit">Sign out</button></form>}
         </div>
       </div>

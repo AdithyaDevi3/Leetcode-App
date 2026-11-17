@@ -32,9 +32,9 @@ function StandaloneSiteNavigation({ currentPath }: SiteNavigationProps) {
       className="flex w-full flex-wrap items-center justify-between gap-x-6 gap-y-3 border-b border-[var(--line)] pb-4"
     >
       <Link
-        aria-current={currentPath === "/" ? "page" : undefined}
+        aria-current={currentPath === "/dashboard" ? "page" : undefined}
         className="flex shrink-0 items-center gap-2 font-bold text-[var(--ink)] no-underline"
-        href="/"
+        href="/dashboard"
       >
         <span className="grid h-8 w-8 place-items-center rounded-md bg-[var(--mustard)] font-mono text-sm">M</span>
         Method

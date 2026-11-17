@@ -24,7 +24,7 @@ export default function PracticeError({
         </p>
         <div className="mt-7 flex flex-wrap gap-3">
           <button className="button" onClick={reset} type="button">Try again</button>
-          <Link className="button secondary" href="/">Return home</Link>
+          <Link className="button secondary" href="/dashboard">Return home</Link>
         </div>
       </section>
     </main>

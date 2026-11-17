@@ -13,7 +13,7 @@ export default function OfflinePage() {
         <div className="mt-6 flex flex-wrap gap-3">
           <Link className="rounded bg-[var(--moss)] px-4 py-2 font-semibold text-white" href="/practice">Continue practice</Link>
           <Link className="rounded border border-slate-300 px-4 py-2 font-semibold" href="/history">View history</Link>
-          <Link className="rounded border border-slate-300 px-4 py-2 font-semibold" href="/">Home</Link>
+          <Link className="rounded border border-slate-300 px-4 py-2 font-semibold" href="/dashboard">Home</Link>
         </div>
       </section>
       </div>

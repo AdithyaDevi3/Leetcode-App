@@ -25,7 +25,7 @@ export function LearnerDashboard() {
   }, []);
 
   return <main className="min-h-screen bg-[var(--paper)] px-6 py-12 text-[var(--ink)]"><section className="mx-auto max-w-3xl rounded-xl bg-white p-8 shadow-sm">
-    <nav aria-label="Learner navigation" className="flex flex-wrap gap-x-5 gap-y-2 text-sm"><Link className="font-semibold underline underline-offset-4" href="/">Home</Link><Link className="font-semibold underline underline-offset-4" href="/settings">Settings</Link><Link className="font-semibold underline underline-offset-4" href="/practice">Practice</Link></nav>
+    <nav aria-label="Learner navigation" className="flex flex-wrap gap-x-5 gap-y-2 text-sm"><Link className="font-semibold underline underline-offset-4" href="/dashboard">Home</Link><Link className="font-semibold underline underline-offset-4" href="/settings">Settings</Link><Link className="font-semibold underline underline-offset-4" href="/practice">Practice</Link></nav>
     <p className="mt-8 text-sm font-semibold uppercase tracking-wide text-[var(--muted)]">Learner dashboard</p><h1 className="mt-2 text-3xl font-bold">Your next learning step</h1>
     {state === 'loading' ? <p className="mt-6 text-[var(--ink)]" aria-live="polite">Loading your learning plan…</p> : null}
     {state === 'unauthenticated' ? <div className="mt-6 space-y-3"><p>You need to sign in to view your saved plan.</p><Link className="inline-block rounded bg-[var(--moss)] px-4 py-2 font-semibold text-white" href="/auth">Sign in</Link></div> : null}

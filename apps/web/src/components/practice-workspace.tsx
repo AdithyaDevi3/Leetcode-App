@@ -646,7 +646,7 @@ function OwnedPracticeWorkspace({ scope, assignmentRecipientId }: { scope: strin
       <main className="workspace">
         <header className="topbar practice-workbench-header">
           <nav className="workbench-links" aria-label="Primary navigation">
-            <Link className="workbench-brand" href="/" aria-label="Method home">M</Link>
+            <Link className="workbench-brand" href="/dashboard" aria-label="Method home">M</Link>
             <Link href="/practice" aria-current="page">Practice</Link>
             <Link href="/roadmap">Questions</Link>
           </nav>

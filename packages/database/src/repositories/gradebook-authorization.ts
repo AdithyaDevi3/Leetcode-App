@@ -9,7 +9,7 @@ export async function authorizeGradebookActor(client: PoolClient, principal: Gra
   if (principal.role === 'administrator') {
     const roles = await client.query<{ role: AdministrationRole }>(`SELECT role FROM administration_role_assignments WHERE user_id=$1 AND revoked_at IS NULL ${lock ? 'FOR SHARE' : ''}`, [principal.userId]);
     if (!canPerformAdministrationAction(roles.rows.map(row => row.role), 'classes.manage')) throw new GradebookAccessError();
-  } else if (principal.role === 'learner' ? actor.role !== 'learner' : !['instructor', 'admin'].includes(actor.role)) {
+  } else if (principal.role === 'learner' ? !['learner', 'admin'].includes(actor.role) : !['instructor', 'admin'].includes(actor.role)) {
     throw new GradebookAccessError();
   }
 }

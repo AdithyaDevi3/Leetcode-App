@@ -32,12 +32,8 @@ export function LearningSettingsBoundary() {
       }
     };
     checkAgain.current = () => void check();
-    const focus = () => void check();
-    const visible = () => { if (document.visibilityState === 'visible') void check(); };
-    window.addEventListener('focus', focus);
-    document.addEventListener('visibilitychange', visible);
     void check();
-    return () => { alive = false; active?.abort(); checkAgain.current = null; window.removeEventListener('focus', focus); document.removeEventListener('visibilitychange', visible); };
+    return () => { alive = false; active?.abort(); checkAgain.current = null; };
   }, []);
 
   return <>

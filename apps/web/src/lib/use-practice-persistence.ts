@@ -41,12 +41,10 @@ export function usePracticePersistence(input: {
     const onRefresh = () => setRefresh(value => value + 1);
     const onStorage = (event: StorageEvent) => { if (event.key === key) onRefresh(); };
     window.addEventListener('online', onRefresh);
-    window.addEventListener('focus', onRefresh);
     window.addEventListener('storage', onStorage);
     return () => {
       window.clearTimeout(timer);
       window.removeEventListener('online', onRefresh);
-      window.removeEventListener('focus', onRefresh);
       window.removeEventListener('storage', onStorage);
     };
   }, [contentId, scope, key, enabled]);

@@ -667,9 +667,6 @@ function OwnedPracticeWorkspace({ scope, assignmentRecipientId }: { scope: strin
             </div>
             <details className="mt-3"><summary>View server copy</summary><pre className="max-h-72 overflow-auto whitespace-pre-wrap">{persistence.conflict.state?.draft ?? persistence.conflict.draft}{'\n\n'}{persistence.conflict.state?.code}</pre></details>
           </section> : null}
-          {syncStatus === 'offline' && scope !== 'device' ? <button className="button secondary mb-5" type="button" onClick={persistence.retry}>Retry saving</button> : null}
-          {syncStatus === 'conflict' && !persistence.conflict ? <button className="button secondary mb-5" type="button" onClick={persistence.retry}>Reload server copy</button> : null}
-
           {editorMessage ? <p role="alert">{editorMessage}</p> : null}
           {continuationMessage && stage !== 'feedback' ? <p role="status">{continuationMessage}</p> : null}
         </div>

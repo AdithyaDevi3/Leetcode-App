@@ -83,18 +83,12 @@ export function LocalLearnerDashboard() {
       setLoading(false);
     };
     const timer = window.setTimeout(() => { void load(); }, 0);
-    const refresh = () => { void load(); };
-    const visibility = () => { if (document.visibilityState === 'visible') refresh(); };
-    window.addEventListener('focus', refresh);
-    document.addEventListener('visibilitychange', visibility);
     return () => {
       current = false;
       generation += 1;
       window.clearTimeout(timer);
-      window.removeEventListener('focus', refresh);
-      document.removeEventListener('visibilitychange', visibility);
     };
-    // Each focus checks identity before displaying account evidence or a device plan.
+    // Reloading this page checks identity before displaying account evidence or a device plan.
   }, []);
 
   const plan = profile && identity.status === 'guest' ? buildLocalLearningPlan(profile, profile.personalizationOptOut ? [] : history, new Date(), profile.personalizationOptOut ? {} : mastery) : null;

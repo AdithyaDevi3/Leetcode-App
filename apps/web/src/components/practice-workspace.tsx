@@ -29,7 +29,7 @@ import { evaluationPolicy } from '@/lib/evaluation-policy';
 import { readLocalLearnerProfile } from "@/lib/local-learner";
 import { recordLocalPracticeEvidence } from '@/lib/local-mastery';
 import { recordLocalPracticeCompletion } from "@/lib/local-practice-history";
-import { readBrowserStorage, removeBrowserStorage, writeBrowserStorage } from "@/lib/safe-browser-storage";
+import { readBrowserStorage, writeBrowserStorage } from "@/lib/safe-browser-storage";
 import { reasoningReadiness } from '@/lib/reasoning-progression';
 import { readPracticeCache, writePracticeCache } from '@/lib/practice-cache';
 import {
@@ -110,7 +110,6 @@ function OwnedPracticeWorkspace({ scope, assignmentRecipientId }: { scope: strin
   const [showReferenceAnswer, setShowReferenceAnswer] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [localRestoreComplete, setLocalRestoreComplete] = useState(false);
-  const [manualReasoningDraft, setManualReasoningDraft] = useState<string | null>(null);
   const [movingOn, setMovingOn] = useState(false);
   const [continuationMessage, setContinuationMessage] = useState<string | null>(null);
   const [stage, setStage] = useState<PracticeStage>('approach');
@@ -161,14 +160,6 @@ function OwnedPracticeWorkspace({ scope, assignmentRecipientId }: { scope: strin
     workspaceMounted.current = true;
     return () => { workspaceMounted.current = false; verificationGeneration.current += 1; runGeneration.current += 1; };
   }, []);
-
-  const overrideKey = `method:reasoning-continue:${scope}:${activePracticeItem.id}`;
-  useEffect(() => {
-    const timer = window.setTimeout(() => {
-      setManualReasoningDraft(readBrowserStorage(overrideKey) === draft ? draft : null);
-    }, 0);
-    return () => window.clearTimeout(timer);
-  }, [overrideKey, draft]);
 
   useEffect(() => {
     const timer = window.setInterval(() => setElapsedSeconds((seconds) => seconds + 1), 1000);
@@ -311,9 +302,8 @@ function OwnedPracticeWorkspace({ scope, assignmentRecipientId }: { scope: strin
   const approved = evaluation?.approved ?? false;
   // Re-check the current text so an old restored result cannot unlock a changed plan.
   const readiness = useMemo(() => evaluation ? reasoningReadiness(evaluatePseudocode(draft, activePracticeId)) : 'unevaluated', [evaluation, draft, activePracticeId]);
-  const reasoningReady = readiness === 'optimal' || readiness === 'close';
-  const manualContinuation = manualReasoningDraft === draft;
-  const canAccessCoding = reasoningReady || manualContinuation || Boolean(activeAssignmentRecipientId);
+  const reasoningReady = readiness === 'optimal';
+  const canAccessCoding = reasoningReady || Boolean(activeAssignmentRecipientId);
   const nextPracticeItem = practiceItems[activePracticeNumber] ?? null;
 
   useEffect(() => {
@@ -590,10 +580,8 @@ function OwnedPracticeWorkspace({ scope, assignmentRecipientId }: { scope: strin
     setSavedAt("Ready");
     setSyncStatus("ready");
     setElapsedSeconds(0);
-    setManualReasoningDraft(null);
     setContinuationMessage(null);
     setEvaluationJobId(null); setEvaluationStatus('idle'); setEvaluationMessage(null);
-    removeBrowserStorage(overrideKey);
   };
 
   const switchPracticeItem = async (practiceId: string) => {
@@ -624,7 +612,7 @@ function OwnedPracticeWorkspace({ scope, assignmentRecipientId }: { scope: strin
   };
 
   const continueToNextPractice = () => {
-    if (nextPracticeItem && (reasoningReady || manualContinuation)) void switchPracticeItem(nextPracticeItem.id);
+    if (nextPracticeItem && reasoningReady) void switchPracticeItem(nextPracticeItem.id);
   };
 
   const seedFromPlan = () => {
@@ -984,22 +972,21 @@ function OwnedPracticeWorkspace({ scope, assignmentRecipientId }: { scope: strin
               {canAccessCoding ? (
                 <div className="approved-panel">
                   {approved ? <Code2 size={19} /> : <Check size={19} />}
-                  <strong>{reasoningReady ? readiness === 'optimal' ? 'Implementation unlocked' : 'Close enough to continue' : manualContinuation ? 'Continued manually' : 'Assignment coding is open'}</strong>
-                  <p>{reasoningReady ? readiness === 'optimal' ? `Your reasoning meets every check and stays visible while you translate it into ${codingLanguageLabel(codingLanguage)}.` : 'At least 80% of the reasoning checks pass with no conflicting algorithm instruction. You can move on and revisit the remaining feedback.' : manualContinuation ? 'You chose to continue. Your reasoning feedback and verified code result stay separate.' : 'You can work directly on this assigned implementation. Reasoning feedback remains available but does not block your submission.'}</p>
+                  <strong>{reasoningReady ? 'Implementation unlocked' : 'Assignment coding is open'}</strong>
+                  <p>{reasoningReady ? `Your reasoning meets every required check and stays visible while you translate it into ${codingLanguageLabel(codingLanguage)}.` : 'You can work directly on this assigned implementation. Reasoning feedback remains available but does not block your submission.'}</p>
                 </div>
               ) : (
                 <div className="locked-panel">
                   <LockKeyhole size={19} />
                   <strong>Coding stays quiet for now</strong>
-                  <p>Get close to an implementation-ready plan, or use the manual continue option below.</p>
+                  <p>Use the hints to revise your approach, then evaluate it again.</p>
                 </div>
               )}
               <section className="study-capture" aria-label="Continue practice">
                 <h3 className="font-bold">Your next step</h3>
-                {!reasoningReady && !manualContinuation ? <button className="button secondary" type="button" onClick={() => { writeBrowserStorage(overrideKey, draft); setManualReasoningDraft(draft); setContinuationMessage('Manual continuation enabled. Your feedback is unchanged.'); }}>Continue anyway</button> : null}
                 {canAccessCoding ? <div className="flex flex-wrap gap-3">
                   <button className="button secondary" type="button" onClick={() => { changeStage('code'); window.requestAnimationFrame(() => codeEditor.current?.focus()); }}>Continue to coding</button>
-                  {!activeAssignmentRecipientId && (reasoningReady || manualContinuation) ? nextPracticeItem ? <button className="button" type="button" disabled={movingOn} onClick={() => void continueToNextPractice()}>{movingOn ? 'Saving and continuing…' : 'Next practice question'}</button> : <Link className="button" href="/roadmap">Return to roadmap</Link> : null}
+                  {!activeAssignmentRecipientId && reasoningReady ? nextPracticeItem ? <button className="button" type="button" disabled={movingOn} onClick={() => void continueToNextPractice()}>{movingOn ? 'Saving and continuing…' : 'Next practice question'}</button> : <Link className="button" href="/roadmap">Return to roadmap</Link> : null}
                 </div> : null}
                 {continuationMessage ? <p className="study-status" role="status" aria-label="Practice continuation status">{continuationMessage}</p> : null}
               </section>
@@ -1042,7 +1029,7 @@ function OwnedPracticeWorkspace({ scope, assignmentRecipientId }: { scope: strin
               <p><LockKeyhole size={14} /> Network denied · bounded CPU, memory, output, and runtime</p>
             </div>
 
-            {!canAccessCoding ? <div className="coding-access-notice" role="status"><p>Get feedback on your approach, or continue manually to start coding.</p><button className="button secondary" type="button" onClick={() => { writeBrowserStorage(overrideKey, draft); setManualReasoningDraft(draft); }}>Continue anyway</button></div> : null}
+            {!canAccessCoding ? <div className="coding-access-notice" role="status"><p>Revise your approach with the feedback hints, then evaluate it again to unlock coding.</p></div> : null}
             <CodeEditor key={`${scope}:${activePracticeItem.id}:code`} ref={codeEditor} editorKey={codingLanguage} label={`${codingLanguage === 'python' ? 'Python' : codingLanguageLabel(codingLanguage)} implementation`} language={codingLanguage} value={code} onChange={updateCode} disabled={!canAccessCoding} className="code-editor" />
             <div className="practice-code-actions">
               <button className="button secondary" type="button" disabled={!canAccessCoding} onClick={seedFromPlan}><Code2 size={15} />Seed from plan</button>
@@ -1056,7 +1043,7 @@ function OwnedPracticeWorkspace({ scope, assignmentRecipientId }: { scope: strin
         </PracticePanels>
         <footer className="practice-workbench-footer">
           <div><span>Practice {activePracticeNumber} of {practiceItems.length}</span>{stage !== 'approach' ? <button className="text-button" type="button" onClick={() => changeStage(stage === 'code' ? 'feedback' : 'approach')}>← Previous stage</button> : null}</div>
-          <div>{stage === 'approach' && !canAccessCoding ? <button className="button secondary" type="button" onClick={() => { writeBrowserStorage(overrideKey, draft); setManualReasoningDraft(draft); setContinuationMessage('Manual continuation enabled. Your feedback is unchanged.'); }}>Continue anyway</button> : null}{stage === 'approach' ? <button className="button secondary" type="button" onClick={() => changeStage('feedback')}>Review feedback →</button> : stage === 'feedback' && canAccessCoding ? <button className="button secondary" type="button" onClick={() => changeStage('code')}>Code & test →</button> : stage === 'code' && nextPracticeItem && !activeAssignmentRecipientId && (reasoningReady || manualContinuation) ? <button className="button secondary" type="button" disabled={movingOn} onClick={continueToNextPractice}>Next practice question</button> : null}</div>
+          <div>{stage === 'approach' ? <button className="button secondary" type="button" onClick={() => changeStage('feedback')}>Review feedback →</button> : stage === 'feedback' && canAccessCoding ? <button className="button secondary" type="button" onClick={() => changeStage('code')}>Code & test →</button> : stage === 'code' && nextPracticeItem && !activeAssignmentRecipientId && reasoningReady ? <button className="button secondary" type="button" disabled={movingOn} onClick={continueToNextPractice}>Next practice question</button> : null}</div>
         </footer>
       </main>
     </div>

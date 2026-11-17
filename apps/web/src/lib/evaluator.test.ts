@@ -90,6 +90,19 @@ Check the map for that value before you record the current number. If it exists,
     expect(result.findings.find((finding) => finding.id === 'contradiction')?.status).toBe('revise');
   });
 
+  it('approves a breadth-first alternative for tree depth', () => {
+    const result = evaluatePseudocode(`Put the root in a queue.
+While the queue has nodes, process one level at a time. Add each child to the queue.
+Increase the depth after each level and return the depth.`, 'tree-max-depth-v1');
+    expect(result.approved).toBe(true);
+  });
+
+  it('approves a depth-first alternative for task order', () => {
+    const result = evaluatePseudocode(`Build a dependency graph for each task. Use depth-first search to visit each task.
+Keep an active recursion stack to detect a cycle. Append a task after its dependencies, then return the order.`, 'task-order-v1');
+    expect(result.approved).toBe(true);
+  });
+
   it('fails closed when an activity has no matching rubric', () => {
     expect(evaluatePseudocode('Return the answer.', 'unknown-activity').approved).toBe(false);
   });

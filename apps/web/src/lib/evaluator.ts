@@ -271,6 +271,28 @@ const configuredChecks: Record<string, ConfiguredCheck[]> = {
   ],
 };
 
+/** Additional correct algorithms. The evaluator selects the strongest complete path. */
+const alternativeConfiguredChecks: Record<string, ConfiguredCheck[][]> = {
+  'tree-max-depth-v1': [[
+    { id: 'state', label: 'Level queue', pass: (source) => all(source, [/queue/i, /root|first node/i]), passDetail: 'You start a queue from the root.', reviseDetail: 'Start a queue with the root node.' },
+    { id: 'iteration', label: 'Level traversal', pass: (source) => all(source, [/while|until/i, /queue/i, /level|layer/i]), passDetail: 'You process the tree one level at a time.', reviseDetail: 'Process every node in the current queue level before the next level.' },
+    { id: 'children', label: 'Child admission', pass: (source) => all(source, [/child|children/i, /queue|enqueue|add/i]), passDetail: 'You queue each child for the next level.', reviseDetail: 'Add each existing child to the queue.' },
+    { id: 'return', label: 'Depth result', pass: (source) => all(source, [/increase|increment|add/i, /depth/i, /return/i]), passDetail: 'You count completed levels and return that depth.', reviseDetail: 'Increase depth after each level and return it.' },
+  ]],
+  'task-order-v1': [[
+    { id: 'state', label: 'Dependency graph', pass: (source) => all(source, [/graph|adjacency|dependency|prerequisite/i, /task|node|course/i]), passDetail: 'You represent the prerequisite graph.', reviseDetail: 'Represent the tasks and their prerequisites as a graph.' },
+    { id: 'search', label: 'Depth-first traversal', pass: (source) => all(source, [/dfs|depth.first|depth first/i, /visit|travers|search/i]), passDetail: 'You use depth-first traversal to order dependencies.', reviseDetail: 'Use depth-first search to visit each task.' },
+    { id: 'cycle', label: 'Active-path cycle check', pass: (source) => all(source, [/active|visiting|recursion stack|gray/i, /cycle/i]), passDetail: 'An active-path marker detects cycles.', reviseDetail: 'Track tasks on the active recursion path and reject a cycle.' },
+    { id: 'return', label: 'Dependency-first order', pass: (source) => all(source, [/append|postorder|reverse/i, /return/i, /order|list/i]), passDetail: 'You return tasks after their prerequisites.', reviseDetail: 'Append tasks after their dependencies, then return that order.' },
+  ]],
+  'coin-change-lite-v1': [[
+    { id: 'state', label: 'Memoized state', pass: (source) => all(source, [/memo|cache/i, /amount|remaining/i]), passDetail: 'You cache the best result for each remaining amount.', reviseDetail: 'Cache the answer for each remaining amount.' },
+    { id: 'base', label: 'Base cases', pass: (source) => all(source, [/zero|0/i, /negative|below zero/i]), passDetail: 'You define zero and impossible remaining amounts.', reviseDetail: 'Return zero for amount zero and mark negative amounts impossible.' },
+    { id: 'transition', label: 'Coin choices', pass: (source) => all(source, [/each coin|every coin|try/i, /recur|call/i, /minimum|smallest|best/i]), passDetail: 'You try each coin and keep the best recursive result.', reviseDetail: 'Try each coin recursively and keep the smallest valid result.' },
+    { id: 'return', label: 'Impossible fallback', pass: (source) => all(source, [/-1|impossible|unreachable/i, /return/i]), passDetail: 'You return a fallback when no coin choice works.', reviseDetail: 'Return -1 when no combination can form the amount.' },
+  ]],
+};
+
 // These are explicit algorithm contradictions. Keyword coverage alone must not
 // approve an explanation that also proposes a wrong or slower method.
 const criticalMistakes: Record<string, RegExp[]> = {
@@ -299,10 +321,11 @@ const contradictionFinding = (source: string, problemId: string): EvaluationFind
 
 const configuredEvaluation = (draft: string, checks: ConfiguredCheck[], problemId: string): Evaluation => {
   const source = normalizeReasoning(draft.trim());
-  const findings = checks.map<EvaluationFinding>((check) => {
+  const candidates = [checks, ...(alternativeConfiguredChecks[problemId] ?? [])];
+  const findings = candidates.map((candidate) => candidate.map<EvaluationFinding>((check) => {
     const passed = source.length > 0 && check.pass(source);
     return { id: check.id, label: check.label, status: passed ? "pass" : "revise", detail: passed ? check.passDetail : check.reviseDetail };
-  });
+  })).sort((left, right) => right.filter((finding) => finding.status === 'pass').length - left.filter((finding) => finding.status === 'pass').length)[0];
   const contradiction = contradictionFinding(source, problemId);
   if (contradiction) findings.push(contradiction);
   const passedCount = findings.filter((finding) => finding.status === "pass").length;

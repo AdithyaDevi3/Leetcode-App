@@ -36,7 +36,7 @@ export function CodingQuestionBrowser({ items, targetCount = 250 }: { items: rea
   return <main className="min-h-screen px-5 py-6 text-[var(--ink)] sm:px-8 lg:h-[calc(100dvh-3rem)] lg:min-h-0 lg:overflow-hidden">
     <div className="mx-auto max-w-6xl space-y-6 lg:flex lg:h-full lg:min-h-0 lg:flex-col">
       <header className="grid gap-5 border-b border-[var(--line)] pb-7 md:grid-cols-[1fr_auto] md:items-end">
-        <div><p className="eyebrow">Original personal curriculum</p><h1 className="mt-2 text-3xl font-bold sm:text-4xl">Coding question browser</h1><p className="mt-3 max-w-3xl leading-7 text-[var(--muted)]">Every row is an original coding question. These are review-gated candidates, not copied third-party questions. The catalog will grow to {targetCount} questions before publication.</p></div>
+        <div><p className="eyebrow">Original personal curriculum</p><h1 className="mt-2 text-3xl font-bold sm:text-4xl">Coding question browser</h1><p className="mt-3 max-w-3xl leading-7 text-[var(--muted)]">Every row is an original coding question. These are review-gated candidates, not copied third-party questions. The catalog contains {targetCount} candidates before publication.</p></div>
         <div className="rounded-xl border border-[var(--line)] bg-[var(--surface)] px-5 py-4 text-sm"><strong className="block text-2xl">{items.length} / {targetCount}</strong><span className="text-[var(--muted)]">coding questions in review</span></div>
       </header>
 

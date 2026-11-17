@@ -319,6 +319,12 @@ describe('class gradebook server page access', () => {
     expect(result).toEqual({ status: 'authorized', data: actorId });
     expect(mocks.principal).toHaveBeenCalledWith(expect.anything(), { role: 'learner', userId: actorId }); noWrites();
   });
+  it('lets an enrolled administrator use learner result pages with a learner principal', async () => {
+    mocks.query.mockResolvedValue({ rows: [{ role: 'admin' }] });
+    const result = await readLearnerClassResultsData(async (_repository, actor) => actor.id);
+    expect(result).toEqual({ status: 'authorized', data: actorId });
+    expect(mocks.principal).toHaveBeenCalledWith(expect.anything(), { role: 'learner', userId: actorId }); noWrites();
+  });
   it('distinguishes missing authentication from absent permission without turning outages into empty pages', async () => {
     mocks.session.mockResolvedValue(null); expect(await readClassGradebookData('admin', async () => null)).toEqual({ status: 'unauthenticated' });
     mocks.session.mockResolvedValue({ user: { id: actorId } }); mocks.roles.mockResolvedValue([]);

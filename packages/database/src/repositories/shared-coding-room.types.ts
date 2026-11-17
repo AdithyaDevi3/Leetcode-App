@@ -41,6 +41,7 @@ export type CreateSharedCodingRoomInput = {
 
 export type SetInterviewStageInput = { roomId: string; expectedControlRevision: number; stage: InterviewStage; prompt?: string };
 export type CloseSharedCodingRoomInput = { roomId: string; expectedControlRevision: number };
+export type OpenSharedCodingRoomInput = { roomId: string; expectedControlRevision: number };
 
 export type InviteSharedCodingRoomMemberInput = {
   roomId: string;

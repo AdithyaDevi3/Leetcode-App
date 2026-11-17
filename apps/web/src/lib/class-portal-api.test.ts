@@ -268,6 +268,12 @@ describe('class portal server page access', () => {
     mocks.query.mockResolvedValue({ rows: [{ role: 'admin' }] }); await readClassPortalData('teach', async () => null);
     expect(mocks.principal).toHaveBeenCalledWith(expect.anything(), { role: 'instructor', userId: actorId });
   });
+  it('lets an enrolled administrator use the learner workspace with a learner principal', async () => {
+    mocks.query.mockResolvedValue({ rows: [{ role: 'admin' }] });
+    const result = await readClassPortalData('learner', async (_repository, actor) => actor.id);
+    expect(result).toEqual({ status: 'authorized', data: actorId });
+    expect(mocks.principal).toHaveBeenCalledWith(expect.anything(), { role: 'learner', userId: actorId });
+  });
   it('distinguishes absent sessions and permission from operational failures', async () => {
     mocks.session.mockResolvedValue(null); expect(await readClassPortalData('learner', async () => null)).toEqual({ status: 'unauthenticated' });
     mocks.session.mockResolvedValue({ user: { id: actorId } }); mocks.roles.mockResolvedValue([]);

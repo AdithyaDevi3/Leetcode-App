@@ -26,7 +26,7 @@ export async function readClassPortalData<T>(workspace: ClassPortalWorkspace, re
       if (!canPerformAdministrationAction(roles, 'classes.manage')) return { status: 'forbidden' };
     } else {
       const user = await db.query<{ role: string }>('SELECT role FROM users WHERE id=$1', [actorId]);
-      if (workspace === 'learner' ? user.rows[0]?.role !== 'learner' : !['instructor', 'admin'].includes(user.rows[0]?.role)) return { status: 'forbidden' };
+      if (workspace === 'learner' ? !['learner', 'admin'].includes(user.rows[0]?.role) : !['instructor', 'admin'].includes(user.rows[0]?.role)) return { status: 'forbidden' };
     }
     const repository = new PostgresClassPortalRepository(db, { userId: actorId,
       role: workspace === 'admin' ? 'administrator' : workspace === 'teach' ? 'instructor' : 'learner' });

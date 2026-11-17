@@ -2,7 +2,7 @@ import type { PoolClient } from 'pg';
 import type { DatabaseClient } from '../client.js';
 import { authorizeGradebookActor } from './gradebook-authorization.js';
 import { GradebookAccessError, type GradebookPrincipal } from './gradebook.repository.js';
-import type { CloseSharedCodingRoomInput, CreateSharedCodingRoomInput, InterviewStage, InviteSharedCodingRoomMemberInput, SaveSharedCodingRoomSnapshotInput, SetInterviewStageInput, SharedCodingLanguage, SharedCodingRole, SharedCodingRoom, SharedCodingRoomMode, SharedCodingRoomSummary, SharedCodingRoomUpdate } from './shared-coding-room.types.js';
+import type { CloseSharedCodingRoomInput, CreateSharedCodingRoomInput, InterviewStage, InviteSharedCodingRoomMemberInput, OpenSharedCodingRoomInput, SaveSharedCodingRoomSnapshotInput, SetInterviewStageInput, SharedCodingLanguage, SharedCodingRole, SharedCodingRoom, SharedCodingRoomMode, SharedCodingRoomSummary, SharedCodingRoomUpdate } from './shared-coding-room.types.js';
 
 export class SharedCodingRoomAccessError extends Error { constructor() { super('This shared coding room is unavailable.'); this.name='SharedCodingRoomAccessError'; } }
 export class SharedCodingRoomConflictError extends Error { constructor() { super('The shared coding room changed. Refresh the room and try again.'); this.name='SharedCodingRoomConflictError'; } }
@@ -116,6 +116,13 @@ export class PostgresSharedCodingRoomRepository {
     return this.db.transaction(async client=>{const access=await this.roomAccess(client,roomId,true);if(access.role!=='owner'||access.status!=='open')throw new SharedCodingRoomAccessError();
       const current=(await client.query<{control_revision:number}>('SELECT control_revision FROM shared_coding_rooms WHERE id=$1 FOR UPDATE',[roomId])).rows[0];if(!current||current.control_revision!==expected)throw new SharedCodingRoomConflictError();
       await client.query("UPDATE shared_coding_rooms SET status='closed',closed_at=clock_timestamp(),control_revision=control_revision+1 WHERE id=$1",[roomId]);return this.readInside(client,roomId);
+    }); }
+
+  /** Reopen a closed room without changing its members or saved draft history. */
+  async open(input:OpenSharedCodingRoomInput):Promise<SharedCodingRoom> { const roomId=uuid(input.roomId),expected=revision(input.expectedControlRevision);
+    return this.db.transaction(async client=>{const access=await this.roomAccess(client,roomId,true);if(access.role!=='owner'||access.status!=='closed')throw new SharedCodingRoomAccessError();
+      const current=(await client.query<{control_revision:number}>('SELECT control_revision FROM shared_coding_rooms WHERE id=$1 FOR UPDATE',[roomId])).rows[0];if(!current||current.control_revision!==expected)throw new SharedCodingRoomConflictError();
+      await client.query("UPDATE shared_coding_rooms SET status='open',closed_at=NULL,interview_stage=CASE WHEN mode='interview' THEN 'lobby' ELSE interview_stage END,control_revision=control_revision+1 WHERE id=$1",[roomId]);return this.readInside(client,roomId);
     }); }
 
   /** Poll at a bounded interval. The caller receives content only after a revision change. */

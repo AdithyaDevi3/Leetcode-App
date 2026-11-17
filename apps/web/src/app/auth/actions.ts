@@ -27,10 +27,12 @@ export async function signInWithPassword(formData: FormData) {
 export async function signUpWithPassword(formData: FormData) {
   const email = String(formData.get('email') ?? '').trim();
   const password = String(formData.get('password') ?? '');
+  const displayName = String(formData.get('displayName') ?? '').trim().replace(/\s+/g, ' ');
+  if (displayName.length < 2 || displayName.length > 80) redirect(authNotice(formData, 'error', 'Enter a name of 2 to 80 characters.'));
   if (password.length < 8) redirect(authNotice(formData, 'error', 'Use a password of at least 8 characters.'));
   const supabase = await createSupabaseServerClient();
   const next = formData.get('accountType') === 'instructor' ? '/teach/start' : destination(formData);
-  const { data, error } = await supabase.auth.signUp({ email, password, options: { emailRedirectTo: `${applicationUrl()}/auth/confirm?next=${encodeURIComponent(next)}` } });
+  const { data, error } = await supabase.auth.signUp({ email, password, options: { data: { display_name: displayName }, emailRedirectTo: `${applicationUrl()}/auth/confirm?next=${encodeURIComponent(next)}` } });
   if (error) redirect(authNotice(formData, 'error', error.message));
   if (data.session && data.user) {
     await ensureApplicationUser({ id: data.user.id, email: data.user.email, displayName: data.user.user_metadata.display_name ?? null });

@@ -11,7 +11,12 @@ export async function ensureApplicationUser(input: { id: string; email?: string 
     await db.query(
       `INSERT INTO users (id, email, display_name, role)
        VALUES ($1, $2, $3, 'learner')
-       ON CONFLICT (id) DO UPDATE SET email = EXCLUDED.email`,
+       ON CONFLICT (id) DO UPDATE SET
+         email = EXCLUDED.email,
+         display_name = CASE
+           WHEN NULLIF(BTRIM(EXCLUDED.display_name), '') IS NULL THEN users.display_name
+           ELSE EXCLUDED.display_name
+         END`,
       [input.id, input.email ?? null, input.displayName ?? input.email?.split('@')[0] ?? 'Learner'],
     );
   } finally {

@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
+import { Braces, ChartNoAxesCombined, Code2, Compass, GraduationCap, LibraryBig } from 'lucide-react';
 
 import { SiteNavigation } from '@/components/site-navigation';
 import { AccountLearningPanel } from '@/components/account-learning-panel';
@@ -27,14 +28,14 @@ export function LocalLearnerDashboard() {
   const [profileSource, setProfileSource] = useState<LearnerProfileSource>('none');
   const [loading, setLoading] = useState(true);
   const [profileUnavailable, setProfileUnavailable] = useState(false);
-  const [identity, setIdentity] = useState<{ status: 'checking' | 'guest' | 'account' | 'unavailable'; learnerId: string | null }>({ status: 'checking', learnerId: null });
+  const [identity, setIdentity] = useState<{ status: 'checking' | 'guest' | 'account' | 'unavailable'; learnerId: string | null; displayName: string | null }>({ status: 'checking', learnerId: null, displayName: null });
 
   useEffect(() => {
     let current = true;
     let generation = 0;
     const load = async () => {
       const request = ++generation;
-      setIdentity({ status: 'checking', learnerId: null });
+      setIdentity({ status: 'checking', learnerId: null, displayName: null });
       setLoading(true);
       setProfileUnavailable(false);
       setProfile(null);
@@ -44,12 +45,12 @@ export function LocalLearnerDashboard() {
       const localHistory = readLocalPracticeHistory();
       const localProfile = readLocalLearnerProfile();
       const continuity = Promise.all([loadLearnerProfile(), loadLearnerPracticeHistory()]);
-      let nextIdentity: typeof identity = { status: 'unavailable', learnerId: null };
+      let nextIdentity: typeof identity = { status: 'unavailable', learnerId: null, displayName: null };
       try {
         const response = await fetch('/api/viewer', { cache: 'no-store', signal: AbortSignal.timeout(15_000) });
-        const body = await response.json() as { viewer?: { id?: unknown } | null };
-        if (response.ok && body.viewer === null) nextIdentity = { status: 'guest', learnerId: null };
-        else if (response.ok && typeof body.viewer?.id === 'string' && body.viewer.id) nextIdentity = { status: 'account', learnerId: body.viewer.id };
+        const body = await response.json() as { viewer?: { id?: unknown; displayName?: unknown } | null };
+        if (response.ok && body.viewer === null) nextIdentity = { status: 'guest', learnerId: null, displayName: null };
+        else if (response.ok && typeof body.viewer?.id === 'string' && body.viewer.id) nextIdentity = { status: 'account', learnerId: body.viewer.id, displayName: typeof body.viewer.displayName === 'string' ? body.viewer.displayName : null };
       } catch { /* Keep account identity unknown until it can be checked again. */ }
       if (!current || generation !== request) return;
       setIdentity(nextIdentity);
@@ -102,20 +103,28 @@ export function LocalLearnerDashboard() {
   return <main className="min-h-screen bg-[var(--paper)] px-4 py-6 text-[var(--ink)] sm:px-6 sm:py-8"><div className="mx-auto w-full max-w-[90rem]"><SiteNavigation currentPath="/dashboard" /><section className="mt-6 w-full rounded-xl bg-white p-4 shadow-sm sm:p-6 lg:p-8">
     <div className="grid gap-6 lg:grid-cols-2 lg:items-start">
       <section className="space-y-6" aria-labelledby="learning-step-heading">
-        <div><p className="text-sm font-semibold uppercase tracking-wide text-[var(--muted)]">Learner dashboard</p><div className="mt-2 flex flex-wrap items-start justify-between gap-3"><div><h1 className="text-3xl font-bold" id="learning-step-heading">Your next learning step</h1><p className="mt-3 max-w-xl text-sm leading-6 text-[var(--muted)]">See your current momentum and choose the next useful action.</p></div><Link className="inline-flex min-h-11 items-center rounded-md bg-[var(--moss)] px-4 text-sm font-bold text-white" href="/classes">Open a shared session</Link></div></div>
+        <div><p className="text-sm font-semibold uppercase tracking-wide text-[var(--muted)]">Learner dashboard</p><div className="mt-2 flex flex-wrap items-start justify-between gap-3"><div><h1 className="text-3xl font-bold" id="learning-step-heading">{identity.displayName ? `Welcome, ${identity.displayName}` : 'Your next learning step'}</h1><p className="mt-3 max-w-xl text-sm leading-6 text-[var(--muted)]">Choose a focused task, then track the progress you build.</p></div><Link className="inline-flex min-h-11 items-center rounded-md bg-[var(--moss)] px-4 text-sm font-bold text-white" href="/classes">Open a shared session</Link></div></div>
         {loading && profile === null ? <p aria-live="polite">Loading your learning plan…</p> : null}
         {!loading && profileUnavailable ? <p className="text-sm" role="status">Your account profile could not be confirmed. <Link className="font-bold underline" href="/settings">Open settings</Link> to reload the correct profile.</p> : !loading && profile === null ? <div className="space-y-3"><p>Set your goals first, and we’ll create a focused learning plan.</p><Link className="inline-block rounded bg-[var(--moss)] px-4 py-2 font-semibold text-white" href="/onboarding">Start onboarding</Link></div> : null}
         {profile ? <><p className="text-sm text-[var(--muted)]" aria-live="polite">{profileSource === 'account' ? 'Plan synced with your account.' : 'Plan saved on this device. Sign in to use it everywhere.'}</p>
       <section aria-labelledby="progress-heading" className="border border-[var(--line)] bg-[var(--paper)] p-5">
         <div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-sm font-semibold uppercase tracking-wide text-[var(--muted)]">Your momentum</p><h2 className="mt-1 text-xl font-bold" id="progress-heading">Progress you can build on</h2></div><Link className="font-semibold underline underline-offset-4" href="/history">View history</Link></div>
-        <p className="mt-3 text-sm text-[var(--muted)]">{identity.status === 'account' ? 'This activity summary includes practice saved to your account and this device. Only trusted account evidence contributes to the concept estimates above.' : 'This activity summary uses practice history saved on this device.'}</p>
+        <p className="mt-3 text-sm text-[var(--muted)]">{identity.status === 'account' ? 'This summary uses practice saved to your account and this device.' : 'This summary uses practice history saved on this device.'}</p>
         <dl className="mt-5 grid gap-4 sm:grid-cols-2"><div><dt className="text-sm text-[var(--muted)]">Completed</dt><dd className="text-2xl font-bold">{progress?.completedItems ?? 0}</dd></div><div><dt className="text-sm text-[var(--muted)]">Active days</dt><dd className="text-2xl font-bold">{progress?.activeDays ?? 0}</dd></div><div><dt className="text-sm text-[var(--muted)]">Current streak</dt><dd className="text-2xl font-bold">{progress?.currentStreak ?? 0} <span className="text-sm font-medium">days</span></dd></div><div><dt className="text-sm text-[var(--muted)]">Average score</dt><dd className="text-2xl font-bold">{progress?.averageScore === null || progress?.averageScore === undefined ? '—' : `${progress.averageScore}/100`}</dd></div></dl>
         {progress?.completedItems === 0 ? <p className="mt-4 text-sm text-[var(--muted)]">Finish one practice item to start tracking your momentum.</p> : null}
+        <div className="mt-5 h-2 overflow-hidden rounded-full bg-[var(--line)]" aria-label="Practice progress"><div className="h-full rounded-full bg-[var(--moss)] transition-[width]" style={{ width: `${Math.min(100, (progress?.completedItems ?? 0) * 10)}%` }} /></div>
       </section></> : null}
       {identity.status === 'account' && identity.learnerId ? <AccountLearningPanel learnerId={identity.learnerId} /> : identity.status === 'checking' ? <p className="text-sm text-[var(--muted)]" role="status">Checking your learning account…</p> : identity.status === 'unavailable' ? <section className="rounded-xl border border-[var(--line)] bg-[var(--surface)] p-5" aria-label="Account identity unavailable"><h2 className="text-xl font-bold">Your learning account is unavailable</h2><p className="mt-3 text-sm">Reconnect to load the correct account plan. Your device scores will not be used as account evidence.</p><a className="mt-3 inline-flex min-h-11 items-center font-semibold underline underline-offset-4" href="/dashboard">Reload dashboard</a><Link className="ml-4 inline-flex min-h-11 items-center font-semibold underline underline-offset-4" href="/roadmap">Explore question bank</Link></section> : null}
       </section>
       <section className="space-y-6" aria-label="Dashboard actions and details">
-        <section aria-labelledby="quick-access-heading"><div><h2 className="text-xl font-bold" id="quick-access-heading">Quick access</h2><p className="mt-1 text-sm text-[var(--muted)]">Start or continue work without opening several menus.</p></div><div className="mt-3 grid gap-2 sm:grid-cols-2"><Link className="rounded-lg border border-[var(--line)] bg-[var(--paper)] p-3 font-bold text-[var(--moss)]" href="/practice">Practice</Link><Link className="rounded-lg border border-[var(--line)] bg-[var(--paper)] p-3 font-bold text-[var(--moss)]" href="/roadmap/coding">Coding 250</Link><Link className="rounded-lg border border-[var(--line)] bg-[var(--paper)] p-3 font-bold text-[var(--moss)]" href="/library">Study library</Link><Link className="rounded-lg border border-[var(--line)] bg-[var(--paper)] p-3 font-bold text-[var(--moss)]" href="/classes">Classes</Link></div></section>
+        <section aria-labelledby="quick-access-heading"><div><h2 className="text-xl font-bold" id="quick-access-heading">Open a workspace</h2><p className="mt-1 text-sm text-[var(--muted)]">Each card opens one part of your learning workspace.</p></div><div className="mt-3 grid gap-3 sm:grid-cols-2">{[
+          { href: '/practice', label: 'Practice', text: 'Work through a guided problem.', icon: Braces },
+          { href: '/roadmap/coding', label: 'Coding 250', text: 'Browse the coding curriculum.', icon: Code2 },
+          { href: '/roadmap', label: 'Interview questions', text: 'Prepare coding and system-design answers.', icon: Compass },
+          { href: '/classes', label: 'Groups and rooms', text: 'Join a cohort or shared session.', icon: GraduationCap },
+          { href: '/library', label: 'Study library', text: 'Open your private study material.', icon: LibraryBig },
+          { href: '/history', label: 'Progress history', text: 'Review saved work and results.', icon: ChartNoAxesCombined },
+        ].map(({ href, label, text, icon: Icon }) => <Link className="group rounded-xl border border-[var(--line)] bg-[var(--paper)] p-4 transition hover:border-[var(--moss)] hover:bg-[var(--moss-soft)]" href={href} key={href}><Icon className="text-[var(--moss)]" size={20} strokeWidth={1.8} /><h3 className="mt-4 font-bold text-[var(--ink)]">{label}</h3><p className="mt-1 text-sm leading-5 text-[var(--muted)]">{text}</p></Link>)}</div></section>
         {identity.status === 'account' && identity.learnerId ? <LegacySavedReviews learnerId={identity.learnerId} /> : null}
       {plan && profile ? <section aria-labelledby="plan-heading">
         <h2 className="text-xl font-bold" id="plan-heading">Recommended algorithms</h2>

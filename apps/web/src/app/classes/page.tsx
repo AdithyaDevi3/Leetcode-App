@@ -18,7 +18,7 @@ export default async function ClassesPage({ searchParams }: {
   if (destination) redirect(destination);
   return <main className="min-h-screen px-5 py-6 sm:px-8"><div className="mx-auto max-w-6xl space-y-7">
     <SiteNavigation currentPath="/classes" />
-    <header className="max-w-3xl"><p className="mb-2 text-xs font-bold uppercase tracking-wider text-[var(--coral)]">Learning together</p><h1 className="text-3xl font-bold sm:text-4xl">My classes</h1><p className="mt-3 leading-7 text-[var(--muted)]">Open a class for its work, announcements and grades. Keep additional study groups here when you need them.</p></header>
+    <header className="max-w-3xl"><p className="mb-2 text-xs font-bold uppercase tracking-wider text-[var(--coral)]">Learning together</p><h1 className="text-3xl font-bold sm:text-4xl">Groups and classes</h1><p className="mt-3 leading-7 text-[var(--muted)]">Join a cohort, class, or study group with its private code. Open it for work, announcements, rooms, and grades.</p></header>
     <ClassEntry classes={access.data} error={notice.error} joined={notice.joined} joinAction={joinClassroom} />
   </div></main>;
 }
